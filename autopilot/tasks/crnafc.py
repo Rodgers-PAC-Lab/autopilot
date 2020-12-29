@@ -198,7 +198,6 @@ class Crnafc(Task):
         """
         super(Nafc, self).__init__()
 
-        print('hello\n\nhello\n\n')
 
         ## Fixed parameters
         # Because the current protocol is json.loads from a string,
