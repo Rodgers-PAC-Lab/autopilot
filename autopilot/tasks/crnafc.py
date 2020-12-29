@@ -196,7 +196,7 @@ class Crnafc(Task):
                 stimulus is playing?
             **kwargs:
         """
-        super(Nafc, self).__init__()
+        super(Crnafc, self).__init__()
 
 
         ## Fixed parameters
