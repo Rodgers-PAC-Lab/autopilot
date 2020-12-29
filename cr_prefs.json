@@ -71,6 +71,8 @@
     "LINEAGE": "NONE",
     "LOGDIR": "/home/pi/autopilot/logs",
     "LOGLEVEL": "WARNING",
+    "LOGSIZE": 5242880,
+    "LOGNUM": 4,
     "MSGPORT": 5565,
     "NAME": "rpi0",
     "NCHANNELS": 1,
