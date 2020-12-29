@@ -1,4 +1,5 @@
 from autopilot.tasks.task import Task
+from autopilot.tasks.crnafc import Crnafc
 from autopilot.tasks.nafc import Nafc, Nafc_Gap, Nafc_Gap_Laser
 from autopilot.tasks.gonogo import GoNoGo
 from autopilot.tasks.parallax import Parallax
@@ -15,7 +16,9 @@ TASK_LIST = {'2AFC':Nafc,
              'GoNoGo': GoNoGo,
              'Parallax': Parallax,
              'Test_DLC_Latency': DLC_Latency,
-             'Test_DLC_Hand':DLC_Hand}
+             'Test_DLC_Hand':DLC_Hand,
+             'Crnafc': Crnafc,
+             }
 """
 Link between string task names used in protocol descriptions and task classes
 """
