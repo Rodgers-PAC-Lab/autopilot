@@ -351,6 +351,10 @@ class Terminal(QtWidgets.QMainWindow):
         # move to primary display and show maximized
         primary_display = app.primaryScreen().availableGeometry()
         self.move(primary_display.left(), primary_display.top())
+        
+        # CR Hard-code the size
+        self.resize(1000, 400)
+        
         # self.resize(primary_display.width(), primary_display.height())
         #
         self.control_panel.setMaximumHeight(winheight)
