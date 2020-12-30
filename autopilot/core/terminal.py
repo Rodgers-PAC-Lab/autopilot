@@ -228,7 +228,7 @@ class Terminal(QtWidgets.QMainWindow):
         # Init toolbar
         # File menu
         # make menu take up 1/10 of the screen
-        winsize = app.desktop().availableGeometry()
+        winsize = app.primaryScreen().availableGeometry()
 
         if sys.platform == 'darwin':
             bar_height = 0
@@ -320,8 +320,8 @@ class Terminal(QtWidgets.QMainWindow):
         # Until a better solution is found, if not set large enough, the pilot tabs will
         # expand into infinity. See the Expandable_Tabs class
         #pdb.set_trace()
-        screensize = app.desktop().screenGeometry()
-        winsize = app.desktop().availableGeometry()
+        screensize = app.primaryScreen().size()
+        winsize = app.primaryScreen().availableGeometry()
 
         # want to subtract bounding title box, our title bar, and logo height.
         # our y offset will be the size of the bounding title box
@@ -349,7 +349,7 @@ class Terminal(QtWidgets.QMainWindow):
 
 
         # move to primary display and show maximized
-        primary_display = app.desktop().availableGeometry(0)
+        primary_display = app.primaryScreen().availableGeometry()
         self.move(primary_display.left(), primary_display.top())
         # self.resize(primary_display.width(), primary_display.height())
         #
