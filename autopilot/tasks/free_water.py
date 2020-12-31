@@ -1,54 +1,68 @@
+"""This module defines the free_water task"""
+
 from collections import OrderedDict as odict
 import tables
 import itertools
 import random
 import datetime
-
 import autopilot.hardware.gpio
-
 from autopilot.tasks.task import Task
 
+# The name of the task
+# This declaration allows Subject to identify which class in this file 
+# contains the task class. 
 TASK = 'Free_water'
 
 class Free_Water(Task):
-    """
-    Randomly light up one of the ports, then dispense water when the subject pokes there
+    """A task that gives free water through randomly chosen ports.
+    
+    This task chooses a port at random, lights up the LED for that port,
+    and then dispenses water once the subject pokes there.
 
-    Two stages:
-
-    * waiting for response, and
-    * reporting the response afterwards
+    Stage list:
+    * waiting for the response
+    * reporting the response
 
     Attributes:
         target ('L', 'C', 'R'): The correct port
-        trial_counter (:class:`itertools.count`): Counts trials starting from current_trial specified as argument
-        triggers (dict): Dictionary mapping triggered pins to callable methods.
-        num_stages (int): number of stages in task (2)
-        stages (:class:`itertools.cycle`): iterator to cycle indefinitely through task stages.
+        trial_counter (:class:`itertools.count`): 
+            Counts trials starting from current_trial specified as argument
+        triggers (dict): 
+            Dictionary mapping triggered pins to callable methods.
+        num_stages (int): 
+            number of stages in task (2)
+        stages (:class:`itertools.cycle`): 
+            iterator to cycle indefinitely through task stages.
     """
-
+    ## List of stages
+    # These correspond to methods in this Class, I think (CR)
     STAGE_NAMES = ["water", "response"]
 
-    # Params
+    
+    ## Params
     PARAMS = odict()
     PARAMS['reward'] = {'tag':'Reward Duration (ms)',
                         'type':'int'}
     PARAMS['allow_repeat'] = {'tag':'Allow Repeated Ports?',
                               'type':'bool'}
 
-    # Returned Data
+
+    ## Returned data
     DATA = {
         'trial_num': {'type':'i32'},
         'target': {'type':'S1', 'plot':'target'},
         'timestamp': {'type':'S26'}, # only one timestamp, since next trial instant
     }
 
-    # TODO: This should be generated from DATA above. Perhaps parsimoniously by using tables types rather than string descriptors
+    # TODO: This should be generated from DATA above. 
+    # Perhaps parsimoniously by using tables types rather than string descriptors
     class TrialData(tables.IsDescription):
         trial_num = tables.Int32Col()
         target    = tables.StringCol(1)
         timestamp = tables.StringCol(26)
 
+
+    ## Required hardware
     HARDWARE = {
         'POKES':{
             'L': autopilot.hardware.gpio.Digital_In,
@@ -68,27 +82,39 @@ class Free_Water(Task):
         }
     }
 
-    # Plot parameters
+    
+    ## Plot parameters
     PLOT = {
         'data': {
             'target': 'point'
         }
     }
 
+    
+    ## Methods
     def __init__(self, stage_block=None, current_trial=0,
                  reward=50, allow_repeat=False, **kwargs):
-        """
-        Args:
-            stage_block (:class:`threading.Event`): used to signal to the carrying Pilot that the current trial stage is over
-            current_trial (int): If not zero, initial number of `trial_counter`
-            reward (int): ms to open solenoids
-            allow_repeat (bool): Whether the correct port is allowed to repeat between trials
-            **kwargs:
+        """Initialize a new Free_Water Task
+        
+        Arguments
+        ---------
+        stage_block (:class:`threading.Event`): 
+            used to signal to the carrying Pilot that the current trial 
+            stage is over
+        current_trial (int): 
+            If not zero, initial number of `trial_counter`
+        reward (int): 
+            ms to open solenoids
+        allow_repeat (bool): 
+            Whether the correct port is allowed to repeat between trials
+        **kwargs:
         """
         super(Free_Water, self).__init__()
 
+        # stage_block
         if not stage_block:
-            raise Warning('No stage_block Event() was passed, youll need to handle stage progression on your own')
+            raise Warning('No stage_block Event() was passed, youll need'
+                ' to handle stage progression on your own')
         else:
             self.stage_block = stage_block
 
@@ -98,9 +124,6 @@ class Free_Water(Task):
         else:
             self.reward         = {'type':'duration',
                                    'value': float(reward)}
-
-
-
 
         # Variable parameters
         self.target = random.choice(['L', 'C', 'R'])
@@ -124,6 +147,7 @@ class Free_Water(Task):
         else:
             self.set_reward(duration=self.reward['value'])
 
+        # allow_repeat
         self.allow_repeat = bool(allow_repeat)
 
     def water(self, *args, **kwargs):
@@ -158,7 +182,6 @@ class Free_Water(Task):
         }
         return data
 
-
     def response(self):
         """
         Just have to alert the Terminal that the current trial has ended
@@ -171,8 +194,6 @@ class Free_Water(Task):
 
         return {'TRIAL_END':True}
 
-
-
     def end(self):
         """
         When shutting down, release all hardware objects and turn LEDs off.
@@ -180,5 +201,3 @@ class Free_Water(Task):
         for k, v in self.hardware.items():
             for pin, obj in v.items():
                 obj.release()
-
-
