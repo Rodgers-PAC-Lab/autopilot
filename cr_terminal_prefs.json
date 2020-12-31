@@ -1,0 +1,21 @@
+{
+    "AGENT": "TERMINAL",
+    "BASEDIR": "/home/jack/autopilot",
+    "CONFIG": "",
+    "DATADIR": "/home/jack/autopilot/data",
+    "DRAWFPS": 20,
+    "LOGDIR": "/home/jack/autopilot/logs",
+    "LOGLEVEL": "WARNING",
+    "LOGSIZE": 5242880,    
+    "LOGNUM": 4,
+    "MSGPORT": 5560,
+    "NAME": "laptop",
+    "PILOT_DB": "/home/jack/autopilot/pilot_db.json",
+    "PROTOCOLDIR": "/home/jack/autopilot/protocols",
+    "PUSHPORT": 5565,
+    "REPODIR": "/home/jack/dev/autopilot",
+    "SOUNDDIR": "/home/jack/autopilot/sounds",
+    "TERMINALIP": "192.168.1.139",
+    "VENV": false,
+    "VIZDIR": "/home/jack/autopilot/viz"
+}
