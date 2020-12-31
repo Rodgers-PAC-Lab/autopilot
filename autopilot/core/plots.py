@@ -150,20 +150,28 @@ class Plot(QtWidgets.QWidget):
 
     **Plot Parameters**
 
-    The plot is built from the ``PLOT={data:plot_element}`` mappings described in the :class:`~autopilot.tasks.task.Task` class.
-    Additional parameters can be specified in the ``PLOT`` dictionary. Currently:
-
-    * **continuous** (bool): whether the data should be plotted against the trial number (False or NA) or against time (True)
-    * **chance_bar** (bool): Whether to draw a red horizontal line at chance level (default: 0.5)
-    * **chance_level** (float): The position in the y-axis at which the ``chance_bar`` should be drawn
-    * **roll_window** (int): The number of trials :class:`~.Roll_Mean` take the average over.
+    The plot is built from the ``PLOT={data:plot_element}`` mappings described 
+    in the :class:`~autopilot.tasks.task.Task` class.
+    Additional parameters can be specified in the ``PLOT`` dictionary. 
+    
+    Currently:
+    * **continuous** (bool): whether the data should be plotted against the 
+        trial number (False or NA) or against time (True)
+    * **chance_bar** (bool): Whether to draw a red horizontal line at chance 
+        level (default: 0.5)
+    * **chance_level** (float): The position in the y-axis at which the 
+        ``chance_bar`` should be drawn
+    * **roll_window** (int): The number of trials :class:`~.Roll_Mean` 
+        take the average over.
 
     Attributes:
-        pilot (str): The name of our pilot, used to set the identity of our socket, specifically::
+        pilot (str): The name of our pilot, used to set the identity of our 
+            socket, specifically::
 
             'P_{pilot}'
 
-        infobox (:class:`QtWidgets.QFormLayout`): Box to plot basic task information like trial number, etc.
+        infobox (:class:`QtWidgets.QFormLayout`): Box to plot basic task 
+            information like trial number, etc.
         info (dict): Widgets in infobox:
 
             * 'N Trials': :class:`QtWidgets.QLabel`,
@@ -173,9 +181,11 @@ class Plot(QtWidgets.QWidget):
             * 'Step'    : :class:`QtWidgets.QLabel`
 
         plot (:class:`pyqtgraph.PlotWidget`): The widget where we draw our plots
-        plot_params (dict): A dictionary of plot parameters we receive from the Task class
+        plot_params (dict): A dictionary of plot parameters we receive 
+            from the Task class
         data (dict): A dictionary of the data we've received
-        plots (dict): The collection of plots we instantiate based on `plot_params`
+        plots (dict): The collection of plots we instantiate based on 
+            `plot_params`
         node (:class:`.Net_Node`): Our local net node where we listen for data.
         state (str): state of the pilot, used to keep plot synchronized.
     """
@@ -194,17 +204,37 @@ class Plot(QtWidgets.QWidget):
         self.parent = parent
         self.layout = None
         self.infobox = None
+        
+        # After `init_plots`, `n_trials` becomes an itertools.count of the 
+        # current trial, always starting at zero
+        # So it has nothing to do with message numbering
         self.n_trials = None
+        
+        # session_trials starts at 0, and contains the trial number that gets
+        # popped out of n_trials
         self.session_trials = 0
+        
         self.info = {}
         self.plot = None
         self.xrange = None
         self.plot_params = {}
-        self.data = {} # Keep a dict of the data we are keeping track of, will be instantiated on start
+        
+        # Keep a dict of the data we are keeping track of, will be 
+        # instantiated on start
+        self.data = {} 
+        
+        # Keep a dict of all the plots
         self.plots = {}
+        
+        # Initialize state to IDLE
         self.state = "IDLE"
+        
+        # Whether we're plotting by time (True) or trial (False)
         self.continuous = False
+        
+        # Keep track of the last timepoint that was received in a message
         self.last_time = 0
+        
         self.video = None
         self.videos = []
 
@@ -215,6 +245,9 @@ class Plot(QtWidgets.QWidget):
 
         # Set initial x-value, will update when data starts coming in
         self.x_width = x_width
+        
+        # Keep track of the last trial that occurred (in message numbering)
+        # Not sure why this initializes to x_width, that seems wrong
         self.last_trial = self.x_width
 
         # Inits the basic widget settings
@@ -278,7 +311,11 @@ class Plot(QtWidgets.QWidget):
 
         self.layout.addWidget(self.plot, 8)
 
+        # Initialize the x-axis to end at self.last_trial
+        # and to begin `x_width` trials earlier
         self.xrange = range(self.last_trial - self.x_width + 1, self.last_trial + 1)
+        
+        # Now actually set that range
         self.plot.setXRange(self.xrange[0], self.xrange[-1])
 
         self.plot.getPlotItem().hideAxis('left')
@@ -390,44 +427,79 @@ class Plot(QtWidgets.QWidget):
         Args:
             value (dict): Value field of a data message sent during a task.
         """
+        # Don't do anything if we're still initializing
         if self.state == "INITIALIZING":
             return
 
+        print(value)
+
         #pdb.set_trace()
+        
+        
+        ## Update the trial counters if 'trial_num' in the message
         if 'trial_num' in value.keys():
-            v = value.pop('trial_num')
-            if v >= self.last_trial:
+            # Pop trial_num from the message
+            trial_num = value.pop('trial_num')
+            
+            # If a new trial has just occurred, update n_trials and session_trials
+            if trial_num >= self.last_trial:
                 self.session_trials = next(self.n_trials)
-            elif v < self.last_trial:
+                
+            else:
+                # Warn because the trial that just occurred is somehow
+                # earlier than the last trial that occurred
                 self.logger.exception('Shouldnt be going back in time!')
-            self.last_trial = v
-            # self.last_trial = v
-            self.info['N Trials'].setText("{}/{}".format(self.session_trials, v))
+            
+            # Remember what the last trial sent in a message
+            self.last_trial = trial_num
+
+            # Update the "N Trials" text box
+            # The first is th enumber of trials that have been counted in 
+            # this session, starting from zero.
+            # The second is the trial number in the message.
+            self.info['N Trials'].setText(
+                "{}/{}".format(self.session_trials, trial_num))
+            
+            # Update the x-range of the plot if it is trial-based
             if not self.continuous:
-                self.xrange = range(v - self.x_width + 1, v + 1)
+                self.xrange = range(trial_num - self.x_width + 1, trial_num + 1)
                 self.plot.setXRange(self.xrange[0], self.xrange[-1])
 
-
+        
+        ## Update the time if 't' is in the message
         if 't' in value.keys():
+            # Pop the time from the message
             self.last_time = value.pop('t')
+            
+            # Update the x-range of the plot if it is time-based
             if self.continuous:
                 self.plot.setXRange(self.last_time-self.x_width, self.last_time+1)
 
-
+        
+        ## Update self.data and self.videos
+        # Get the last time or trial, depending on type of plot
         if self.continuous:
             x_val = self.last_time
         else:
             x_val = self.last_trial
 
-        for k, v in value.items():
-            if k in self.data.keys():
-                self.data[k] = np.vstack((self.data[k], (x_val, v)))
+        # Iterate over all items in the message
+        for message_key, message_value in value.items():
+            # Store in either self.data or self.video
+            if message_key in self.data.keys():
+                # Concatenate to corresponding item in self.data
+                # Each row is a tuple (x_val, message_value)
+                self.data[message_key] = np.vstack((
+                    self.data[message_key], 
+                    (x_val, message_value)
+                    ))
+                # Update each type of plot with the corresponding data                
                 # gui_event_fn(self.plots[k].update, *(self.data[k],))
-                self.plots[k].update(self.data[k])
-            elif k in self.videos:
-                self.video.update_frame(k, v)
-
-
+                self.plots[message_key].update(self.data[message_key])
+            
+            elif message_key in self.videos:
+                # Store in self.video
+                self.video.update_frame(message_key, message_value)
 
     @gui_event
     def l_stop(self, value):
