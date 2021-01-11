@@ -185,6 +185,7 @@ class Task(object):
                         port.duration = 0.02
                 else:
                     port.duration = float(duration)/1000.
+                    print("I set duration to {}".format(port.duration))
         else:
             try:
                 if vol:
