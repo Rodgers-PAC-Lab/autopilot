@@ -119,6 +119,7 @@ class Free_Water(Task):
             self.stage_block = stage_block
 
         # Fixed parameters
+        print("Reward is: {}".format(reward))
         if isinstance(reward, dict):
             self.reward = reward
         else:
