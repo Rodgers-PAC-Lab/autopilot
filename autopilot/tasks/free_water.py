@@ -146,7 +146,7 @@ class Free_Water(Task):
         if self.reward['type'] == "volume":
             self.set_reward(vol=self.reward['value'])
         else:
-            print("setting reward to {}".format(self.reward['value'])
+            print("setting reward to {}".format(self.reward['value']))
             self.set_reward(duration=self.reward['value'])
 
         # allow_repeat
