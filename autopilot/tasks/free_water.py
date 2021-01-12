@@ -165,12 +165,6 @@ class Free_Water(Task):
         # give the sounds a function to call when they end
         self.stim_manager.set_triggers(self.stim_end)
 
-        if self.correction:
-            self.stim_manager.do_correction(self.correction_pct)
-
-        if bias_mode:
-            self.stim_manager.do_bias(mode=self.bias_mode,
-                                      thresh=self.bias_threshold)
         self.logger.debug('Stimulus manager initialized')
 
 
