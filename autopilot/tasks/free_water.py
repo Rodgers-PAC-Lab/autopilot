@@ -242,3 +242,10 @@ class Free_Water(Task):
         for k, v in self.hardware.items():
             for pin, obj in v.items():
                 obj.release()
+
+    def stim_end(self):
+        """Called when stim over
+        
+        Currently do nothing
+        """
+        pass
