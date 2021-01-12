@@ -257,12 +257,13 @@ class JackClient(mp.Process):
                 #self.client.outports[0].get_array()[:] = data.T
                 
                 #print("len outports: {}".format(len(self.client.outports)))
-                #print("data shape: {}".format(data.shape))
-                buff = self.client.outports[0].get_array()
+                print("data shape: {}".format(data.shape))
+                buff0 = self.client.outports[0].get_array()
+                buff1 = self.client.outports[1].get_array()
                 
                 #print("buff shape: {}".format(buff.shape))
-                self.client.outports[0].get_array()[:] = data[:, 0]
-                self.client.outports[1].get_array()[:] = data[:, 1]
+                buff0[:] = data[:, 0]
+                buff1[:] = data[:, 1]
 
                 # if not self.continuous_started:
                 #     # if we are just entering continuous mode, get the continuous sound and prepare to play it
