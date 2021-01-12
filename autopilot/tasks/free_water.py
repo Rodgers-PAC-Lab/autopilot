@@ -17,8 +17,6 @@ import time
 TASK = 'Free_water'
 
 
-left_stim = sounds.Noise(duration=100, amplitude=.03, channel=0)
-right_stim = sounds.Noise(duration=100, amplitude=.03, channel=1)
 
 class Free_Water(Task):
     """A task that gives free water through randomly chosen ports.
@@ -160,6 +158,9 @@ class Free_Water(Task):
             self.set_reward(duration=self.reward['value'])
 
 
+        left_stim = sounds.Noise(duration=100, amplitude=.03, channel=0)
+        right_stim = sounds.Noise(duration=100, amplitude=.03, channel=1)
+
 
         #~ # Initialize stim manager
         #~ if not stim:
@@ -223,9 +224,9 @@ class Free_Water(Task):
         
         print("The chosen target is {}".format(self.target))
         if self.target == 'L':
-            self.stim = left_stim
+            self.stim = self.left_stim
         elif self.target == 'R':
-            self.stim = right_stim
+            self.stim = self.right_stim
         elif self.target == 'C':
             self.stim = None
         else:
@@ -254,8 +255,7 @@ class Free_Water(Task):
         Just have to alert the Terminal that the current trial has ended
         and turn off any lights.
         """
-        left_stim.stop_continuous()
-        right_stim.stop_continuous()
+        self.stim.stop_continuous()
         #self.stim.end()
         time.sleep(.1)
         
@@ -270,8 +270,9 @@ class Free_Water(Task):
         """
         When shutting down, release all hardware objects and turn LEDs off.
         """
-        left_stim.end()
-        right_stim.end()
+        self.stim.stop_continuous()
+        self.left_stim.end()
+        self.right_stim.end()
         #self.stim.stop_continuous()
         #self.stim.end()
         
