@@ -214,7 +214,7 @@ class Free_Water(Task):
         # get next stim
         self.target, self.distractor, self.stim = self.stim_manager.next_stim()
         # buffer it
-        self.stim.buffer()
+        #~ self.stim.buffer()
         
         self.stim.play_continuous()
         
@@ -232,6 +232,8 @@ class Free_Water(Task):
         Just have to alert the Terminal that the current trial has ended
         and turn off any lights.
         """
+        self.stop_continuous()
+        
         # we just have to tell the Terminal that this trial has ended
 
         # mebs also turn the light off rl quick
