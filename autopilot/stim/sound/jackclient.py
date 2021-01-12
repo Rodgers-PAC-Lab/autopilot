@@ -267,8 +267,9 @@ class JackClient(mp.Process):
                     buff0[:] = data[:, 0]
                     buff1[:] = data[:, 1]
                 else:
-                    buff0[:] = data[:, 0]
-                    buff1[:] = data[:, 0]
+                    print("warning: for some reason data has shape 1")                    
+                    #~ buff0[:] = data[:, 0]
+                    #~ buff1[:] = data[:, 0]
                     
 
                 # if not self.continuous_started:
@@ -316,8 +317,9 @@ class JackClient(mp.Process):
                         buff0[:] = data[:, 0]
                         buff1[:] = data[:, 1]
                     else:
-                        buff0[:] = data[:, 0]
-                        buff1[:] = data[:, 0]
+                        print("warning: for some reason data has shape 1")                        
+                        #buff0[:] = data[:, 0]
+                        #buff1[:] = data[:, 0]
 
 
                 else:
@@ -351,8 +353,8 @@ class JackClient(mp.Process):
                     buff1[:] = data[:, 1]
                 else:
                     print("warning: for some reason data has shape 1")
-                    buff0[:] = data[:, 0]
-                    buff1[:] = data[:, 0]
+                    #buff0[:] = data[:, 0]
+                    #buff1[:] = data[:, 0]
 
                 
                 #for channel, port in zip(cycle(data.T), self.client.outports):
