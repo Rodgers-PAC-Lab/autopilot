@@ -9,6 +9,7 @@ import autopilot.hardware.gpio
 from autopilot.stim import init_manager
 from autopilot.stim.sound import sounds
 from autopilot.tasks.task import Task
+import time
 
 # The name of the task
 # This declaration allows Subject to identify which class in this file 
@@ -226,7 +227,9 @@ class Free_Water(Task):
             raise ValueError("unknown target: {}".format(target))
         
         self.stim.buffer()
+        time.sleep(.5)
         self.stim.play()
+        time.sleep(.5)
         
 
         # Return data
@@ -243,6 +246,7 @@ class Free_Water(Task):
         and turn off any lights.
         """
         #~ self.stim.stop_continuous()
+        self.stim.end()
         
         # we just have to tell the Terminal that this trial has ended
 
