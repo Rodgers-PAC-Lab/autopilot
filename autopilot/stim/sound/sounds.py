@@ -639,7 +639,7 @@ class Noise(BASE_CLASS):
                 self.table.shape,
                 self.table[:, 0].min(), self.table[:, 0].max(),
                 self.table[:, 1].min(), self.table[:, 1].max(),
-                )
+                ))
             self.chunk()
 
         self.initialized = True
