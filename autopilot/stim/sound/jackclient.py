@@ -252,6 +252,9 @@ class JackClient(mp.Process):
                 
                 print("len outports: {}".format(len(self.client.outports)))
                 print("data shape: {}".format(data.shape))
+                buff = self.client.outports[0].get_array()
+                
+                print("buff shape: {}".format(buff.shape))
                 self.client.outports[0].get_array()[:] = data[0].T
                 self.client.outports[1].get_array()[:] = data[1].T
 
