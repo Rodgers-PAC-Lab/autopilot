@@ -232,7 +232,7 @@ class Free_Water(Task):
         Just have to alert the Terminal that the current trial has ended
         and turn off any lights.
         """
-        self.stop_continuous()
+        self.stim.stop_continuous()
         
         # we just have to tell the Terminal that this trial has ended
 
@@ -245,6 +245,8 @@ class Free_Water(Task):
         """
         When shutting down, release all hardware objects and turn LEDs off.
         """
+        self.stim.stop_continuous()
+        
         for k, v in self.hardware.items():
             for pin, obj in v.items():
                 obj.release()
