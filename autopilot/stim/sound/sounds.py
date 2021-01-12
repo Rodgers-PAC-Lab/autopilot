@@ -634,6 +634,11 @@ class Noise(BASE_CLASS):
                     ]).T
             else:
                 raise ValueError("unrecognized value for channel: {}".format(channel))
+            
+            print("Just generated table with shape {}, ch0 minmax {} {}, ch1 minmax {} {}".format(
+                self.table.shape,
+                self.table[:, 0].min(), self.table[:, 0].max(),
+                self.table[:, 1].min(), self.table[:, 1].max(),
             self.chunk()
 
         self.initialized = True

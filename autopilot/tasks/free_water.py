@@ -217,6 +217,7 @@ class Free_Water(Task):
         # buffer it
         #~ self.stim.buffer()
         
+        print("The chosen target is {}".format(self.target))
         if self.target == 'L':
             self.stim = sounds.Noise(duration=100, amplitude=.03, channel=0)
         elif self.target == 'R':
