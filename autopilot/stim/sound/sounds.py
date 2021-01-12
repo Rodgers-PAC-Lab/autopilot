@@ -658,12 +658,12 @@ class Noise2ch(BASE_CLASS):
             # rand generates from 0 to 1, so subtract 0.5, double to get -1 to 1,
             # then multiply by amplitude.
             self.table = (self.amplitude * np.random.uniform(-1,1,self.nsamples)).astype(np.float32)
-            if self.channel = 0:
+            if self.channel == 0:
                 self.table = np.array([
                     self.table,
                     np.zeros_like(self.table),
                     ])
-            elif self.channel = 1:
+            elif self.channel == 1:
                 self.table = np.array([
                     np.zeros_like(self.table),
                     self.table,
