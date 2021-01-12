@@ -216,8 +216,19 @@ class Free_Water(Task):
         # buffer it
         #~ self.stim.buffer()
         
-        self.stim = sounds.Noise(duration=100, amplitude=.03, channel=0)
-        self.stim.play_continuous()
+        if self.target == 'L':
+            channel = 0
+        elif self.target == 'R':
+            channel = 1
+        elif self.target == 'C':
+            channel = None
+        else:
+            raise ValueError("unknown target: {}".format(target))
+        
+        if channel is not None:
+            self.stim = sounds.Noise(duration=100, amplitude=.03, channel=channel)
+            self.stim.play_continuous()
+        
         
 
         # Return data
