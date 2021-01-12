@@ -45,7 +45,10 @@ class Free_Water(Task):
                         'type':'int'}
     PARAMS['allow_repeat'] = {'tag':'Allow Repeated Ports?',
                               'type':'bool'}
-
+    
+    # CR: Added for sounds
+    PARAMS['stim']           = {'tag':'Sounds',
+                                'type':'sounds'}
 
     ## Returned data
     DATA = {
@@ -92,7 +95,7 @@ class Free_Water(Task):
 
     
     ## Methods
-    def __init__(self, stage_block=None, current_trial=0,
+    def __init__(self, stage_block=None, stim=None, current_trial=0,
                  reward=50, allow_repeat=False, **kwargs):
         """Initialize a new Free_Water Task
         
@@ -148,6 +151,40 @@ class Free_Water(Task):
         else:
             print("setting reward to {}".format(self.reward['value']))
             self.set_reward(duration=self.reward['value'])
+
+
+
+        # Initialize stim manager
+        if not stim:
+            raise RuntimeError("Cant instantiate task without stimuli!")
+        else:
+            self.stim_manager = init_manager(stim)
+
+        # give the sounds a function to call when they end
+        self.stim_manager.set_triggers(self.stim_end)
+
+        if self.correction:
+            self.stim_manager.do_correction(self.correction_pct)
+
+        if bias_mode:
+            self.stim_manager.do_bias(mode=self.bias_mode,
+                                      thresh=self.bias_threshold)
+        self.logger.debug('Stimulus manager initialized')
+
+
+
+
+        # If we aren't passed an event handler
+        # (used to signal that a trigger has been tripped),
+        # we should warn whoever called us that things could get a little screwy
+        if not stage_block:
+            raise Warning(
+                'No stage_block Event() was passed, youll need to '
+                'handle stage progression on your own'
+                )
+        else:
+            self.stage_block = stage_block
+
 
         # allow_repeat
         self.allow_repeat = bool(allow_repeat)
