@@ -626,12 +626,12 @@ class Noise(BASE_CLASS):
                 self.table = np.array([
                     self.table,
                     np.zeros_like(self.table),
-                    ])
+                    ]).T
             elif self.channel == 1:
                 self.table = np.array([
                     np.zeros_like(self.table),
                     self.table,
-                    ])
+                    ]).T
             else:
                 raise ValueError("unrecognized value for channel: {}".format(channel))
             self.chunk()
