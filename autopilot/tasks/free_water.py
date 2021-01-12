@@ -241,6 +241,7 @@ class Free_Water(Task):
         if self.stim is not None:
             self.stim.play_continuous()
         
+        time.sleep(.5)
 
         # Return data
         data = {
@@ -258,7 +259,7 @@ class Free_Water(Task):
         if self.stim is not None:
             self.stim.stop_continuous()
         #self.stim.end()
-        time.sleep(.1)
+        time.sleep(.5)
         
         # we just have to tell the Terminal that this trial has ended
 
