@@ -158,8 +158,8 @@ class Free_Water(Task):
             self.set_reward(duration=self.reward['value'])
 
 
-        left_stim = sounds.Noise(duration=100, amplitude=.03, channel=0)
-        right_stim = sounds.Noise(duration=100, amplitude=.03, channel=1)
+        self.left_stim = sounds.Noise(duration=100, amplitude=.03, channel=0)
+        self.right_stim = sounds.Noise(duration=100, amplitude=.03, channel=1)
 
 
         #~ # Initialize stim manager
