@@ -6,6 +6,8 @@ import itertools
 import random
 import datetime
 import autopilot.hardware.gpio
+from autopilot.stim import init_manager
+from autopilot.stim.sound import sounds
 from autopilot.tasks.task import Task
 
 # The name of the task
