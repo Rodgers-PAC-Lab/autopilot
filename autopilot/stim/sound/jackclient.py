@@ -309,8 +309,15 @@ class JackClient(mp.Process):
 
                     #self.client.outports[0].get_array()[:] = data.T
 
-                    self.client.outports[0].get_array()[:] = data[:, 0]
-                    self.client.outports[1].get_array()[:] = data[:, 1]
+                    buff0 = self.client.outports[0].get_array()
+                    buff1 = self.client.outports[1].get_array()
+                    assert data.ndim == 2
+                    if data.shape[1] == 2:
+                        buff0[:] = data[:, 0]
+                        buff1[:] = data[:, 1]
+                    else:
+                        buff0[:] = data[:, 0]
+                        buff1[:] = data[:, 0]
 
 
                 else:
@@ -336,8 +343,16 @@ class JackClient(mp.Process):
 
                 #self.client.outports[0].get_array()[:] = data.T
                 
-                self.client.outports[0].get_array()[:] = data[:, 0]
-                self.client.outports[1].get_array()[:] = data[:, 1]
+                buff0 = self.client.outports[0].get_array()
+                buff1 = self.client.outports[1].get_array()
+                assert data.ndim == 2
+                if data.shape[1] == 2:
+                    buff0[:] = data[:, 0]
+                    buff1[:] = data[:, 1]
+                else:
+                    buff0[:] = data[:, 0]
+                    buff1[:] = data[:, 0]
+
                 
                 #for channel, port in zip(cycle(data.T), self.client.outports):
                 #    port.get_array()[:] = channel
