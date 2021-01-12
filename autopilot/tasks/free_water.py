@@ -227,10 +227,10 @@ class Free_Water(Task):
         else:
             raise ValueError("unknown target: {}".format(target))
         
-        self.stim.buffer()
-        time.sleep(.5)
-        self.stim.play()
-        time.sleep(.5)
+        #~ self.stim.buffer()
+        #~ time.sleep(.5)
+        #~ self.stim.play()
+        #~ time.sleep(.5)
         
         #~ self.stim.buffer()
         self.stim.play_continuous()
