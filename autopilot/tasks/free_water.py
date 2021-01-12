@@ -93,7 +93,7 @@ class Free_Water(Task):
     
     ## Methods
     def __init__(self, stage_block=None, current_trial=0,
-                 reward=50, allow_repeat=False, **kwargs):
+                 reward=150, allow_repeat=False, **kwargs):
         """Initialize a new Free_Water Task
         
         Arguments
