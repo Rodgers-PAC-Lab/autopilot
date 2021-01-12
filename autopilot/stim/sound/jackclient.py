@@ -248,7 +248,10 @@ class JackClient(mp.Process):
                     #self.continuous.clear()
                     data = self.zero_arr
 
-                self.client.outports[0].get_array()[:] = data.T
+                #self.client.outports[0].get_array()[:] = data.T
+                
+                self.client.outports[0].get_array()[:] = data[0].T
+                self.client.outports[1].get_array()[:] = data[1].T
 
                 # if not self.continuous_started:
                 #     # if we are just entering continuous mode, get the continuous sound and prepare to play it
@@ -286,7 +289,10 @@ class JackClient(mp.Process):
                         data = self.zero_arr
                         #self.continuous.clear()
 
-                    self.client.outports[0].get_array()[:] = data.T
+                    #self.client.outports[0].get_array()[:] = data.T
+
+                    self.client.outports[0].get_array()[:] = data[0].T
+                    self.client.outports[1].get_array()[:] = data[1].T
 
 
                 else:
@@ -310,7 +316,11 @@ class JackClient(mp.Process):
                 #TODO: Fix the multi-output situation so it doesn't get all grumbly.
                 # use cycle so if sound is single channel it gets copied to all outports
 
-                self.client.outports[0].get_array()[:] = data.T
+                #self.client.outports[0].get_array()[:] = data.T
+                
+                self.client.outports[0].get_array()[:] = data[0].T
+                self.client.outports[1].get_array()[:] = data[1].T
+                
                 #for channel, port in zip(cycle(data.T), self.client.outports):
                 #    port.get_array()[:] = channel
 
