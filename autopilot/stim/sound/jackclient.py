@@ -261,8 +261,8 @@ class JackClient(mp.Process):
                 buff = self.client.outports[0].get_array()
                 
                 #print("buff shape: {}".format(buff.shape))
-                self.client.outports[0].get_array()[:] = data[0]
-                self.client.outports[1].get_array()[:] = data[1]
+                self.client.outports[0].get_array()[:] = data[:, 0]
+                self.client.outports[1].get_array()[:] = data[:, 1]
 
                 # if not self.continuous_started:
                 #     # if we are just entering continuous mode, get the continuous sound and prepare to play it
@@ -302,8 +302,8 @@ class JackClient(mp.Process):
 
                     #self.client.outports[0].get_array()[:] = data.T
 
-                    self.client.outports[0].get_array()[:] = data[0]
-                    self.client.outports[1].get_array()[:] = data[1]
+                    self.client.outports[0].get_array()[:] = data[:, 0]
+                    self.client.outports[1].get_array()[:] = data[:, 1]
 
 
                 else:
@@ -329,8 +329,8 @@ class JackClient(mp.Process):
 
                 #self.client.outports[0].get_array()[:] = data.T
                 
-                self.client.outports[0].get_array()[:] = data[0]
-                self.client.outports[1].get_array()[:] = data[1]
+                self.client.outports[0].get_array()[:] = data[:, 0]
+                self.client.outports[1].get_array()[:] = data[:, 1]
                 
                 #for channel, port in zip(cycle(data.T), self.client.outports):
                 #    port.get_array()[:] = channel
