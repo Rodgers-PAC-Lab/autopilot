@@ -209,6 +209,15 @@ class Free_Water(Task):
         self.triggers[self.target] = self.hardware['PORTS'][self.target].open
         self.set_leds({self.target: [0, 255, 0]})
 
+
+
+        # get next stim
+        self.target, self.distractor, self.stim = self.stim_manager.next_stim()
+        # buffer it
+        self.stim.buffer()
+        
+        
+
         # Return data
         data = {
             'target': self.target,
