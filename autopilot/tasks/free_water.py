@@ -213,7 +213,7 @@ class Free_Water(Task):
 
 
         # get next stim
-        self.target, self.distractor, self.stim = self.stim_manager.next_stim()
+        #~ self.target, self.distractor, self.stim = self.stim_manager.next_stim()
         # buffer it
         #~ self.stim.buffer()
         
