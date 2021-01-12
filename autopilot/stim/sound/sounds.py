@@ -629,7 +629,7 @@ class Noise2ch(BASE_CLASS):
     """White Noise in stereo"""
 
     PARAMS = ['duration','amplitude','channel']
-    type='Noise'
+    type='Noise2ch'
     def __init__(self, duration, amplitude=0.01, channel=0, **kwargs):
         """
         Args:
@@ -864,6 +864,7 @@ class Gap(BASE_CLASS):
 SOUND_LIST = {
     'Tone':Tone,
     'Noise':Noise,
+    'Noise2ch': Noise2ch,
     'File':File,
     'Speech':Speech,
     'speech':Speech,
