@@ -625,6 +625,55 @@ class Noise(BASE_CLASS):
 
         self.initialized = True
 
+class Noise2ch(BASE_CLASS):
+    """White Noise in stereo"""
+
+    PARAMS = ['duration','amplitude','channel']
+    type='Noise'
+    def __init__(self, duration, amplitude=0.01, channel=0, **kwargs):
+        """
+        Args:
+            duration (float): duration of the noise
+            amplitude (float): amplitude of the sound as a proportion of 1.
+            **kwargs: extraneous parameters that might come along with instantiating us
+        """
+        super(Noise, self).__init__()
+
+        self.duration = float(duration)
+        self.amplitude = float(amplitude)
+        self.channel = int(channel)
+
+        self.init_sound()
+
+    def init_sound(self):
+        """
+        Create a table of Noise using pyo or numpy, depending on the server_type
+        """
+
+        if self.server_type == 'pyo':
+            noiser = pyo.Noise(mul=self.amplitude)
+            self.table = self.table_wrap(noiser)
+        elif self.server_type == 'jack':
+            self.get_nsamples()
+            # rand generates from 0 to 1, so subtract 0.5, double to get -1 to 1,
+            # then multiply by amplitude.
+            self.table = (self.amplitude * np.random.uniform(-1,1,self.nsamples)).astype(np.float32)
+            if self.channel = 0:
+                self.table = np.array([
+                    self.table,
+                    np.zeros_like(self.table),
+                    ])
+            elif self.channel = 1:
+                self.table = np.array([
+                    np.zeros_like(self.table),
+                    self.table,
+                    ])
+            else:
+                raise ValueError("unrecognized value for channel: {}".format(channel))
+            self.chunk()
+
+        self.initialized = True
+
 class File(BASE_CLASS):
     """
     A .wav file.
