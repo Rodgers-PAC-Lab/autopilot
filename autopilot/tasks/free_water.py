@@ -225,8 +225,8 @@ class Free_Water(Task):
         else:
             raise ValueError("unknown target: {}".format(target))
         
-        self.stim.play_continuous()
-        
+        self.stim.buffer()
+        self.stim.play()
         
 
         # Return data
@@ -242,7 +242,7 @@ class Free_Water(Task):
         Just have to alert the Terminal that the current trial has ended
         and turn off any lights.
         """
-        self.stim.stop_continuous()
+        #~ self.stim.stop_continuous()
         
         # we just have to tell the Terminal that this trial has ended
 

@@ -350,6 +350,7 @@ class JackClient(mp.Process):
                     buff0[:] = data[:, 0]
                     buff1[:] = data[:, 1]
                 else:
+                    print("warning: for some reason data has shape 1")
                     buff0[:] = data[:, 0]
                     buff1[:] = data[:, 0]
 
