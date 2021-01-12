@@ -178,8 +178,8 @@ class JackClient(mp.Process):
         #~ print("target_ports: {}".format(target_ports))
         #~ print('outports: {}'.format(self.client.outports))
 
-        self.clients.outports(0).connect(target_ports[0])
-        self.clients.outports(1).connect(target_ports[1])
+        self.client.outports(0).connect(target_ports[0])
+        self.client.outports(1).connect(target_ports[1])
 
         #~ if prefs.get( 'OUTCHANNELS'):
             #~ if isinstance(prefs.get('OUTCHANNELS'), list):
