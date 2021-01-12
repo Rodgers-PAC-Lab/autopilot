@@ -222,7 +222,7 @@ class Free_Water(Task):
         elif self.target == 'R':
             self.stim = sounds.Noise(duration=100, amplitude=.03, channel=1)
         elif self.target == 'C':
-            self.stim = sounds.Noise(duration=100, amplitude=.003, channel=0)
+            self.stim = sounds.Noise(duration=100, amplitude=.03, channel=0)
         else:
             raise ValueError("unknown target: {}".format(target))
         
@@ -247,6 +247,7 @@ class Free_Water(Task):
         """
         #~ self.stim.stop_continuous()
         self.stim.end()
+        time.sleep(.5)
         
         # we just have to tell the Terminal that this trial has ended
 
@@ -259,7 +260,8 @@ class Free_Water(Task):
         """
         When shutting down, release all hardware objects and turn LEDs off.
         """
-        self.stim.stop_continuous()
+        #~ self.stim.stop_continuous()
+        self.stim.end()
         
         for k, v in self.hardware.items():
             for pin, obj in v.items():

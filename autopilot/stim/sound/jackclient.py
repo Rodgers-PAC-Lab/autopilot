@@ -267,7 +267,7 @@ class JackClient(mp.Process):
                     buff0[:] = data[:, 0]
                     buff1[:] = data[:, 1]
                 else:
-                    print("warning: for some reason data has only 1 channel, maxmin".format(data.max(), data.min()))                    
+                    print("warning: for some reason data has only 1 channel, maxmin {} {}".format(data.max(), data.min()))                    
                     buff0[:] = data[:, 0]
                     buff1[:] = data[:, 0]
                     
@@ -317,7 +317,7 @@ class JackClient(mp.Process):
                         buff0[:] = data[:, 0]
                         buff1[:] = data[:, 1]
                     else:
-                        print("warning: for some reason data has only 1 channel, maxmin".format(data.max(), data.min()))                    
+                        print("warning: for some reason data has only 1 channel, maxmin {} {}".format(data.max(), data.min()))                    
                         buff0[:] = data[:, 0]
                         buff1[:] = data[:, 0]
 
@@ -352,7 +352,7 @@ class JackClient(mp.Process):
                     buff0[:] = data[:, 0]
                     buff1[:] = data[:, 1]
                 else:
-                    print("warning: for some reason data has only 1 channel, maxmin".format(data.max(), data.min()))                    
+                    print("warning: for some reason data has only 1 channel, maxmin {} {}".format(data.max(), data.min()))                    
                     buff0[:] = data[:, 0]
                     buff1[:] = data[:, 0]
 
