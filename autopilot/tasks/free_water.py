@@ -223,7 +223,7 @@ class Free_Water(Task):
         elif self.target == 'R':
             self.stim = sounds.Noise(duration=100, amplitude=.03, channel=1)
         elif self.target == 'C':
-            self.stim = sounds.Noise(duration=200, amplitude=.03, channel=0)
+            self.stim = sounds.Noise(duration=100, amplitude=.00003, channel=0)
         else:
             raise ValueError("unknown target: {}".format(target))
         
@@ -231,6 +231,9 @@ class Free_Water(Task):
         time.sleep(.5)
         self.stim.play()
         time.sleep(.5)
+        
+        #~ self.stim.buffer()
+        self.stim.play_continuous()
         
 
         # Return data
@@ -246,7 +249,7 @@ class Free_Water(Task):
         Just have to alert the Terminal that the current trial has ended
         and turn off any lights.
         """
-        #~ self.stim.stop_continuous()
+        self.stim.stop_continuous()
         self.stim.end()
         time.sleep(.5)
         
@@ -261,7 +264,7 @@ class Free_Water(Task):
         """
         When shutting down, release all hardware objects and turn LEDs off.
         """
-        #~ self.stim.stop_continuous()
+        self.stim.stop_continuous()
         self.stim.end()
         
         for k, v in self.hardware.items():
