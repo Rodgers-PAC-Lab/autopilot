@@ -590,42 +590,6 @@ class Tone(BASE_CLASS):
         self.initialized = True
 
 class Noise(BASE_CLASS):
-    """White Noise"""
-
-    PARAMS = ['duration','amplitude']
-    type='Noise'
-    def __init__(self, duration, amplitude=0.01, **kwargs):
-        """
-        Args:
-            duration (float): duration of the noise
-            amplitude (float): amplitude of the sound as a proportion of 1.
-            **kwargs: extraneous parameters that might come along with instantiating us
-        """
-        super(Noise, self).__init__()
-
-        self.duration = float(duration)
-        self.amplitude = float(amplitude)
-
-        self.init_sound()
-
-    def init_sound(self):
-        """
-        Create a table of Noise using pyo or numpy, depending on the server_type
-        """
-
-        if self.server_type == 'pyo':
-            noiser = pyo.Noise(mul=self.amplitude)
-            self.table = self.table_wrap(noiser)
-        elif self.server_type == 'jack':
-            self.get_nsamples()
-            # rand generates from 0 to 1, so subtract 0.5, double to get -1 to 1,
-            # then multiply by amplitude.
-            self.table = (self.amplitude * np.random.uniform(-1,1,self.nsamples)).astype(np.float32)
-            self.chunk()
-
-        self.initialized = True
-
-class Noise2ch(Jack_Sound):
     """White Noise in stereo"""
 
     PARAMS = ['duration','amplitude','channel']
@@ -864,7 +828,6 @@ class Gap(BASE_CLASS):
 SOUND_LIST = {
     'Tone':Tone,
     'Noise':Noise,
-    'Noise2ch': Noise2ch,
     'File':File,
     'Speech':Speech,
     'speech':Speech,
