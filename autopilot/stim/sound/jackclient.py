@@ -171,9 +171,12 @@ class JackClient(mp.Process):
         self.client.set_process_callback(self.process)
 
         self.client.outports.register('out_0')
+        self.client.outports.register('out_1')
 
         self.client.activate()
         target_ports = self.client.get_ports(is_physical=True, is_input=True, is_audio=True)
+        print("target_ports: {}".format(target_ports))
+        print('outports: {}'.format(self.client.outports))
 
         if prefs.get( 'OUTCHANNELS'):
             if isinstance(prefs.get('OUTCHANNELS'), list):
