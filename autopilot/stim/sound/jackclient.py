@@ -287,8 +287,14 @@ class JackClient(mp.Process):
                 # self.client.outports[0].get_array()[:] = self.continuous_cycle.next().T
 
             else:
-                for channel, port in zip(self.zero_arr.T, self.client.outports):
-                    port.get_array()[:] = channel
+                #for channel, port in zip(self.zero_arr.T, self.client.outports):
+                #    port.get_array()[:] = channel
+                buff0 = self.client.outports[0].get_array()
+                buff1 = self.client.outports[1].get_array()
+                buff0[:] = np.zeros(self.blocksize, dtype='float32')
+                buff1[:] = np.zeros(self.blocksize, dtype='float32')
+
+                
         else:
 
             try:
