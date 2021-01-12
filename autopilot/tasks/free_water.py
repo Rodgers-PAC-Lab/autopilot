@@ -16,8 +16,6 @@ import time
 # contains the task class. 
 TASK = 'Free_water'
 
-
-
 class Free_Water(Task):
     """A task that gives free water through randomly chosen ports.
     
@@ -158,20 +156,17 @@ class Free_Water(Task):
             self.set_reward(duration=self.reward['value'])
 
 
-        self.left_stim = sounds.Noise(duration=100, amplitude=.03, channel=0)
-        self.right_stim = sounds.Noise(duration=100, amplitude=.03, channel=1)
 
-
-        #~ # Initialize stim manager
-        #~ if not stim:
-            #~ raise RuntimeError("Cant instantiate task without stimuli!")
-        #~ else:
-            #~ self.stim_manager = init_manager(stim)
+        # Initialize stim manager
+        if not stim:
+            raise RuntimeError("Cant instantiate task without stimuli!")
+        else:
+            self.stim_manager = init_manager(stim)
 
         # give the sounds a function to call when they end
-        #~ self.stim_manager.set_triggers(self.stim_end)
+        self.stim_manager.set_triggers(self.stim_end)
 
-        #~ self.logger.debug('Stimulus manager initialized')
+        self.logger.debug('Stimulus manager initialized')
 
 
 
@@ -224,11 +219,11 @@ class Free_Water(Task):
         
         print("The chosen target is {}".format(self.target))
         if self.target == 'L':
-            self.stim = self.left_stim
+            self.stim = sounds.Noise(duration=100, amplitude=.03, channel=0)
         elif self.target == 'R':
-            self.stim = self.right_stim
+            self.stim = sounds.Noise(duration=100, amplitude=.03, channel=1)
         elif self.target == 'C':
-            self.stim = None
+            self.stim = sounds.Noise(duration=100, amplitude=.00003, channel=0)
         else:
             raise ValueError("unknown target: {}".format(target))
         
@@ -238,10 +233,8 @@ class Free_Water(Task):
         #~ time.sleep(.5)
         
         #~ self.stim.buffer()
-        if self.stim is not None:
-            self.stim.play_continuous()
+        self.stim.play_continuous()
         
-        time.sleep(.5)
 
         # Return data
         data = {
@@ -256,9 +249,8 @@ class Free_Water(Task):
         Just have to alert the Terminal that the current trial has ended
         and turn off any lights.
         """
-        if self.stim is not None:
-            self.stim.stop_continuous()
-        #self.stim.end()
+        self.stim.stop_continuous()
+        self.stim.end()
         time.sleep(.5)
         
         # we just have to tell the Terminal that this trial has ended
@@ -272,12 +264,8 @@ class Free_Water(Task):
         """
         When shutting down, release all hardware objects and turn LEDs off.
         """
-        if self.stim is not None:
-            self.stim.stop_continuous()
-        self.left_stim.end()
-        self.right_stim.end()
-        #self.stim.stop_continuous()
-        #self.stim.end()
+        self.stim.stop_continuous()
+        self.stim.end()
         
         for k, v in self.hardware.items():
             for pin, obj in v.items():
