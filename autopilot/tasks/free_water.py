@@ -216,7 +216,7 @@ class Free_Water(Task):
         # buffer it
         self.stim.buffer()
         
-        self.stim.play()
+        self.stim.play_continuous()
         
 
         # Return data
