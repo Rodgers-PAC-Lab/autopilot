@@ -625,7 +625,7 @@ class Noise(BASE_CLASS):
 
         self.initialized = True
 
-class Noise2ch(BASE_CLASS):
+class Noise2ch(Jack_Sound):
     """White Noise in stereo"""
 
     PARAMS = ['duration','amplitude','channel']
