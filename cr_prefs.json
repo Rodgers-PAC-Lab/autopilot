@@ -1,7 +1,8 @@
 {
     "AGENT": "PILOT",
-    "AUDIOSERVER": false,
+    "AUDIOSERVER": true,
     "BASEDIR": "/home/pi/autopilot",
+    "CALIBRATIONDIR": "/home/pi/autopilot/calibration",
     "CHILDID": "",
     "CONFIG": "",
     "DATADIR": "/home/pi/autopilot/data",
@@ -83,14 +84,15 @@
     "PARENTIP": "",
     "PARENTPORT": "",
     "PIGPIOARGS": "-t 0 -l",
-    "PIGPIOMASK": 1111110000111111111111110000,
+    "PIGPIOMASK": "1111110000111111111111110000",
+    "PLUGINDIR": "/home/pi/autopilot",
     "PROTOCOLDIR": "/home/pi/autopilot/protocols",
     "PULLDOWNS": "",
     "PULLUPS": "",
     "PUSHPORT": 5560,
     "REPODIR": "/home/pi/dev/autopilot",
     "SOUNDDIR": "/home/pi/autopilot/sounds",
-    "TERMINALIP": "192.168.1.139",
+    "TERMINALIP": "192.168.11.128",
     "VENV": "/home/pi/.venv/autopilot",
     "VIZDIR": "/home/pi/autopilot/viz"
 }
