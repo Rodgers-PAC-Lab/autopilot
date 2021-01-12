@@ -216,7 +216,7 @@ class Free_Water(Task):
         # buffer it
         #~ self.stim.buffer()
         
-        self.stim = sounds.Noise2ch(duration=100, amplitude=.03, channel=0)
+        self.stim = sounds.Noise(duration=100, amplitude=.03, channel=0)
         self.stim.play_continuous()
         
 

@@ -593,7 +593,7 @@ class Noise(BASE_CLASS):
     """White Noise in stereo"""
 
     PARAMS = ['duration','amplitude','channel']
-    type='Noise2ch'
+    type='Noise'
     def __init__(self, duration, amplitude=0.01, channel=0, **kwargs):
         """
         Args:
