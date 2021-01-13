@@ -219,9 +219,9 @@ class Free_Water(Task):
         
         print("The chosen target is {}".format(self.target))
         if self.target == 'L':
-            self.stim = sounds.Noise(duration=100, amplitude=.03, channel=0)
+            self.stim = sounds.Noise(duration=100, amplitude=.01, channel=0)
         elif self.target == 'R':
-            self.stim = sounds.Noise(duration=100, amplitude=.03, channel=1)
+            self.stim = sounds.Noise(duration=100, amplitude=.01, channel=1)
         elif self.target == 'C':
             self.stim = sounds.Noise(duration=100, amplitude=.00003, channel=0)
         else:
