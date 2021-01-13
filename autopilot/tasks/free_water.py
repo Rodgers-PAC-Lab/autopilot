@@ -10,6 +10,7 @@ from autopilot.stim import init_manager
 from autopilot.stim.sound import sounds
 from autopilot.tasks.task import Task
 import time
+import functools
 
 # The name of the task
 # This declaration allows Subject to identify which class in this file 
@@ -169,8 +170,6 @@ class Free_Water(Task):
         self.logger.debug('Stimulus manager initialized')
 
 
-
-
         # If we aren't passed an event handler
         # (used to signal that a trigger has been tripped),
         # we should warn whoever called us that things could get a little screwy
@@ -185,6 +184,12 @@ class Free_Water(Task):
 
         # allow_repeat
         self.allow_repeat = bool(allow_repeat)
+    
+    def log_poke(self, port):
+        self.logger.debug('{} {} poke'.format(
+            datetime.datetime.now().isoformat(),
+            port,
+            ))
 
     def water(self, *args, **kwargs):
         """
@@ -206,10 +211,14 @@ class Free_Water(Task):
             other_ports = [t for t in ['L', 'C', 'R'] if t is not self.target]
             self.target = random.choice(other_ports)
 
-        # Set triggers and set the target LED to green.
-        self.triggers[self.target] = self.hardware['PORTS'][self.target].open
+        # Set triggers for target poke entry
+        self.triggers[self.target] = [
+            functools.partial(self.log_poke, self.target),
+            self.hardware['PORTS'][self.target].open,
+            ]
+        
+        # Set target LED to green
         self.set_leds({self.target: [0, 255, 0]})
-
 
 
         # get next stim
