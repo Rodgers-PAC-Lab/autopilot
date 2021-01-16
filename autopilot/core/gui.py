@@ -33,6 +33,7 @@ import itertools
 import threading
 import logging
 from operator import ior
+from functools import reduce
 
 # adding autopilot parent directory to path
 from autopilot.core.subject import Subject
@@ -43,6 +44,7 @@ from functools import wraps
 from autopilot.core.utils import InvokeEvent
 from autopilot.core import styles
 from autopilot.core.utils import get_invoker
+from autopilot.core.loggers import init_logger
 
 
 
@@ -106,6 +108,8 @@ class Control_Panel(QtWidgets.QWidget):
 
         """
         super(Control_Panel, self).__init__()
+
+        self.logger = init_logger(self)
 
         # We share a dict of subject objects with the main Terminal class to avoid access conflicts
         self.subjects = subjects
@@ -187,7 +191,9 @@ class Control_Panel(QtWidgets.QWidget):
 
         # If the wizard completed successfully, get its values
         if new_subject_wizard.result() == 1:
+
             biography_vals = new_subject_wizard.bio_tab.values
+            self.logger.debug(f'subject wizard exited with 1, got biography vals {biography_vals}')
             # TODO: Make a "session" history table that stashes pilot, git hash, step, etc. for each session - subjects might run on different pilots
             biography_vals['pilot'] = pilot
 
@@ -202,10 +208,13 @@ class Control_Panel(QtWidgets.QWidget):
                 if 'protocol' in protocol_vals.keys() and 'step' in protocol_vals.keys():
                     protocol_file = os.path.join(prefs.get('PROTOCOLDIR'), protocol_vals['protocol'] + '.json')
                     subject_obj.assign_protocol(protocol_file, int(protocol_vals['step']))
-            except:
+                    self.logger.debug(f'assigned protocol with {protocol_vals}')
+                else:
+                    self.logger.warning(f'protocol couldnt be assigned, no step and protocol keys in protocol_vals.\ngot protocol_vals: {protocol_vals}')
+            except Exception as e:
+                self.logger.exception(f'exception when assigning protocol, continuing subject creation. \n{e}')
                 # the wizard couldn't find the protocol dir, so no task tab was made
                 # or no task was assigned
-                pass
 
             # Add subject to pilots dict, update it and our tabs
             self.pilots[pilot]['subjects'].append(biography_vals['id'])
@@ -389,7 +398,6 @@ class Pilot_Panel(QtWidgets.QWidget):
         Initializes UI elements - creates widgets and adds to :py:attr:`Pilot_Panel.layout` .
         Called on init.
         """
-        # type: () -> None
         label = QtWidgets.QLabel(self.pilot)
         label.setStyleSheet("font: bold 14pt; text-align:right")
         label.setAlignment(QtCore.Qt.AlignVCenter)
@@ -979,7 +987,6 @@ class Protocol_Wizard(QtWidgets.QDialog):
         Returns:
 
         """
-        # type: () -> None
         self.clear_params()
 
         # Get current item index
@@ -1597,7 +1604,6 @@ class Sound_Widget(QtWidgets.QWidget):
             """
             When one of our edit boxes is edited, stash the parameter in `param_dict`
             """
-            # type: () -> None
             sender = self.sender()
             name = sender.objectName()
             self.param_dict[name] = sender.text()
@@ -2212,10 +2218,10 @@ class Pilot_Ports(QtWidgets.QWidget):
 
         layout = QtWidgets.QHBoxLayout()
         pilot_lab = QtWidgets.QLabel(self.pilot)
-        pilot_font = QtWidgets.QFont()
-        pilot_font.setBold(True)
-        pilot_font.setPointSize(14)
-        pilot_lab.setFont(pilot_font)
+        #pilot_font = QtWidgets.QFont()
+        #pilot_font.setBold(True)
+        #pilot_font.setPointSize(14)
+        #pilot_lab.setFont(pilot_font)
         pilot_lab.setStyleSheet('border: 1px solid black')
         layout.addWidget(pilot_lab)
 
@@ -2383,6 +2389,9 @@ class Reassign(QtWidgets.QDialog):
         """
         super(Reassign, self).__init__()
 
+        # FIXME: get logger in a superclass, good god.
+        self.logger = init_logger(self)
+
         self.subjects = subjects
         self.protocols = protocols
         self.protocol_dir = prefs.get('PROTOCOLDIR')
@@ -2398,7 +2407,7 @@ class Reassign(QtWidgets.QDialog):
 
         self.subject_objects = {}
 
-        for i, (subject, protocol) in zip(range(len(self.subjects)), self.subjects.items()):
+        for i, (subject, protocol) in enumerate(self.subjects.items()):
             subject_name = copy.deepcopy(subject)
             step = protocol[1]
             protocol = protocol[0]
@@ -2410,19 +2419,28 @@ class Reassign(QtWidgets.QDialog):
             protocol_box = self.subject_objects[subject][0]
             protocol_box.setObjectName(subject_name)
             protocol_box.insertItems(0, self.protocols)
+            # add blank at the end
+            protocol_box.addItem(text='')
+
             # set current item if subject has matching protocol
             protocol_bool = [protocol == p for p in self.protocols]
             if any(protocol_bool):
                 protocol_ind = np.where(protocol_bool)[0][0]
                 protocol_box.setCurrentIndex(protocol_ind)
+            else:
+                # set to blank
+                protocol_box.setCurrentIndex(protocol_box.count()-1)
+
             protocol_box.currentIndexChanged.connect(self.set_protocol)
 
+            # create & populate step box
             step_box = self.subject_objects[subject][1]
             step_box.setObjectName(subject_name)
 
             self.populate_steps(subject_name)
 
-            step_box.setCurrentIndex(step)
+            if step:
+                step_box.setCurrentIndex(step)
             step_box.currentIndexChanged.connect(self.set_step)
 
             # add to layout
@@ -2456,15 +2474,29 @@ class Reassign(QtWidgets.QDialog):
 
         # Load the protocol and parse its steps
         protocol_str = protocol_box.currentText()
-        protocol_file = os.path.join(self.protocol_dir, protocol_str + '.json')
-        with open(protocol_file) as protocol_file_open:
-            protocol = json.load(protocol_file_open)
 
-        step_list = []
-        for i, s in enumerate(protocol):
-            step_list.append(s['step_name'])
+        # if unassigned, will be the blank string (which evals False here)
+        # so do nothing in that case
+        if protocol_str:
+            protocol_file = os.path.join(self.protocol_dir, protocol_str + '.json')
+            try:
+                with open(protocol_file) as protocol_file_open:
+                    protocol = json.load(protocol_file_open)
+            except json.decoder.JSONDecodeError:
+                self.logger.exception(f'Steps could not be populated because task could not be loaded due to malformed JSON in protocol file {protocol_file}')
+                return
+            except Exception:
+                self.logger.exception(f'Steps could not be populated due to an unknown error loading {protocol_file}. Catching and continuing to populate window')
+                return
 
-        step_box.insertItems(0, step_list)
+
+            step_list = []
+            for i, s in enumerate(protocol):
+                step_list.append(s['step_name'])
+
+            step_box.insertItems(0, step_list)
+
+
 
     def set_protocol(self):
         """
@@ -2636,7 +2668,7 @@ class Psychometric(QtGui.QDialog):
         self.grid.addWidget(QtGui.QLabel('Check All'), 0, 1)
 
         # identical to Reassign, above
-        for i, (subject, protocol) in zip(xrange(len(self.subjects)), self.subjects.items()):
+        for i, (subject, protocol) in zip(range(len(self.subjects)), self.subjects.items()):
             subject_name = copy.deepcopy(subject)
             step = protocol[1]
 
