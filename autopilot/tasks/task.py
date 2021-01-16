@@ -170,7 +170,6 @@ class Task(object):
             port (None, Port_ID): If `None`, set everything in 'PORTS', otherwise
                 only set `port`
         """
-        print("duration is {}".format(duration))
         if not vol and not duration:
             raise Exception("Need to have duration or volume!!")
         if vol and duration:
