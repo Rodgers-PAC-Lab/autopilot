@@ -6,13 +6,13 @@ import itertools
 import random
 import datetime
 import autopilot.hardware.gpio
-from autopilot.stim import init_manager
 from autopilot.stim.sound import sounds
 from autopilot.tasks.task import Task
 import time
 import functools
 from autopilot.core.networking import Net_Node
 from autopilot import prefs
+import threading
 
 # The name of the task
 # This declaration allows Subject to identify which class in this file 
@@ -189,20 +189,6 @@ class Free_Water(Task):
         # send to the station object with a 'CHILD' key
         self.node.send(to=prefs.get('NAME'), key='CHILD', value=value)
 
-
-        ## Stimuli
-        # Initialize stim manager
-        if not stim:
-            raise RuntimeError("Cant instantiate task without stimuli!")
-        else:
-            self.stim_manager = init_manager(stim)
-
-        # give the sounds a function to call when they end
-        self.stim_manager.set_triggers(self.stim_end)
-
-        self.logger.debug('Stimulus manager initialized')
-
-
         # If we aren't passed an event handler
         # (used to signal that a trigger has been tripped),
         # we should warn whoever called us that things could get a little screwy
@@ -235,6 +221,7 @@ class Free_Water(Task):
                 'timestamp': isoformatted timestamp
                 'trial_num': number of current trial
         """
+        self.stop_playing = False
         self.stage_block.clear()
 
         # Choose random port
@@ -254,26 +241,25 @@ class Free_Water(Task):
         self.set_leds({self.target: [0, 255, 0]})
 
 
-        # get next stim
-        #~ self.target, self.distractor, self.stim = self.stim_manager.next_stim()
-        # buffer it
-        #~ self.stim.buffer()
-        
+        ## Choose target and generate stim
         print("The chosen target is {}".format(self.target))
         if self.target == 'L':
-            self.stim = sounds.Noise(duration=100, amplitude=.003, channel=0)
+            self.stim = sounds.Noise(
+                duration=100, amplitude=.003, channel=0, nsamples=19456)
+            
         elif self.target == 'R':
-            self.stim = sounds.Noise(duration=100, amplitude=.003, channel=1)
+            self.stim = sounds.Noise(
+                duration=100, amplitude=.003, channel=1, nsamples=19456)
+            
         else:
             raise ValueError("unknown target: {}".format(target))
         
-        #~ self.stim.buffer()
-        #~ time.sleep(.5)
-        #~ self.stim.play()
-        #~ time.sleep(.5)
+        # Set the trigger to call function when stim is over
+        self.stim.set_trigger(self.delayed_play_again)
         
-        #~ self.stim.buffer()
-        self.stim.play_continuous()
+        # Buffer the stim and start playing it after a delay
+        self.stim.buffer()
+        threading.Timer(.75, self.stim.play).start()        
         
         
         ## Message child
@@ -281,11 +267,11 @@ class Free_Water(Task):
             #~ to=[prefs.get('NAME'), prefs.get('CHILDID'), 'child_pi'],
             to=prefs.get('NAME'),
             key='CHILD',
-            value={'foo': 'bar', 'subject': self.subject, 'inner_key': 'WAIT'},
+            value={'foo': 'bar', 'subject': self.subject, 'KEY': 'WAIT', 'keys': 'WAIT'},
             )        
         
 
-        # Return data
+        ## Return data
         data = {
             'target': self.target,
             'timestamp': datetime.datetime.now().isoformat(),
@@ -298,9 +284,10 @@ class Free_Water(Task):
         Just have to alert the Terminal that the current trial has ended
         and turn off any lights.
         """
-        self.stim.stop_continuous()
-        self.stim.end()
         time.sleep(.5)
+        
+        # Turn off the "stim_end" trigger so it doesn't keep playing
+        self.stim.set_trigger(self.done_playing)
         
         # we just have to tell the Terminal that this trial has ended
 
@@ -313,16 +300,17 @@ class Free_Water(Task):
         """
         When shutting down, release all hardware objects and turn LEDs off.
         """
-        self.stim.stop_continuous()
-        self.stim.end()
-        
         for k, v in self.hardware.items():
             for pin, obj in v.items():
                 obj.release()
 
-    def stim_end(self):
+    def delayed_play_again(self):
         """Called when stim over
-        
-        Currently do nothing
         """
+        # Play it again, after a delay
+        self.stim.buffer()
+        threading.Timer(.75, self.stim.play).start()
+        
+    def done_playing(self):
+        # This is called when the last stim of the trial has finished playing
         pass
