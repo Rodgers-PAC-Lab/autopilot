@@ -88,6 +88,14 @@ class Free_Water(Task):
             'R': autopilot.hardware.gpio.Solenoid
         }
     }
+    
+    
+    ## The child rpi that handles the other ports
+    CHILDREN = {
+        'rpi02': {
+            'task_type': "FreeWater Child",
+        }
+    }
 
     
     ## Plot parameters
@@ -156,8 +164,30 @@ class Free_Water(Task):
             print("setting reward to {}".format(self.reward['value']))
             self.set_reward(duration=self.reward['value'])
 
+        
+        
+        ## Initialize net node for communications with child
+        self.node = Net_Node(id="T_{}".format(prefs.get('NAME')),
+                             upstream=prefs.get('NAME'),
+                             port=prefs.get('MSGPORT'),
+                             listens={},
+                             instance=True)
+
+        # Construct a message to send to child
+        # Why do we need to save self.subject here?
+        self.subject = kwargs['subject']
+        value = {
+            'child': {
+                'parent': prefs.get('NAME'), 'subject': kwargs['subject']},
+            'task_type': self.CHILDREN['rpi02']['task_type'],
+            'subject': kwargs['subject'],
+        }
+
+        # send to the station object with a 'CHILD' key
+        self.node.send(to=prefs.get('NAME'), key='CHILD', value=value)
 
 
+        ## Stimuli
         # Initialize stim manager
         if not stim:
             raise RuntimeError("Cant instantiate task without stimuli!")
@@ -241,6 +271,14 @@ class Free_Water(Task):
         
         #~ self.stim.buffer()
         self.stim.play_continuous()
+        
+        
+        ## Message child
+        self.node.send(
+            to=[prefs.NAME, prefs.CHILDID, 'child_pi'],
+            key="WAIT",
+            value={'mode':'steady', 'thresh':100}
+            )        
         
 
         # Return data
