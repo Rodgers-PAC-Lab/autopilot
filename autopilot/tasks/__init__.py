@@ -26,6 +26,7 @@ Link between string task names used in protocol descriptions and task classes
 CHILDREN_LIST = {
     'Wheel Child':Wheel_Child,
     'Video Child':Video_Child,
+    'FreeWater Child': FreeWater_Child,
     'Transformer': Transformer
 }
 """
