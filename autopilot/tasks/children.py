@@ -25,6 +25,64 @@ import threading
 import logging
 from time import sleep
 
+class FreeWater_Child(object):
+    # Just one stage?
+    STAGE_NAMES = ['collect']
+    
+    # Init PARAMS
+    PARAMS = odict()
+    #~ PARAMS['fs'] = {'tag': 'Velocity Reporting Rate (Hz)',
+                    #~ 'type': 'int'}
+
+    # Init HARDWARE
+    HARDWARE = {
+        #~ "OUTPUT": Digital_Out,
+        #~ "WHEEL":  Wheel
+    }
+
+    def __init__(self, stage_block=None, start=True, **kwargs):
+        self.hardware = {}
+        self.stages = cycle([self.noop])
+        self.stage_block = stage_block
+        
+        # Three possible mesages from the parent
+        self.listens = {
+            'WAIT': self.l_wait,
+            'PLAY': self.l_play,
+            'STOP': self.l_stop,
+        }
+        
+        # Networking
+        self.node = Net_Node('child_pi',
+            upstream=prefs.NAME,
+            port=prefs.MSGPORT,
+            listens=self.listens,
+            )        
+        
+    def noop(self):
+        # just fitting in with the task structure.
+        #~ self.node.send(key='DATA', val={'data0': 1})
+        self.stage_block.clear()
+        return {}
+
+    def end(self):
+        self.stage_block.set()
+    
+    def l_wait(self, value):
+        print("I am in l_wait")
+        print(value)
+        print("Done printing value")
+
+    def l_play(self, value):
+        print("I am in l_play")
+        print(value)
+        print("Done printing value")
+    
+    def l_stop(self, value):
+        print("I am in l_stop")
+        print(value)
+        print("Done printing value")    
+    
 class Wheel_Child(object):
     STAGE_NAMES = ['collect']
 
