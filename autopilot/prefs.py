@@ -270,6 +270,12 @@ _DEFAULTS = odict({
         'text': 'Pins to pull down on system startup? (list of form [1, 2])',
         "scope": Scopes.PILOT
     },
+    'PING_INTERVAL': {
+        'type': 'float',
+        'text': 'How many seconds should pilots wait in between pinging the Terminal?',
+        'default': 5,
+        'scope': Scopes.PILOT
+    },
     'DRAWFPS': {
         'type': 'int',
         "text": "FPS to draw videos displayed during acquisition",
@@ -282,15 +288,26 @@ _DEFAULTS = odict({
         "default": str(_basedir / "pilot_db.json"),
         "scope": Scopes.TERMINAL
     },
-    'TERMINAL_WINSIZE_BEHAVIOR': {
+    'TERMINAL_SETTINGS_FN':{
         'type': 'str',
-        'text': (
-            'How the Terminal window is sized: '
-            '"maximum", "moderate", or "remember"'
-            ),
-        'default': 'moderate',
+        'text': 'filename to store QSettings file for Terminal',
+        'default': str(_basedir / "terminal.conf"),
+        "scope": Scopes.TERMINAL
+    },
+    'TERMINAL_WINSIZE_BEHAVIOR': {
+        'type': 'choice',
+        'text': 'Strategy for resizing terminal window on opening',
+        "choices": ('remember', 'moderate', 'maximum', 'custom'),
+        "default": "remember",
         "scope": Scopes.TERMINAL    
-    },    
+    },
+    'TERMINAL_CUSTOM_SIZE': {
+        'type': 'list',
+        'text': 'Custom size for window, specified as [px from left, px from top, width, height]',
+        'default': [0, 0, 1000, 400],
+        'depends': ('TERMINAL_WINSIZE_BEHAVIOR', 'custom'),
+        'scope': Scopes.TERMINAL
+    },
     'LINEAGE': {
         'type': 'choice',
         "text": "Are we a parent or a child?",
