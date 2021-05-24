@@ -6,7 +6,6 @@ Currently named subject, but will likely be refactored to include other data
 models should the need arise.
 
 """
-
 # TODO: store pilot in biography
 import os
 import sys
@@ -25,10 +24,8 @@ from autopilot import prefs
 from autopilot.stim.sound.sounds import STRING_PARAMS
 from autopilot.core.loggers import init_logger
 
-if sys.version_info >= (3,0):
-    import queue
-else:
-    import Queue as queue
+import queue
+
 
 # suppress pytables natural name warnings
 warnings.simplefilter('ignore', category=tables.NaturalNameWarning)
@@ -197,7 +194,7 @@ class Subject(object):
         history_row.append()
 
         # we have to always open and close the h5f
-        _ = self.close_hdf(h5f)
+        self.close_hdf(h5f)
 
     def open_hdf(self, mode='r+'):
         """
@@ -237,7 +234,7 @@ class Subject(object):
         """
         with self.lock:
             h5f.flush()
-            return h5f.close()
+            h5f.close()
 
     def new_subject_file(self, biography):
         """
@@ -302,23 +299,12 @@ class Subject(object):
             try:
                 node = h5f.get_node(node[0])
             except tables.exceptions.NoSuchNodeError:
-                #pdb.set_trace()
                 # try to make it
-                # python 3 compatibility
-                if sys.version_info >= (3,0):
-                    if isinstance(node[3], str):
-                        if node[3] == 'group':
-                            h5f.create_group(node[1], node[2])
-                    elif issubclass(node[3], tables.IsDescription):
-                        h5f.create_table(node[1], node[2], description=node[3])
-
-                # python 2
-                else:
-                    if isinstance(node[3], str):
-                        if node[3] == 'group':
-                            h5f.create_group(node[1], node[2])
-                    elif issubclass(node[3], tables.IsDescription):
-                        h5f.create_table(node[1], node[2], description=node[3])
+                if isinstance(node[3], str):
+                    if node[3] == 'group':
+                        h5f.create_group(node[1], node[2])
+                elif issubclass(node[3], tables.IsDescription):
+                    h5f.create_table(node[1], node[2], description=node[3])
 
         self.close_hdf(h5f)
 
@@ -359,6 +345,8 @@ class Subject(object):
             step (int): When type is 'param', changes the parameter at a particular step,
                 otherwise the current step is used.
         """
+        self.logger.info(f'Updating subject {self.name} history - type: {type}, name: {name}, value: {value}, step: {step}')
+
         # Make sure the updates are written to the subject file
         if type == 'param':
             if not step:
@@ -456,7 +444,6 @@ class Subject(object):
         # Check if there is an existing protocol, archive it if there is.
         if "/current" in h5f:
             _ = self.close_hdf(h5f)
-            self.update_history(type='protocol', name=protocol_name, value = prot_dict)
             self.stash_current()
             h5f = self.open_hdf()
 
@@ -571,7 +558,10 @@ class Subject(object):
         _ = self.close_hdf(h5f)
 
         # Update history
-        self.update_history('protocol', protocol_name, self.current)
+        self.update_history(type='protocol', name=protocol_name, value=self.current)
+        self.update_history(type='step',
+                            name=self.current[self.step]['step_name'],
+                            value=self.step)
 
     def flush_current(self):
         """
@@ -639,6 +629,13 @@ class Subject(object):
         trial_table = None
         cont_table = None
 
+        # get step history
+        try:
+            step_df = self.get_step_history(use_history=True)
+        except Exception as e:
+            self.logger.exception(f"Couldnt get step history to trim data given to graduation objects, got exception {e}")
+            step_df = None
+
         h5f = self.open_hdf()
 
         # Get current task parameters and handles to tables
@@ -652,18 +649,59 @@ class Subject(object):
         # tasks without TrialData will have some default table, so this should always be present
         trial_table = h5f.get_node(group_name, 'trial_data')
 
+        ##################################3
+        # first try and find some timestamp column to filter past data we give to the graduation object
+        # in case the subject has been stepped back down to a previous stage, for example
+        # FIXME: Hardcoding parameter names, should have a guaranteed 'trial_timestamp' column for each trial
+        slice_start = 0
+        try:
+            ts_cols = [col for col in trial_table.colnames if 'timestamp' in col]
+            # just use the first timestamp column
+            if len(ts_cols) > 0:
+                trial_ts = pd.DataFrame({'timestamp': trial_table.col(ts_cols[0])})
+                trial_ts['timestamp'] = pd.to_datetime(trial_ts['timestamp'].str.decode('utf-8'))
+            else:
+                self.logger.warning(
+                    'No timestamp column could be found in trial data, cannot trim data given to graduation objects')
+                trial_ts = None
+
+            if trial_ts is not None and step_df is not None:
+                # see where, if any, the timestamp column is older than the last time the step was changed
+                good_rows = np.where(trial_ts['timestamp'] >= step_df['timestamp'].iloc[-1])[0]
+                if len(good_rows) > 0:
+                    slice_start = np.min(good_rows)
+                # otherwise if it's because we found no good rows but have trials,
+                # we will say not to use them, otherwise we say not to use them by
+                # slicing at the end of the table
+                else:
+                    slice_start = trial_table.nrows
+
+        except Exception as e:
+            self.logger.exception(
+                f"Couldnt trim data given to graduation objects with step change history, got exception {e}")
+
+        trial_tab = trial_table.read(start=slice_start)
+        trial_tab_keys = tuple(trial_tab.dtype.fields.keys())
+
+        ##############################
+
         # get last trial number and session
         try:
-            self.current_trial = trial_table.cols.trial_num[-1]+1
+            self.current_trial = trial_tab['trial_num'][-1]+1
         except IndexError:
+            if 'trial_num' not in trial_tab_keys:
+                self.logger.info('No previous trials detected, setting current_trial to 0')
             self.current_trial = 0
 
         # should have gotten session from current node when we started
+        # so sessions increment over the lifespan of the subject, even if
+        # reassigned.
         if not self.session:
             try:
-                self.session = trial_table.cols.session[-1]
+                self.session = trial_tab['session'][-1]
             except IndexError:
-                self.logger.warning('previous session couldnt be found, setting to 0')
+                if 'session' not in trial_tab_keys:
+                    self.logger.warning('previous session couldnt be found, setting to 0')
                 self.session = 0
 
         self.session += 1
@@ -699,15 +737,19 @@ class Subject(object):
                     for param in grad_obj.PARAMS:
                         #if param not in grad_params.keys():
                         # for now, try to find it in our attributes
+                        # but don't overwrite if it already has what it needs in case
+                        # of name overlap
                         # TODO: See where else we would want to get these from
-                        if hasattr(self, param):
+                        if hasattr(self, param) and param not in grad_params.keys():
                             grad_params.update({param:getattr(self, param)})
 
                 if grad_obj.COLS:
                     # these are columns in our trial table
+
+                    # then give the data to the graduation object
                     for col in grad_obj.COLS:
                         try:
-                            grad_params.update({col: trial_table.col(col)})
+                            grad_params.update({col: trial_tab[col]})
                         except KeyError:
                             self.logger.warning('Graduation object requested column {}, but it was not found in the trial table'.format(col))
 
@@ -879,13 +921,13 @@ class Subject(object):
                 # TODO: Or if all the values have been filled, shouldn't need explicit TRIAL_END flags
                 if 'TRIAL_END' in data.keys():
                     trial_row['session'] = self.session
-                    trial_row.append()
-                    trial_table.flush()
                     if self.graduation:
                         # set our graduation flag, the terminal will get the rest rolling
                         did_graduate = self.graduation.update(trial_row)
                         if did_graduate is True:
                             self.did_graduate.set()
+                    trial_row.append()
+                    trial_table.flush()
 
                 # always flush so that our row iteration routines above will find what they're looking for
                 trial_table.flush()
@@ -1074,15 +1116,27 @@ N Sessions: {}""".format(self.name, path, df.shape[0], len(df.session.unique()))
         h5f = self.open_hdf()
         if use_history:
             history = h5f.root.history.history
-            # return a dataframe of step number, datetime and step name
-            step_df = pd.DataFrame([(x['value'], x['time'], x['name']) for x in history.iterrows() if x['type'] == 'step'])
+            step_df = pd.DataFrame(history.read())
+            if step_df.shape[0] == 0:
+                return None
+            # encode as unicode
+            # https://stackoverflow.com/a/63028569/13113166
+            for col, dtype in step_df.dtypes.items():
+                if dtype == np.object:  # Only process byte object columns.
+                    step_df[col] = step_df[col].apply(lambda x: x.decode("utf-8"))
 
-            step_df = step_df.rename({0: 'step_n',
-                                      1: 'timestamp',
-                                      2: 'name'}, axis='columns')
+            # filter to step only
+            step_df = step_df[step_df['type'] == 'step'].drop('type', axis=1)
+            # rename and retype
+            step_df = step_df.rename(columns={
+                'value': 'step_n',
+                'time': 'timestamp',
+                'name': 'name'})
 
             step_df['timestamp'] = pd.to_datetime(step_df['timestamp'],
                                                   format='%y%m%d-%H%M%S')
+            step_df['step_n'] = pd.to_numeric(step_df['step_n'])
+
 
         else:
             group_name = "/data/{}".format(self.protocol_name)
