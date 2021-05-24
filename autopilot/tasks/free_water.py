@@ -278,8 +278,10 @@ class Free_Water(Task):
         
         ## Message child
         self.node.send(
-            to=[prefs.get('NAME'), prefs.get('CHILDID'), 'child_pi'],
-            key="WAIT",
+            #~ to=[prefs.get('NAME'), prefs.get('CHILDID'), 'child_pi'],
+            to=prefs.get('NAME'),
+            key='CHILD',
+            value={'foo': 'bar', 'subject': self.subject, 'inner_key': 'WAIT'},
             )        
         
 
