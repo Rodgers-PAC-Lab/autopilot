@@ -11,6 +11,8 @@ from autopilot.stim.sound import sounds
 from autopilot.tasks.task import Task
 import time
 import functools
+from autopilot.core.networking import Net_Node
+from autopilot import prefs
 
 # The name of the task
 # This declaration allows Subject to identify which class in this file 
@@ -167,11 +169,12 @@ class Free_Water(Task):
         
         
         ## Initialize net node for communications with child
+        # With instance=True, I get a threading error about current event loop
         self.node = Net_Node(id="T_{}".format(prefs.get('NAME')),
                              upstream=prefs.get('NAME'),
                              port=prefs.get('MSGPORT'),
                              listens={},
-                             instance=True)
+                             instance=False)
 
         # Construct a message to send to child
         # Why do we need to save self.subject here?
