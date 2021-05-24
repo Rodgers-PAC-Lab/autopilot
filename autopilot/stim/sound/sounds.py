@@ -531,7 +531,7 @@ class Noise(BASE_CLASS):
 
     PARAMS = ['duration','amplitude','channel']
     type='Noise'
-    def __init__(self, duration, amplitude=0.01, channel=0, **kwargs):
+    def __init__(self, duration, amplitude=0.01, channel=0, nsamples=None, **kwargs):
         """
         Args:
             duration (float): duration of the noise
@@ -544,6 +544,15 @@ class Noise(BASE_CLASS):
         self.amplitude = float(amplitude)
         self.channel = int(channel)
 
+        # The number of samples obtained differs from call to call?
+        # And in any case, fs is not necessarily known yet, depending
+        # on whether jack client has been booted (?)
+        # So allow direct specification
+        if nsamples is None:
+            self.get_nsamples()
+        else:
+            self.nsamples = nsamples
+        
         self.init_sound()
 
     def init_sound(self):
@@ -555,7 +564,6 @@ class Noise(BASE_CLASS):
             noiser = pyo.Noise(mul=self.amplitude)
             self.table = self.table_wrap(noiser)
         elif self.server_type == 'jack':
-            self.get_nsamples()
             # rand generates from 0 to 1, so subtract 0.5, double to get -1 to 1,
             # then multiply by amplitude.
             self.table = (self.amplitude * np.random.uniform(-1,1,self.nsamples)).astype(np.float32)
