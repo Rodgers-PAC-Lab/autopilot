@@ -5,7 +5,7 @@ from autopilot.tasks.gonogo import GoNoGo
 from autopilot.tasks.parallax import Parallax
 from autopilot.tasks.free_water import Free_Water
 from autopilot.tasks.graduation import GRAD_LIST
-from autopilot.tasks.children import Wheel_Child, Video_Child, Transformer
+from autopilot.tasks.children import Wheel_Child, Video_Child, Transformer, FreeWater_Child
 from autopilot.tasks.test import DLC_Latency, DLC_Hand
 
 
