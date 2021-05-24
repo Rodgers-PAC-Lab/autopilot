@@ -57,6 +57,7 @@ class FreeWater_Child(object):
             upstream=prefs.get('NAME'),
             port=prefs.get('MSGPORT'),
             listens=self.listens,
+            instance=False,
             )        
         
     def noop(self):
