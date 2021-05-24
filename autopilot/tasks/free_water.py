@@ -73,18 +73,18 @@ class Free_Water(Task):
     HARDWARE = {
         'POKES':{
             'L': autopilot.hardware.gpio.Digital_In,
-            'C': autopilot.hardware.gpio.Digital_In,
+            #~ 'C': autopilot.hardware.gpio.Digital_In,
             'R': autopilot.hardware.gpio.Digital_In
         },
         'LEDS':{
             # TODO: use LEDs, RGB vs. white LED option in init
             'L': autopilot.hardware.gpio.LED_RGB,
-            'C': autopilot.hardware.gpio.LED_RGB,
+            #~ 'C': autopilot.hardware.gpio.LED_RGB,
             'R': autopilot.hardware.gpio.LED_RGB
         },
         'PORTS':{
             'L': autopilot.hardware.gpio.Solenoid,
-            'C': autopilot.hardware.gpio.Solenoid,
+            #~ 'C': autopilot.hardware.gpio.Solenoid,
             'R': autopilot.hardware.gpio.Solenoid
         }
     }
@@ -134,7 +134,7 @@ class Free_Water(Task):
                                    'value': float(reward)}
 
         # Variable parameters
-        self.target = random.choice(['L', 'C', 'R'])
+        self.target = random.choice(['L', 'R'])
         self.trial_counter = itertools.count(int(current_trial))
         self.triggers = {}
 
@@ -206,9 +206,9 @@ class Free_Water(Task):
 
         # Choose random port
         if self.allow_repeat:
-            self.target = random.choice(['L', 'C', 'R'])
+            self.target = random.choice(['L', 'R'])
         else:
-            other_ports = [t for t in ['L', 'C', 'R'] if t is not self.target]
+            other_ports = [t for t in ['L', 'R'] if t is not self.target]
             self.target = random.choice(other_ports)
 
         # Set triggers for target poke entry
@@ -228,11 +228,9 @@ class Free_Water(Task):
         
         print("The chosen target is {}".format(self.target))
         if self.target == 'L':
-            self.stim = sounds.Noise(duration=100, amplitude=.01, channel=0)
+            self.stim = sounds.Noise(duration=100, amplitude=.003, channel=0)
         elif self.target == 'R':
-            self.stim = sounds.Noise(duration=100, amplitude=.01, channel=1)
-        elif self.target == 'C':
-            self.stim = sounds.Noise(duration=100, amplitude=.00003, channel=0)
+            self.stim = sounds.Noise(duration=100, amplitude=.003, channel=1)
         else:
             raise ValueError("unknown target: {}".format(target))
         
