@@ -267,7 +267,7 @@ class PAFT(Task):
         self.node.send(
             to=prefs.get('NAME'),
             key='CHILD',
-            value={'foo': 'bar', 'subject': self.subject, 'KEY': 'WAIT', 'keys': 'WAIT'},
+            value={'foo': 'bar', 'KEY': 'WAIT'},
             )        
         
 
