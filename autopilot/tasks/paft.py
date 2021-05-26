@@ -10,7 +10,7 @@ from autopilot.stim.sound import sounds
 from autopilot.tasks.task import Task
 import time
 import functools
-from autopilot.core.networking import Net_Node
+from autopilot.networking import Net_Node
 from autopilot import prefs
 import threading
 
