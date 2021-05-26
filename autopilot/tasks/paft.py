@@ -96,7 +96,7 @@ class PAFT(Task):
     ## The child rpi that handles the other ports
     CHILDREN = {
         'rpi02': {
-            'task_type': "FreeWater Child",
+            'task_type': "PAFT Child",
         }
     }
 
