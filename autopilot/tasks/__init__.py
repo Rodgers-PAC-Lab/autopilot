@@ -3,6 +3,7 @@ from autopilot.tasks.nafc import Nafc, Nafc_Gap, Nafc_Gap_Laser
 from autopilot.tasks.gonogo import GoNoGo
 from autopilot.tasks.parallax import Parallax
 from autopilot.tasks.free_water import Free_Water
+from autopilot.tasks.paft import PAFT
 from autopilot.tasks.graduation import GRAD_LIST
 from autopilot.tasks.children import Wheel_Child, Video_Child, Transformer
 from autopilot.tasks.test import DLC_Latency, DLC_Hand
@@ -12,6 +13,7 @@ TASK_LIST = {'2AFC':Nafc,
              '2AFC_Gap':Nafc_Gap,
              '2AFC_Gap_Laser':Nafc_Gap_Laser,
              'Free Water':Free_Water,
+             'PAFT': PAFT,
              'GoNoGo': GoNoGo,
              'Parallax': Parallax,
              'Test_DLC_Latency': DLC_Latency,
