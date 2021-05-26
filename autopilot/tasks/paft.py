@@ -1,4 +1,4 @@
-"""This module defines the free_water task"""
+"""This module defines the PAFT task"""
 
 from collections import OrderedDict as odict
 import tables
@@ -112,7 +112,7 @@ class PAFT(Task):
     ## Methods
     def __init__(self, stage_block=None, stim=None, current_trial=0,
         reward=150, allow_repeat=False, **kwargs):
-        """Initialize a new Free_Water Task
+        """Initialize a new PAFT Task
         
         Arguments
         ---------
@@ -127,7 +127,7 @@ class PAFT(Task):
             Whether the correct port is allowed to repeat between trials
         **kwargs:
         """
-        super(Free_Water, self).__init__()
+        super(PAFT, self).__init__()
 
         # stage_block
         if not stage_block:
