@@ -145,6 +145,7 @@ class PAFT(Task):
                                    'value': float(reward)}
 
         # Variable parameters
+        self.child_connected = False
         self.target = random.choice(['L', 'R'])
         self.trial_counter = itertools.count(int(current_trial))
         self.triggers = {}
@@ -189,6 +190,22 @@ class PAFT(Task):
 
         # send to the station object with a 'CHILD' key
         self.node.send(to=prefs.get('NAME'), key='CHILD', value=value)
+
+        
+        ## Create a second node to communicate with the child
+        self.node2 = Net_Node(
+            id='parent_pi',
+            upstream='',
+            port=5000,
+            router_port=5001,
+            listens={'HELLO': self.hello},
+            instance=False,
+            )
+
+        # Wait until the child connects!
+        print("Waiting for child to connect")
+        while not self.child_connected:
+            pass
 
         # If we aren't passed an event handler
         # (used to signal that a trigger has been tripped),
@@ -264,9 +281,9 @@ class PAFT(Task):
         
         
         ## Message child
-        self.node.send(
+        self.node2.send(
             to='child_pi',
-            key='WAIT',
+            key='HELLO',
             value={'foo': 'bar'},
             )        
         
@@ -278,6 +295,10 @@ class PAFT(Task):
             'trial_num' : next(self.trial_counter)
         }
         return data
+
+    def hello(self, value):
+        print("I am parent hello and I received {}".format(value))
+        self.child_connected = True
 
     def response(self):
         """
