@@ -24,10 +24,14 @@ from queue import Empty, LifoQueue
 import threading
 import logging
 from time import sleep
+import datetime
+import functools
+from autopilot.tasks.task import Task
 
-class PAFT_Child(object):
+
+class PAFT_Child(Task):
     # Just one stage?
-    STAGE_NAMES = ['collect']
+    STAGE_NAMES = ['noop']
 
     # Init PARAMS
     PARAMS = odict()
@@ -36,12 +40,36 @@ class PAFT_Child(object):
 
     # Init HARDWARE
     HARDWARE = {
-        #~ "OUTPUT": Digital_Out,
-        #~ "WHEEL":  Wheel
+        'POKES':{
+            'L': autopilot.hardware.gpio.Digital_In,
+            #~ 'C': autopilot.hardware.gpio.Digital_In,
+            'R': autopilot.hardware.gpio.Digital_In
+        },
+        'LEDS':{
+            # TODO: use LEDs, RGB vs. white LED option in init
+            'L': autopilot.hardware.gpio.LED_RGB,
+            #~ 'C': autopilot.hardware.gpio.LED_RGB,
+            'R': autopilot.hardware.gpio.LED_RGB
+        },
+        'PORTS':{
+            'L': autopilot.hardware.gpio.Solenoid,
+            #~ 'C': autopilot.hardware.gpio.Solenoid,
+            'R': autopilot.hardware.gpio.Solenoid
+        }
     }
 
     def __init__(self, stage_block=None, start=True, **kwargs):
-        self.hardware = {}
+        super(PAFT_Child, self).__init__()
+        
+        ## Store my name
+        # This is used for reporting pokes to the parent
+        self.name = prefs.get('NAME')
+        
+        
+        ## Hardware
+        self.init_hardware()
+        
+        # Only one stage
         self.stages = cycle([self.noop])
         self.stage_block = stage_block
 
@@ -66,13 +94,53 @@ class PAFT_Child(object):
         self.node2.send(
             'parent_pi', 'HELLO', 'my name is child_pi')
 
+        
+        ## Initialize poke triggers
+        self.set_poke_triggers()
+
+    def set_poke_triggers(self):
+        """"Set triggers for poke entry
+        
+        For each poke, sets these triggers:
+            self.log_poke (write to own debugger)
+            self.report_poke (report to parent)
+        
+        The C-poke doesn't really exist, but this is useful for debugging.
+        """
+        for poke in ['L', 'C', 'R']:
+            self.triggers[poke] = [
+                functools.partial(self.log_poke, poke),
+                functools.partial(self.report_poke, poke),
+                ]        
+
+    def log_poke(self, poke):
+        """Write in the logger that the poke happened"""
+        print("poke detected: {}".format(poke))
+        self.logger.debug('{} {} poke'.format(
+            datetime.datetime.now().isoformat(),
+            poke,
+            ))
+
+    def report_poke(self, poke):
+        """Tell the parent that the poke happened"""
+        self.node2.send(
+            'parent_pi', 'POKE', {'name': 'child0', 'poke': poke},
+            )
+
     def hello(self, value):
         print("I am child hello and I received {}".format(value))
 
     def noop(self):
-        # just fitting in with the task structure.
-        #~ self.node.send(key='DATA', val={'data0': 1})
+        """The noop stage"""
+        # Set these triggers again, in case they were just unset by 
+        # handle_trigger
+        self.set_poke_triggers()
+        
+        # Prevent moving to the next stage, because there's only one stage
+        # anyway
         self.stage_block.clear()
+        
+        # Return no data because this call will fly by very quickly
         return {}
 
     def end(self):
