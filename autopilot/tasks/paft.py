@@ -199,8 +199,8 @@ class PAFT(Task):
             port=5000,
             router_port=5001,
             listens={
-                'HELLO': self.hello,
-                'POKE': self.log_poke_from_child,
+                'HELLO': self.recv_hello,
+                'POKE': self.recv_poke,
                 },
             instance=False,
             )
@@ -224,6 +224,23 @@ class PAFT(Task):
 
         # allow_repeat
         self.allow_repeat = bool(allow_repeat)
+    
+    def recv_poke(self, value):
+        # Log it
+        self.log_poke_from_child(value)
+        
+        # Mark as complete if correct
+        child_name = value['name']
+        poke_name = value['poke']
+        
+        if self.target == 'child_L' and child_name == 'child0' and poke_name == 'L':
+            self.logger.debug('correct child_L poke')
+            self.stage_block.set()
+        elif self.target == 'child_R' and child_name == 'child0' and poke_name == 'R':
+            self.logger.debug('correct child_R poke')
+            self.stage_block.set()
+        else:
+            self.logger.debug('incorrect child poke')
     
     def log_poke_from_child(self, value):
         child_name = value['name']
@@ -282,13 +299,15 @@ class PAFT(Task):
         else:
             self.target = random.choice(excluding_previous)
 
+        # Print debug
+        print("The chosen target is {}".format(self.target))
+        
         
         ## Set poke triggers (for logging)
         self.set_poke_triggers()
         
 
         ## Set stim and LEDs by target
-        print("The chosen target is {}".format(self.target))
         if self.target == 'L':
             self.stim = sounds.Noise(
                 duration=100, amplitude=.003, channel=0, nsamples=19456)
@@ -315,12 +334,20 @@ class PAFT(Task):
             self.triggers['R'].append(self.hardware['PORTS']['R'].open)
         
         elif self.target.startswith('child'):
-            # It's a child target, so do nothing
+            # It's a child target
+            # No LED or stim
             self.stim = None
             self.set_leds({
                 'L': [0, 0, 0],
                 'R': [0, 0, 0],
                 })            
+
+            # Tell child what the target is
+            self.node2.send(
+                to='child_pi',
+                key='PLAY',
+                value={'target': self.target},
+                )        
 
         else:
             raise ValueError("unknown target: {}".format(target))
@@ -336,14 +363,6 @@ class PAFT(Task):
             threading.Timer(.75, self.stim.play).start()        
         
         
-        ## Message child
-        self.node2.send(
-            to='child_pi',
-            key='HELLO',
-            value={'foo': 'bar'},
-            )        
-        
-
         ## Return data
         data = {
             'target': self.target,
@@ -352,8 +371,8 @@ class PAFT(Task):
         }
         return data
 
-    def hello(self, value):
-        print("I am parent hello and I received {}".format(value))
+    def recv_hello(self, value):
+        self.logger.debug("received HELLO from child")
         self.child_connected = True
 
     def response(self):
@@ -369,6 +388,15 @@ class PAFT(Task):
         
         # Turn off any LEDs
         self.set_leds()
+        
+        # Tell the child
+        if self.target.startswith('child'):
+            # Tell child what the target is
+            self.node2.send(
+                to='child_pi',
+                key='STOP',
+                value={},
+                )                
 
         # Tell the Terminal the trial has ended
         return {'TRIAL_END':True}
