@@ -53,12 +53,21 @@ class PAFT_Child(object):
         }
 
         # Networking
-        self.node = Net_Node('child_pi',
-            upstream=prefs.get('NAME'),
-            port=prefs.get('MSGPORT'),
-            listens=self.listens,
+        self.node2 = Net_Node(
+            id='child_pi',
+            upstream='parent_pi',
+            port=5001,
+            upstream_ip='192.168.11.201',
+            listens={'HELLO': self.hello},
             instance=False,
             )        
+        
+        # Send
+        self.node2.send(
+            'parent_pi', 'HELLO', 'my name is child_pi')
+
+    def hello(self, value):
+        print("I am child hello and I received {}".format(value))
 
     def noop(self):
         # just fitting in with the task structure.
