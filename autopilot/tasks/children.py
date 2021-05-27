@@ -19,6 +19,8 @@ from autopilot.hardware import cameras
 from autopilot.networking import Net_Node
 from autopilot.core.loggers import init_logger
 from autopilot.transform import transforms
+from autopilot.stim.sound import sounds
+
 from itertools import cycle
 from queue import Empty, LifoQueue
 import threading
@@ -73,20 +75,17 @@ class PAFT_Child(Task):
         self.stages = cycle([self.noop])
         self.stage_block = stage_block
 
-        # Three possible mesages from the parent
-        self.listens = {
-            'WAIT': self.l_wait,
-            'PLAY': self.l_play,
-            'STOP': self.l_stop,
-        }
-
         # Networking
         self.node2 = Net_Node(
             id='child_pi',
             upstream='parent_pi',
             port=5001,
             upstream_ip='192.168.11.201',
-            listens={'HELLO': self.hello},
+            listens={
+                'HELLO': self.recv_hello,
+                'PLAY': self.recv_play,
+                'STOP': self.recv_stop,
+                },
             instance=False,
             )        
         
@@ -127,8 +126,8 @@ class PAFT_Child(Task):
             'parent_pi', 'POKE', {'name': 'child0', 'poke': poke},
             )
 
-    def hello(self, value):
-        print("I am child hello and I received {}".format(value))
+    def recv_hello(self, value):
+        self.logger.debug("received HELLO from parent")
 
     def noop(self):
         """The noop stage"""
@@ -146,20 +145,65 @@ class PAFT_Child(Task):
     def end(self):
         self.stage_block.set()
 
-    def l_wait(self, value):
-        print("I am in l_wait")
-        print(value)
-        print("Done printing value")
+    def recv_play(self, value):
+        self.logger.debug("recv_play with value: {}".format(value))
+        
+        # Set target
+        target = value['target']
+        if target == 'child_L':
+            self.stim = sounds.Noise(
+                duration=100, amplitude=.003, channel=0, nsamples=19456)
+            
+            # Turn on green led
+            self.set_leds({
+                'L': [0, 255, 0],
+                'R': [0, 0, 0],
+                })
+            
+            # Add a trigger to open the port
+            self.triggers['L'].append(self.hardware['PORTS']['L'].open)
+            
+        elif target == 'child_R':
+            self.stim = sounds.Noise(
+                duration=100, amplitude=.003, channel=1, nsamples=19456)
 
-    def l_play(self, value):
-        print("I am in l_play")
-        print(value)
-        print("Done printing value")
+            self.set_leds({
+                'L': [0, 0, 0],
+                'R': [0, 255, 0],
+                })
+            
+            # Add a trigger to open the port
+            self.triggers['R'].append(self.hardware['PORTS']['R'].open)
+        
+        else:
+            self.logger.debug("ignoring target {}".format(target))
 
-    def l_stop(self, value):
-        print("I am in l_stop")
-        print(value)
-        print("Done printing value")    
+
+        ## Set the stim to repeat
+        if self.stim is not None:
+            # Set the trigger to call function when stim is over
+            self.stim.set_trigger(self.delayed_play_again)
+            
+            # Buffer the stim and start playing it after a delay
+            self.stim.buffer()
+            threading.Timer(.75, self.stim.play).start()        
+
+    def delayed_play_again(self):
+        """Called when stim over
+        """
+        # Play it again, after a delay
+        self.stim.buffer()
+        threading.Timer(.75, self.stim.play).start()
+
+    def recv_stop(self, value):
+        self.logger.debug("recv_stop with value: {}".format(value))
+        
+        if self.stim is not None:
+            self.stim.set_trigger(self.done_playing)
+
+    def done_playing(self):
+        # This is called when the last stim of the trial has finished playing
+        pass
 
 class Wheel_Child(object):
     STAGE_NAMES = ['collect']
