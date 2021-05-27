@@ -235,7 +235,22 @@ class PAFT(Task):
             datetime.datetime.now().isoformat(),
             port,
             ))
-
+    
+    def set_poke_triggers(self):
+        """"Set triggers for poke entry
+        
+        For each poke, sets these triggers:
+            self.log_poke (write to own debugger)
+            self.report_poke (report to parent)
+        
+        The C-poke doesn't really exist, but this is useful for debugging.
+        """
+        for poke in ['L', 'C', 'R']:
+            self.triggers[poke] = [
+                functools.partial(self.log_poke, poke),
+                #~ functools.partial(self.report_poke, poke),
+                ]        
+    
     def water(self, *args, **kwargs):
         """
         First stage of task - open a port if it's poked.
@@ -247,45 +262,78 @@ class PAFT(Task):
                 'timestamp': isoformatted timestamp
                 'trial_num': number of current trial
         """
+        ## What does this do? Anything?
         self.stop_playing = False
+        
+        
+        ## Prevents moving to next stage
         self.stage_block.clear()
 
+        
+        ## Choose targets
+        # Identify possible targets
+        all_possible_targets = ['L', 'R', 'child_L', 'child_R']
+        excluding_previous = [
+            t for t in all_possible_targets if t != self.target]
+        
         # Choose random port
         if self.allow_repeat:
-            self.target = random.choice(['L', 'R'])
+            self.target = random.choice(all_possible_targets)
         else:
-            other_ports = [t for t in ['L', 'R'] if t is not self.target]
-            self.target = random.choice(other_ports)
+            self.target = random.choice(excluding_previous)
 
-        # Set triggers for target poke entry
-        self.triggers[self.target] = [
-            functools.partial(self.log_poke, self.target),
-            self.hardware['PORTS'][self.target].open,
-            ]
         
-        # Set target LED to green
-        self.set_leds({self.target: [0, 255, 0]})
+        ## Set poke triggers (for logging)
+        self.set_poke_triggers()
+        
 
-
-        ## Choose target and generate stim
+        ## Set stim and LEDs by target
         print("The chosen target is {}".format(self.target))
         if self.target == 'L':
             self.stim = sounds.Noise(
                 duration=100, amplitude=.003, channel=0, nsamples=19456)
             
+            # Turn on green led
+            self.set_leds({
+                'L': [0, 255, 0],
+                'R': [0, 0, 0],
+                })
+            
+            # Add a trigger to open the port
+            self.triggers['L'].append(self.hardware['PORTS']['L'].open)
+            
         elif self.target == 'R':
             self.stim = sounds.Noise(
                 duration=100, amplitude=.003, channel=1, nsamples=19456)
+
+            self.set_leds({
+                'L': [0, 0, 0],
+                'R': [0, 255, 0],
+                })
             
+            # Add a trigger to open the port
+            self.triggers['R'].append(self.hardware['PORTS']['R'].open)
+        
+        elif self.target.startswith('child'):
+            # It's a child target, so do nothing
+            self.stim = None
+            self.set_leds({
+                'L': [0, 0, 0],
+                'R': [0, 0, 0],
+                })            
+
         else:
             raise ValueError("unknown target: {}".format(target))
         
-        # Set the trigger to call function when stim is over
-        self.stim.set_trigger(self.delayed_play_again)
         
-        # Buffer the stim and start playing it after a delay
-        self.stim.buffer()
-        threading.Timer(.75, self.stim.play).start()        
+        ## Set the stim to repeat
+        if self.stim is not None:
+            # Set the trigger to call function when stim is over
+            self.stim.set_trigger(self.delayed_play_again)
+            
+            # Buffer the stim and start playing it after a delay
+            self.stim.buffer()
+            threading.Timer(.75, self.stim.play).start()        
         
         
         ## Message child
@@ -316,13 +364,13 @@ class PAFT(Task):
         time.sleep(.5)
         
         # Turn off the "stim_end" trigger so it doesn't keep playing
-        self.stim.set_trigger(self.done_playing)
+        if self.stim is not None:
+            self.stim.set_trigger(self.done_playing)
         
-        # we just have to tell the Terminal that this trial has ended
-
-        # mebs also turn the light off rl quick
+        # Turn off any LEDs
         self.set_leds()
 
+        # Tell the Terminal the trial has ended
         return {'TRIAL_END':True}
 
     def end(self):
