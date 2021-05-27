@@ -132,7 +132,6 @@ class JackClient(mp.Process):
         # store the frames of the continuous sound and cycle through them if set in continous mode
         self.continuous_cycle = None
 
-
         # store a reference to us and our values in the module
         globals()['SERVER'] = self
         globals()['FS'] = copy(self.fs)
@@ -147,49 +146,67 @@ class JackClient(mp.Process):
 
         self.logger = None
 
-
-
     def boot_server(self):
         """
         Called by :meth:`.JackClient.run` to boot the server upon starting the process.
 
-        Activates the client and connects it to the number of outports
-        determined by `prefs.get('NCHANNELS')`
+        Activates the client and connects it to the physical speaker outputs
+        as determined by `prefs.get('OUTCHANNELS')`.
 
         :class:`jack.Client` s can't be kept alive, so this must be called just before
         processing sample starts.
         """
-
+        # Initalize a new Client and store some its properties
+        # I believe this is how downstream code knows the sample rate
         self.client = jack.Client(self.name)
         self.blocksize = self.client.blocksize
         self.fs = self.client.samplerate
+        
+        # This is used for writing silence
         self.zero_arr = np.zeros((self.blocksize,1),dtype='float32')
 
         self.client.set_process_callback(self.process)
 
+        # Register an "outport" for both channel 0 and channel 1
+        # This is something we can write data into
         self.client.outports.register('out_0')
+        self.client.outports.register('out_1')
 
         self.client.activate()
+        
+        # Get the actual physical ports that can play sound
         target_ports = self.client.get_ports(is_physical=True, is_input=True, is_audio=True)
 
-        if prefs.get( 'OUTCHANNELS'):
-            if isinstance(prefs.get('OUTCHANNELS'), list):
-                for outchan in prefs.get('OUTCHANNELS'):
-
-                    self.client.outports[0].connect(target_ports[int(outchan)])
-            elif isinstance(prefs.get('OUTCHANNELS'), int):
-                self.client.outports[0].connect(target_ports[prefs.get('OUTCHANNELS')])
-            elif isinstance(prefs.get('OUTCHANNELS'), str):
-                try:
-                    self.client.outports[0].connect(target_ports[int(prefs.get('OUTCHANNELS'))])
-                except TypeError:
-                    Exception('Could not coerce prefs.get(\'OUTCHANNELS\') to an integer or list of ints. Connecting to port 0. got {}'.format(prefs.get('OUTCHANNELS')))
-                    self.client.outports[0].connect(target_ports[0])
+        
+        ## Hook up the outports (data sinks) to physical ports
+        # If OUTCHANNELS has length 1: 
+        #   This is the "mono" case where we only want to play to one speaker.
+        #   Hook up one outport to that physical port
+        #   Set self.stereo_output to False
+        #   If stereo sounds are provided, then this is probably an error
+        # If OUTCHANNELS has length 2:
+        #   This is the "stereo" case where we want to play to two speakers.
+        #   Connect two outports to those speakers, using OUTCHANNELS to index
+        #   the target ports.
+        #   If mono sounds are provided, play the same sound from both
+        
+        # Get the pref
+        outchannels = prefs.get('OUTCHANNELS')
+        if len(outchannels) == 1:
+            # Mono case
+            self.stereo_output = False
+            self.client.outports[0].connect(target_ports[int(outchannels[0])])
+        
+        elif len(outchannels) == 2:
+            # Stereo case
+            self.stereo_output = True
+            self.client.outports[0].connect(target_ports[int(outchannels[0])])
+            self.client.outports[1].connect(target_ports[int(outchannels[1])])
+        
         else:
-            self.client.outports[0].connect(target_ports[0])
-            if prefs.get('NCHANNELS') == 2:
-                # TODO: Limited, obvs. want to handle arbitrary output arrangements.
-                self.client.outports[0].connect(target_ports[1])
+            raise ValueError(
+                "OUTCHANNELS must be a list of length 1 or 2, not {}".format(
+                outchannels))
 
     def run(self):
         """
@@ -205,11 +222,6 @@ class JackClient(mp.Process):
         except KeyboardInterrupt:
             # just want to kill the process, so just continue from here
             pass
-
-
-    # def close(self):
-    #     # TODO: shut down server but also reset module level variables
-    #     pass
 
     def quit(self):
         """
@@ -233,35 +245,56 @@ class JackClient(mp.Process):
         Args:
             frames: number of frames (samples) to be processed. unused. passed by jack client
         """
-
+        ## Switch on whether the play event is set
         if not self.play_evt.is_set():
-            # if we are in continuous mode...
+            # A play event has not been set
+            # Play only if we are in continuous mode, otherwise write zeros
+            
+            ## Switch on whether we are in continuous mode
             if self.continuous.is_set():
+                # We are in continuous mode, keep playing
                 if self.continuous_cycle is None:
-                    try:
-                        to_cycle = self.continuous_q.get_nowait()
-                        self.continuous_cycle = cycle(to_cycle)
-                        self.logger.debug(f'started playing continuous sound with length {len(to_cycle)} frames')
-                    except Empty:
-                        self.logger.exception('told to play continuous sound but nothing in queue, will try again next loop around')
-                        self.client.outports[0].get_array()[:] = self.zero_arr.T
-                        return
+                    # Set up self.continuous_cycle if not already set
+                    to_cycle = []
+                    while not self.continuous_q.empty():
+                        try:
+                            to_cycle.append(self.continuous_q.get_nowait())
+                        except Empty:
+                            # normal, queue empty
+                            pass
+                    self.continuous_cycle = cycle(to_cycle)
 
-                self.client.outports[0].get_array()[:] = next(self.continuous_cycle).T
+                # Get the data to play
+                data = next(self.continuous_cycle).T
+                
+                # Write
+                self.write_to_outports(data)
 
             else:
+                # We are not in continuous mode, play silence
                 # clear continuous sound after it's done
                 if self.continuous_cycle is not None:
                     self.continuous_cycle = None
-                for channel, port in zip(self.zero_arr.T, self.client.outports):
-                    port.get_array()[:] = channel
-        else:
 
+                # Play zeros
+                data = np.zeros(self.blocksize, dtype='float32')
+                
+                # Write
+                self.write_to_outports(data)
+
+        else:
+            # A play event has been set
+            # Play a sound
+
+            # Try to get data
             try:
                 data = self.q.get_nowait()
             except queue.Empty:
                 data = None
                 self.logger.warning('Queue Empty')
+            
+            
+            ## Switch on whether data is available
             if data is None:
                 # fill with continuous noise
                 if self.continuous.is_set():
@@ -271,15 +304,20 @@ class JackClient(mp.Process):
                         self.logger.exception(f'Continuous mode was set but got exception with continuous queue:\n{e}')
                         data = self.zero_arr
 
-                    self.client.outports[0].get_array()[:] = data.T
-
                 else:
-                    for channel, port in zip(self.zero_arr.T, self.client.outports):
-                        port.get_array()[:] = channel
+                    # Play zeros
+                    data = np.zeros(self.blocksize, dtype='float32')
+                
+                # Write data
+                self.write_to_outports(data)
+                
                 # sound is over
                 self.play_evt.clear()
                 self.stop_evt.set()
+                
             else:
+                ## There is data available
+                # Pad the data if necessary
                 if data.shape[0] < self.blocksize:
                     # if sound was not padded, fill remaining with continuous sound or silence
                     n_from_end = self.blocksize - data.shape[0]
@@ -295,9 +333,47 @@ class JackClient(mp.Process):
                             data = np.pad(data, (0, n_from_end), 'constant')
                     else:
                         data = np.pad(data, (0, n_from_end), 'constant')
-
-                self.client.outports[0].get_array()[:] = data.T
-
-
-
+                
+                # Write
+                self.write_to_outports(data)
+    
+    def write_to_outports(self, data):
+        """Write the sound in `data` to the outport(s).
+        
+        If self.stereo_output, then stereo data is written.
+        Otherwise, mono data is written.
+        """
+        ## Write the output to each outport
+        if self.stereo_output:
+            # Buffers to write into each channel
+            buff0 = self.client.outports[0].get_array()
+            buff1 = self.client.outports[1].get_array()
+            
+            if data.ndim == 1:
+                # Mono output, write same to both
+                buff0[:] = data
+                buff1[:] = data
+            
+            elif data.ndim == 2:
+                # Stereo output, write each column to each channel
+                buff0[:] = data[:, 0]
+                buff1[:] = data[:, 1]
+            
+            else:
+                raise ValueError(
+                    "data must be 1 or 2d, not {}".format(data.shape))
+        
+        else:
+            # Buffers to write into each channel
+            buff0 = self.client.outports[0].get_array()
+            
+            if data.ndim == 1:
+                # Mono output, write same to both
+                buff0[:] = data
+            
+            else:
+                # Stereo data provided, this is an error
+                raise ValueError(
+                    "outchannels has length 1, but data "
+                    "has shape {}".format(data.shape))
 
