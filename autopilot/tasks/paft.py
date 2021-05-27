@@ -198,7 +198,10 @@ class PAFT(Task):
             upstream='',
             port=5000,
             router_port=5001,
-            listens={'HELLO': self.hello},
+            listens={
+                'HELLO': self.hello,
+                'POKE': self.log_poke_from_child,
+                },
             instance=False,
             )
 
@@ -221,6 +224,11 @@ class PAFT(Task):
 
         # allow_repeat
         self.allow_repeat = bool(allow_repeat)
+    
+    def log_poke_from_child(self, value):
+        child_name = value['name']
+        poke_name = value['poke']
+        self.log_poke('{}_{}'.format(child_name, poke_name))
     
     def log_poke(self, port):
         self.logger.debug('{} {} poke'.format(
