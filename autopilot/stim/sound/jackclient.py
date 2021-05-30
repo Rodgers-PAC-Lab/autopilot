@@ -144,7 +144,7 @@ class JackClient(mp.Process):
         globals()['CONTINUOUS_QUEUE'] = self.continuous_q
         globals()['CONTINUOUS_LOOP'] = self.continuous_loop
 
-        self.logger = None
+        self.logger = init_logger(self)
         
         # Something calls process() before boot_server(), so this has to
         # be initialized
@@ -216,7 +216,7 @@ class JackClient(mp.Process):
         """
         Start the process, boot the server, start processing frames and wait for the end.
         """
-        self.logger = init_logger(self)
+
         self.boot_server()
 
         # we are just holding the process open, so wait to quit
@@ -310,7 +310,7 @@ class JackClient(mp.Process):
 
                 else:
                     # Play zeros
-                    data = np.zeros(self.blocksize, dtype='float32')
+                    data = self.zero_arr[:, 0]
                 
                 # Write data
                 self.write_to_outports(data)
