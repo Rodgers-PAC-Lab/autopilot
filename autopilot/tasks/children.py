@@ -97,6 +97,10 @@ class PAFT_Child(Task):
         ## Initialize poke triggers
         self.set_poke_triggers()
 
+        # Turn off LEDs
+        self.hardware['LEDS']['L'].set(r=0, g=0, b=0)
+        self.hardware['LEDS']['R'].set(r=0, g=0, b=0)
+
     def set_poke_triggers(self):
         """"Set triggers for poke entry
         
@@ -155,10 +159,8 @@ class PAFT_Child(Task):
                 duration=100, amplitude=.003, channel=0, nsamples=19456)
             
             # Turn on green led
-            self.set_leds({
-                'L': [0, 255, 0],
-                'R': [0, 0, 0],
-                })
+            self.hardware['LEDS']['L'].set(r=0, g=255, b=0)
+            self.hardware['LEDS']['R'].set(r=0, g=0, b=0)
             
             # Add a trigger to open the port
             self.triggers['L'].append(self.hardware['PORTS']['L'].open)
@@ -167,10 +169,8 @@ class PAFT_Child(Task):
             self.stim = sounds.Noise(
                 duration=100, amplitude=.003, channel=1, nsamples=19456)
 
-            self.set_leds({
-                'L': [0, 0, 0],
-                'R': [0, 255, 0],
-                })
+            self.hardware['LEDS']['L'].set(r=0, g=0, b=0)
+            self.hardware['LEDS']['R'].set(r=0, g=255, b=0)
             
             # Add a trigger to open the port
             self.triggers['R'].append(self.hardware['PORTS']['R'].open)
@@ -200,6 +200,10 @@ class PAFT_Child(Task):
         
         if self.stim is not None:
             self.stim.set_trigger(self.done_playing)
+    
+        # Turn off LEDs
+        self.hardware['LEDS']['L'].set(r=0, g=0, b=0)
+        self.hardware['LEDS']['R'].set(r=0, g=0, b=0)
 
     def done_playing(self):
         # This is called when the last stim of the trial has finished playing
