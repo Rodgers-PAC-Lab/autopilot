@@ -76,18 +76,15 @@ class PAFT(Task):
     HARDWARE = {
         'POKES':{
             'L': autopilot.hardware.gpio.Digital_In,
-            #~ 'C': autopilot.hardware.gpio.Digital_In,
             'R': autopilot.hardware.gpio.Digital_In
         },
         'LEDS':{
             # TODO: use LEDs, RGB vs. white LED option in init
             'L': autopilot.hardware.gpio.LED_RGB,
-            #~ 'C': autopilot.hardware.gpio.LED_RGB,
             'R': autopilot.hardware.gpio.LED_RGB
         },
         'PORTS':{
             'L': autopilot.hardware.gpio.Solenoid,
-            #~ 'C': autopilot.hardware.gpio.Solenoid,
             'R': autopilot.hardware.gpio.Solenoid
         }
     }
@@ -168,6 +165,9 @@ class PAFT(Task):
             print("setting reward to {}".format(self.reward['value']))
             self.set_reward(duration=self.reward['value'])
 
+        # Turn off LEDs
+        self.hardware['LEDS']['L'].set(r=0, g=0, b=0)
+        self.hardware['LEDS']['R'].set(r=0, g=0, b=0)
         
         
         ## Initialize net node for communications with child
@@ -313,10 +313,8 @@ class PAFT(Task):
                 duration=100, amplitude=.003, channel=0, nsamples=19456)
             
             # Turn on green led
-            self.set_leds({
-                'L': [0, 255, 0],
-                'R': [0, 0, 0],
-                })
+            self.hardware['LEDS']['L'].set(r=0, g=255, b=0)
+            self.hardware['LEDS']['R'].set(r=0, g=0, b=0)
             
             # Add a trigger to open the port
             self.triggers['L'].append(self.hardware['PORTS']['L'].open)
@@ -325,10 +323,8 @@ class PAFT(Task):
             self.stim = sounds.Noise(
                 duration=100, amplitude=.003, channel=1, nsamples=19456)
 
-            self.set_leds({
-                'L': [0, 0, 0],
-                'R': [0, 255, 0],
-                })
+            self.hardware['LEDS']['L'].set(r=0, g=0, b=0)
+            self.hardware['LEDS']['R'].set(r=0, g=255, b=0)
             
             # Add a trigger to open the port
             self.triggers['R'].append(self.hardware['PORTS']['R'].open)
@@ -337,10 +333,8 @@ class PAFT(Task):
             # It's a child target
             # No LED or stim
             self.stim = None
-            self.set_leds({
-                'L': [0, 0, 0],
-                'R': [0, 0, 0],
-                })            
+            self.hardware['LEDS']['L'].set(r=0, g=0, b=0)
+            self.hardware['LEDS']['R'].set(r=0, g=0, b=0)
 
             # Tell child what the target is
             self.node2.send(
@@ -387,8 +381,9 @@ class PAFT(Task):
             self.stim.set_trigger(self.done_playing)
         
         # Turn off any LEDs
-        self.set_leds()
-        
+        self.hardware['LEDS']['L'].set(r=0, g=0, b=0)
+        self.hardware['LEDS']['R'].set(r=0, g=0, b=0)
+
         # Tell the child
         if self.target.startswith('child'):
             # Tell child what the target is
