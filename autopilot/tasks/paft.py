@@ -94,7 +94,13 @@ class PAFT(Task):
     CHILDREN = {
         'rpi02': {
             'task_type': "PAFT Child",
-        }
+        },
+        'rpi03': {
+            'task_type': "PAFT Child",
+        },
+        'rpi04': {
+            'task_type': "PAFT Child",
+        },
     }
 
     
@@ -178,18 +184,20 @@ class PAFT(Task):
                              listens={},
                              instance=False)
 
-        # Construct a message to send to child
-        # Why do we need to save self.subject here?
-        self.subject = kwargs['subject']
-        value = {
-            'child': {
-                'parent': prefs.get('NAME'), 'subject': kwargs['subject']},
-            'task_type': self.CHILDREN['rpi02']['task_type'],
-            'subject': kwargs['subject'],
-        }
+        # Send a message to each child about what task to load
+        for child in ['rpi02', 'rpi03', 'rpi04']:
+            # Construct a message to send to child
+            # Why do we need to save self.subject here?
+            self.subject = kwargs['subject']
+            value = {
+                'child': {
+                    'parent': prefs.get('NAME'), 'subject': kwargs['subject']},
+                'task_type': self.CHILDREN[child]['task_type'],
+                'subject': kwargs['subject'],
+            }
 
-        # send to the station object with a 'CHILD' key
-        self.node.send(to=prefs.get('NAME'), key='CHILD', value=value)
+            # send to the station object with a 'CHILD' key
+            self.node.send(to=prefs.get('NAME'), key='CHILD', value=value)
 
         
         ## Create a second node to communicate with the child
