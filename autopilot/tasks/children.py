@@ -77,7 +77,7 @@ class PAFT_Child(Task):
 
         # Networking
         self.node2 = Net_Node(
-            id='child_pi',
+            id=self.name,
             upstream='parent_pi',
             port=5001,
             upstream_ip='192.168.11.201',
@@ -91,7 +91,7 @@ class PAFT_Child(Task):
         
         # Send
         self.node2.send(
-            'parent_pi', 'HELLO', 'my name is child_pi')
+            'parent_pi', 'HELLO', 'my name is {}'.format(self.name))
 
         
         ## Initialize poke triggers
@@ -127,7 +127,7 @@ class PAFT_Child(Task):
     def report_poke(self, poke):
         """Tell the parent that the poke happened"""
         self.node2.send(
-            'parent_pi', 'POKE', {'name': 'child0', 'poke': poke},
+            'parent_pi', 'POKE', {'name': self.name, 'poke': poke},
             )
 
     def recv_hello(self, value):
