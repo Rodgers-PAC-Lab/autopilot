@@ -91,7 +91,7 @@ class PAFT_Child(Task):
         
         # Send
         self.node2.send(
-            'parent_pi', 'HELLO', 'my name is {}'.format(self.name))
+            'parent_pi', 'HELLO', {'from': self.name})
 
         
         ## Initialize poke triggers
@@ -127,7 +127,7 @@ class PAFT_Child(Task):
     def report_poke(self, poke):
         """Tell the parent that the poke happened"""
         self.node2.send(
-            'parent_pi', 'POKE', {'name': self.name, 'poke': poke},
+            'parent_pi', 'POKE', {'from': self.name, 'poke': poke},
             )
 
     def recv_hello(self, value):
@@ -154,7 +154,7 @@ class PAFT_Child(Task):
         
         # Set target
         target = value['target']
-        if target == 'child_L':
+        if target == 'L':
             self.stim = sounds.Noise(
                 duration=100, amplitude=.003, channel=0, nsamples=19456)
             
@@ -165,7 +165,7 @@ class PAFT_Child(Task):
             # Add a trigger to open the port
             self.triggers['L'].append(self.hardware['PORTS']['L'].open)
             
-        elif target == 'child_R':
+        elif target == 'R':
             self.stim = sounds.Noise(
                 duration=100, amplitude=.003, channel=1, nsamples=19456)
 
