@@ -130,9 +130,9 @@ class PAFT(Task):
         'rpi03': {
             'task_type': "PAFT Child",
         },
-        #~ 'rpi04': {
-            #~ 'task_type': "PAFT Child",
-        #~ },
+        'rpi04': {
+            'task_type': "PAFT Child",
+        },
     }
 
     
@@ -339,7 +339,12 @@ class PAFT(Task):
         
         ## Choose targets
         # Identify possible targets
-        all_possible_targets = ['L', 'R', 'rpi02_L', 'rpi02_R', 'rpi03_L', 'rpi03_R',]
+        all_possible_targets = [
+            'L', 'R', 
+            'rpi02_L', 'rpi02_R', 
+            'rpi03_L', 'rpi03_R',
+            'rpi04_L', 'rpi04_R',
+            ]
         excluding_previous = [
             t for t in all_possible_targets if t != self.target]
         
