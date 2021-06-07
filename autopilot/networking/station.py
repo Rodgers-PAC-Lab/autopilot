@@ -1219,7 +1219,8 @@ class Pilot_Station(Station):
             KEY = msg.value['KEY']
         else:
             KEY = 'START'
-        self.send(to=prefs.get('CHILDID'), key=KEY, value=msg.value)
+        for childid in prefs.get('CHILDID'):
+            self.send(to=childid, key=KEY, value=msg.value)
 
     def l_forward(self, msg:Message):
         """
