@@ -1,4 +1,36 @@
-"""This module defines the PAFT task"""
+"""This module defines the PAFT task
+
+
+Multiple Child rpis running the "PAFT Child" Task connect to this Parent.
+The Parent chooses the correct stimulus and logs all events. It tells each
+Child if it should start playing sounds and when it should stop. The Child
+knows that a poke into the port that is currently playing sound should
+be rewarded.
+
+The Parent establishes a router Net_Node on port 5001. A dealer Net_Node
+on each Child connects to it.
+
+The Parent responds to the following message keys on port 5001:
+* HELLO : This means the Child has booted the task.
+    The value is dispatched to PAFT.recv_hello, with the following keys:
+    'from' : string; the name of the child (e.g., rpi02)
+    
+* POKE : This means the Child has detected a poke.
+    The value is dispatched to PAFT.recv_poke, with the following keys:
+    'from' : string; the name of the child (e.g., rpi02)
+    'poke' : one of {'L', 'R'}; the side that was poked
+
+The Parent will not start the first trial until each Child in PAFT.CHILDREN
+has sent the "HELLO" message. 
+
+The Parent can send the following message keys:
+* HELLO : not used
+* PLAY : This tells the Child to start playing and be ready to reward
+    The value has the following keys:
+    'target' : one of {'L', 'R'}; the side that should play
+* STOP : This tells the Child to stop playing sounds and not reward.
+    The value is an empty dict.    
+"""
 
 from collections import OrderedDict as odict
 import tables
@@ -98,9 +130,9 @@ class PAFT(Task):
         'rpi03': {
             'task_type': "PAFT Child",
         },
-        'rpi04': {
-            'task_type': "PAFT Child",
-        },
+        #~ 'rpi04': {
+            #~ 'task_type': "PAFT Child",
+        #~ },
     }
 
     
@@ -148,7 +180,9 @@ class PAFT(Task):
                                    'value': float(reward)}
 
         # Variable parameters
-        self.child_connected = False
+        self.child_connected = {}
+        for child in self.CHILDREN.keys():
+            self.child_connected[child] = False
         self.target = random.choice(['L', 'R'])
         self.trial_counter = itertools.count(int(current_trial))
         self.triggers = {}
@@ -184,23 +218,24 @@ class PAFT(Task):
                              listens={},
                              instance=False)
 
-        # Send a message to each child about what task to load
-        for child in ['rpi02', 'rpi03', 'rpi04']:
-            # Construct a message to send to child
-            # Why do we need to save self.subject here?
-            self.subject = kwargs['subject']
-            value = {
-                'child': {
-                    'parent': prefs.get('NAME'), 'subject': kwargs['subject']},
-                'task_type': self.CHILDREN[child]['task_type'],
-                'subject': kwargs['subject'],
-            }
+        # Construct a message to send to child
+        # Specify the subjects for the child (twice)
+        self.subject = kwargs['subject']
+        value = {
+            'child': {
+                'parent': prefs.get('NAME'), 'subject': kwargs['subject']},
+            'task_type': 'PAFT Child',
+            'subject': kwargs['subject'],
+        }
 
-            # send to the station object with a 'CHILD' key
-            self.node.send(to=prefs.get('NAME'), key='CHILD', value=value)
+        # send to the station object with a 'CHILD' key
+        self.node.send(to=prefs.get('NAME'), key='CHILD', value=value)
 
         
         ## Create a second node to communicate with the child
+        # We (parent) are the "router"/server
+        # The children are the "dealer"/clients
+        # Many dealers, one router        
         self.node2 = Net_Node(
             id='parent_pi',
             upstream='',
@@ -214,9 +249,18 @@ class PAFT(Task):
             )
 
         # Wait until the child connects!
-        print("Waiting for child to connect")
-        while not self.child_connected:
-            pass
+        self.logger.debug("Waiting for child to connect")
+        while True:
+            stop_looping = True
+            
+            for child, is_conn in self.child_connected.items():
+                if not is_conn:
+                    stop_looping = False
+            
+            if stop_looping:
+                break
+        self.logger.debug(
+            "All children have connected: {}".format(self.child_connected))
 
         # If we aren't passed an event handler
         # (used to signal that a trigger has been tripped),
@@ -238,20 +282,18 @@ class PAFT(Task):
         self.log_poke_from_child(value)
         
         # Mark as complete if correct
-        child_name = value['name']
+        target_child_name, target_side = self.target.split('_')
+        child_name = value['from']
         poke_name = value['poke']
         
-        if self.target == 'child_L' and child_name == 'child0' and poke_name == 'L':
-            self.logger.debug('correct child_L poke')
-            self.stage_block.set()
-        elif self.target == 'child_R' and child_name == 'child0' and poke_name == 'R':
-            self.logger.debug('correct child_R poke')
+        if target_child_name == child_name and target_side == poke_name:
+            self.logger.debug('correct poke {}; target was {}'.format(value, self.target))
             self.stage_block.set()
         else:
-            self.logger.debug('incorrect child poke')
-    
+            self.logger.debug('incorrect poke {}; target was {}'.format(value, self.target))
+        
     def log_poke_from_child(self, value):
-        child_name = value['name']
+        child_name = value['from']
         poke_name = value['poke']
         self.log_poke('{}_{}'.format(child_name, poke_name))
     
@@ -297,7 +339,7 @@ class PAFT(Task):
         
         ## Choose targets
         # Identify possible targets
-        all_possible_targets = ['L', 'R', 'child_L', 'child_R']
+        all_possible_targets = ['L', 'R', 'rpi02_L', 'rpi02_R', 'rpi03_L', 'rpi03_R',]
         excluding_previous = [
             t for t in all_possible_targets if t != self.target]
         
@@ -337,8 +379,10 @@ class PAFT(Task):
             # Add a trigger to open the port
             self.triggers['R'].append(self.hardware['PORTS']['R'].open)
         
-        elif self.target.startswith('child'):
+        elif self.target.startswith('rpi'):
             # It's a child target
+            child_name, side = self.target.split('_')
+
             # No LED or stim
             self.stim = None
             self.hardware['LEDS']['L'].set(r=0, g=0, b=0)
@@ -346,9 +390,9 @@ class PAFT(Task):
 
             # Tell child what the target is
             self.node2.send(
-                to='child_pi',
+                to=child_name,
                 key='PLAY',
-                value={'target': self.target},
+                value={'target': side},
                 )        
 
         else:
@@ -374,8 +418,8 @@ class PAFT(Task):
         return data
 
     def recv_hello(self, value):
-        self.logger.debug("received HELLO from child")
-        self.child_connected = True
+        self.logger.debug("received HELLO from child with value {}".format(value))
+        self.child_connected[value['from']] = True
 
     def response(self):
         """
@@ -393,10 +437,12 @@ class PAFT(Task):
         self.hardware['LEDS']['R'].set(r=0, g=0, b=0)
 
         # Tell the child
-        if self.target.startswith('child'):
+        if self.target.startswith('rpi'):
+            child_name, side = self.target.split('_')
+            
             # Tell child what the target is
             self.node2.send(
-                to='child_pi',
+                to=child_name,
                 key='STOP',
                 value={},
                 )                
