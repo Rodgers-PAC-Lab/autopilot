@@ -119,7 +119,6 @@ class PAFT_Child(Task):
 
     def log_poke(self, poke):
         """Write in the logger that the poke happened"""
-        print("poke detected: {}".format(poke))
         self.logger.debug('{} {} poke'.format(
             datetime.datetime.now().isoformat(),
             poke,
