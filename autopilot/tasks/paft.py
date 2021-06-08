@@ -173,7 +173,7 @@ class PAFT(Task):
             self.stage_block = stage_block
 
         # Fixed parameters
-        print("Reward is: {}".format(reward))
+        self.logger.debug("Reward is: {}".format(reward))
         if isinstance(reward, dict):
             self.reward = reward
         else:
@@ -204,7 +204,7 @@ class PAFT(Task):
         if self.reward['type'] == "volume":
             self.set_reward(vol=self.reward['value'])
         else:
-            print("setting reward to {}".format(self.reward['value']))
+            self.logger.debug("setting reward to {}".format(self.reward['value']))
             self.set_reward(duration=self.reward['value'])
 
         # Turn off LEDs
@@ -362,7 +362,7 @@ class PAFT(Task):
             raise ValueError("unknown trial choosing meth: {}".format(meth))
 
         # Print debug
-        print("The chosen target is {}".format(self.target))
+        self.logger.debug("The chosen target is {}".format(self.target))
         
         
         ## Set poke triggers (for logging)
@@ -438,8 +438,6 @@ class PAFT(Task):
         Just have to alert the Terminal that the current trial has ended
         and turn off any lights.
         """
-        time.sleep(.5)
-        
         # Turn off the "stim_end" trigger so it doesn't keep playing
         if self.stim is not None:
             self.stim.set_trigger(self.done_playing)
