@@ -85,6 +85,7 @@ class PAFT_Child(Task):
                 'HELLO': self.recv_hello,
                 'PLAY': self.recv_play,
                 'STOP': self.recv_stop,
+                'END': self.recv_end,
                 },
             instance=False,
             )        
@@ -196,14 +197,33 @@ class PAFT_Child(Task):
         threading.Timer(.75, self.stim.play).start()
 
     def recv_stop(self, value):
+        # debug
         self.logger.debug("recv_stop with value: {}".format(value))
         
+        # Stop playing sound
         if self.stim is not None:
             self.stim.set_trigger(self.done_playing)
     
         # Turn off LEDs
         self.hardware['LEDS']['L'].set(r=0, g=0, b=0)
         self.hardware['LEDS']['R'].set(r=0, g=0, b=0)
+
+    def recv_end(self, value):
+        # debug
+        self.logger.debug("recv_end with value: {}".format(value))
+        
+        # Stop playing sound
+        if self.stim is not None:
+            self.stim.set_trigger(self.done_playing)
+    
+        # Turn off LEDs
+        self.hardware['LEDS']['L'].set(r=0, g=0, b=0)
+        self.hardware['LEDS']['R'].set(r=0, g=0, b=0)
+        
+        # Release all hardware
+        for k, v in self.hardware.items():
+            for pin, obj in v.items():
+                obj.release()
 
     def done_playing(self):
         # This is called when the last stim of the trial has finished playing
