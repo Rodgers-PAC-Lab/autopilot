@@ -14,7 +14,6 @@ The Parent responds to the following message keys on port 5001:
 * HELLO : This means the Child has booted the task.
     The value is dispatched to PAFT.recv_hello, with the following keys:
     'from' : string; the name of the child (e.g., rpi02)
-    
 * POKE : This means the Child has detected a poke.
     The value is dispatched to PAFT.recv_poke, with the following keys:
     'from' : string; the name of the child (e.g., rpi02)
@@ -30,6 +29,8 @@ The Parent can send the following message keys:
     'target' : one of {'L', 'R'}; the side that should play
 * STOP : This tells the Child to stop playing sounds and not reward.
     The value is an empty dict.    
+* END : This tells the Child the session is over.
+    The value is an empty dict.    
 """
 
 from collections import OrderedDict as odict
@@ -37,6 +38,7 @@ import tables
 import itertools
 import random
 import datetime
+import numpy as np
 import autopilot.hardware.gpio
 from autopilot.stim.sound import sounds
 from autopilot.tasks.task import Task
@@ -111,7 +113,6 @@ class PAFT(Task):
             'R': autopilot.hardware.gpio.Digital_In
         },
         'LEDS':{
-            # TODO: use LEDs, RGB vs. white LED option in init
             'L': autopilot.hardware.gpio.LED_RGB,
             'R': autopilot.hardware.gpio.LED_RGB
         },
@@ -185,6 +186,7 @@ class PAFT(Task):
             self.child_connected[child] = False
         self.target = random.choice(['L', 'R'])
         self.trial_counter = itertools.count(int(current_trial))
+        self.n_trials = 0 # always start at zero
         self.triggers = {}
 
         # Stage list to iterate
@@ -348,11 +350,16 @@ class PAFT(Task):
         excluding_previous = [
             t for t in all_possible_targets if t != self.target]
         
-        # Choose random port
-        if self.allow_repeat:
-            self.target = random.choice(all_possible_targets)
-        else:
+        # Choose
+        meth = 'RANDOM'
+        if meth == 'CYCLE':
+            self.target = all_possible_targets[
+                np.mod(self.n_trials, len(all_possible_targets))]
+            self.n_trials += 1
+        elif meth == 'RANDOM':
             self.target = random.choice(excluding_previous)
+        else:
+            raise ValueError("unknown trial choosing meth: {}".format(meth))
 
         # Print debug
         print("The chosen target is {}".format(self.target))
@@ -459,6 +466,24 @@ class PAFT(Task):
         """
         When shutting down, release all hardware objects and turn LEDs off.
         """
+        # Tell each child to END
+        for child_name in self.CHILDREN.keys():
+            # Tell child what the target is
+            self.node2.send(
+                to=child_name,
+                key='END',
+                value={},
+                )    
+        
+        # Stop playing sound
+        if self.stim is not None:
+            self.stim.set_trigger(self.done_playing)
+    
+        # Turn off LEDs
+        self.hardware['LEDS']['L'].set(r=0, g=0, b=0)
+        self.hardware['LEDS']['R'].set(r=0, g=0, b=0)
+
+        # Release all hardware
         for k, v in self.hardware.items():
             for pin, obj in v.items():
                 obj.release()
