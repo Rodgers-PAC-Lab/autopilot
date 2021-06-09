@@ -8,76 +8,95 @@ Sub-tasks that serve as children to other tasks.
 
 """
 
+
+import threading
+import itertools
+from itertools import cycle
+import random
+import datetime
+from time import sleep
+import functools
 from collections import OrderedDict as odict
 from collections import deque
-
-import autopilot.transform
+from queue import Empty, LifoQueue
+import tables
+import numpy as np
+import autopilot.hardware.gpio
+from autopilot.stim.sound import sounds
+from autopilot.tasks.task import Task
+from autopilot.networking import Net_Node
 from autopilot import prefs
+from autopilot.hardware import BCM_TO_BOARD
+from autopilot.core.loggers import init_logger
+import autopilot.transform
 from autopilot.hardware.gpio import Digital_Out
 from autopilot.hardware.usb import Wheel
 from autopilot.hardware import cameras
-from autopilot.networking import Net_Node
-from autopilot.core.loggers import init_logger
 from autopilot.transform import transforms
-from autopilot.stim.sound import sounds
-
-from itertools import cycle
-from queue import Empty, LifoQueue
-import threading
-import logging
-from time import sleep
-import datetime
-import functools
-from autopilot.tasks.task import Task
 
 
-class PAFT_Child(Task):
-    # Just one stage?
-    STAGE_NAMES = ['noop']
-
-    # Init PARAMS
+class PAFT_Child():
+    # PARAMS to accept
     PARAMS = odict()
-    #~ PARAMS['fs'] = {'tag': 'Velocity Reporting Rate (Hz)',
-                    #~ 'type': 'int'}
 
-    # Init HARDWARE
+    # HARDWARE to init
     HARDWARE = {
         'POKES':{
             'L': autopilot.hardware.gpio.Digital_In,
-            #~ 'C': autopilot.hardware.gpio.Digital_In,
             'R': autopilot.hardware.gpio.Digital_In
         },
         'LEDS':{
-            # TODO: use LEDs, RGB vs. white LED option in init
             'L': autopilot.hardware.gpio.LED_RGB,
-            #~ 'C': autopilot.hardware.gpio.LED_RGB,
             'R': autopilot.hardware.gpio.LED_RGB
         },
         'PORTS':{
             'L': autopilot.hardware.gpio.Solenoid,
-            #~ 'C': autopilot.hardware.gpio.Solenoid,
             'R': autopilot.hardware.gpio.Solenoid
         }
     }
 
     def __init__(self, stage_block=None, start=True, 
-        reward_duration_ms=150., **kwargs):
+        reward_duration_ms=150., step_name=None, task_type=None, subject=None, 
+        step=None, sesion=None, pilot=None, child=None, **kwargs):
         """Initialize a new PAFT_Child"""
-        super(PAFT_Child, self).__init__()
-        
-        ## Store my name
+        print(kwargs)
+
+        ## Init
+        # Store my name
         # This is used for reporting pokes to the parent
         self.name = prefs.get('NAME')
+
+        # This keeps track of the current stim
+        self.stim = None
+
+        # Set up a logger
+        self.logger = init_logger(self)
         
         
         ## Hardware
         self.init_hardware()
+
+        # Turn off LEDs
+        self.hardware['LEDS']['L'].set(r=0, g=0, b=0)
+        self.hardware['LEDS']['R'].set(r=0, g=0, b=0)
         
+        # Rewards
+        for port_name, port in self.hardware['PORTS'].items():
+            port.duration = float(reward_duration_ms)
+            
+
+        ## Triggers
+        self.triggers = {}
+        self.set_poke_triggers()
+
+        
+        ## Stages
         # Only one stage
         self.stages = cycle([self.noop])
         self.stage_block = stage_block
 
-        # Networking
+        
+        ## Networking
         self.node2 = Net_Node(
             id=self.name,
             upstream='parent_pi',
@@ -96,20 +115,110 @@ class PAFT_Child(Task):
         self.node2.send(
             'parent_pi', 'HELLO', {'from': self.name})
 
-        
-        ## Initialize poke triggers
-        self.set_poke_triggers()
+    def init_hardware(self):
+        """
+        Use the HARDWARE dict that specifies what we need to run the task
+        alongside the HARDWARE subdict in :mod:`prefs` to tell us how
+        they're plugged in to the pi
 
-        # Turn off LEDs
-        self.hardware['LEDS']['L'].set(r=0, g=0, b=0)
-        self.hardware['LEDS']['R'].set(r=0, g=0, b=0)
+        Instantiate the hardware, assign it :meth:`.Task.handle_trigger`
+        as a callback if it is a trigger.
         
-        # Rewards
-        for port_name, port in self.hardware['PORTS'].items():
-            port.duration = float(reward_duration_ms)
+        Sets the following:
+            self.hardware
+            self.pin_id
+        """
+        # We use the HARDWARE dict that specifies what we need to run the task
+        # alongside the HARDWARE subdict in the prefs structure to tell us 
+        # how they're plugged in to the pi
+        self.hardware = {}
+        self.pin_id = {} # Reverse dict to identify pokes
+        pin_numbers = prefs.get('HARDWARE')
+
+        # We first iterate through the types of hardware we need
+        for type, values in self.HARDWARE.items():
+            self.hardware[type] = {}
+            # then iterate through each pin and handler of this type
+            for pin, handler in values.items():
+                try:
+                    hw_args = pin_numbers[type][pin]
+                    if isinstance(hw_args, dict):
+                        if 'name' not in hw_args.keys():
+                            hw_args['name'] = "{}_{}".format(type, pin)
+                        hw = handler(**hw_args)
+                    else:
+                        hw_name = "{}_{}".format(type, pin)
+                        hw = handler(hw_args, name=hw_name)
+
+                    # if a pin is a trigger pin (event-based input), 
+                    # give it the trigger handler
+                    if hw.is_trigger:
+                        hw.assign_cb(self.handle_trigger)
+
+                    # add to forward and backwards pin dicts
+                    self.hardware[type][pin] = hw
+                    if isinstance(hw_args, int) or isinstance(hw_args, str):
+                        self.pin_id[hw_args] = pin
+                    elif isinstance(hw_args, list):
+                        for p in hw_args:
+                            self.pin_id[p] = pin
+                    elif isinstance(hw_args, dict):
+                        if 'pin' in hw_args.keys():
+                            self.pin_id[hw_args['pin']] = pin 
+
+                except:
+                    self.logger.exception(
+                        "Pin could not be instantiated - Type: "
+                        "{}, Pin: {}".format(type, pin))
+
+    def handle_trigger(self, pin, level=None, tick=None):
+        """Handle a GPIO trigger.
         
-        # Stim
-        self.stim = None
+        All GPIO triggers call this function with the pin number, 
+        level (high, low), and ticks since booting pigpio.
+
+        Args:
+            pin (int): BCM Pin number
+            level (bool): True, False high/low
+            tick (int): ticks since booting pigpio
+        
+        This converts the BCM pin number to a board number using
+        BCM_TO_BOARD and then a letter using `self.pin_id`.
+        
+        That letter is used to look up the relevant triggers in
+        `self.triggers`, and calls each of them.
+        
+        `self.triggers` MUST be a list-like.
+        
+        This function does NOT clear the triggers or the stage block.
+        """
+        # Convert to BOARD_PIN
+        board_pin = BCM_TO_BOARD[pin]
+        
+        # Convert to letter, e.g., 'C'
+        pin_letter = self.pin_id[board_pin]
+
+        # Log
+        self.logger.debug(
+            'trigger bcm {}; board {}; letter {}; level {}; tick {}'.format(
+            pin, board_pin, pin_letter, level, tick))
+
+        # Call any triggers that exist
+        if pin_letter in self.triggers:
+            trigger_l = self.triggers[pin_letter]
+            for trigger in trigger_l:
+                trigger()
+        else:
+            self.logger.debug(f"No trigger found for {pin}")
+            return
+
+    def end(self):
+        """
+        Release all hardware objects
+        """
+        for k, v in self.hardware.items():
+            for pin, obj in v.items():
+                obj.release()
 
     def set_poke_triggers(self):
         """"Set triggers for poke entry
@@ -117,10 +226,8 @@ class PAFT_Child(Task):
         For each poke, sets these triggers:
             self.log_poke (write to own debugger)
             self.report_poke (report to parent)
-        
-        The C-poke doesn't really exist, but this is useful for debugging.
         """
-        for poke in ['L', 'C', 'R']:
+        for poke in ['L', 'R']:
             self.triggers[poke] = [
                 functools.partial(self.log_poke, poke),
                 functools.partial(self.report_poke, poke),
@@ -174,6 +281,11 @@ class PAFT_Child(Task):
             # Add a trigger to open the port
             self.triggers['L'].append(self.hardware['PORTS']['L'].open)
             
+            # Immediately after opening, reset the poke triggers
+            # Kind of weird to modify self.triggers while we're iterating
+            # over it, but should be okay since this is the last one
+            self.triggers['L'].append(self.set_poke_triggers)
+            
         elif target == 'R':
             self.stim = sounds.Noise(
                 duration=100, amplitude=.003, channel=1, nsamples=19456)
@@ -183,6 +295,11 @@ class PAFT_Child(Task):
             
             # Add a trigger to open the port
             self.triggers['R'].append(self.hardware['PORTS']['R'].open)
+
+            # Immediately after opening, reset the poke triggers
+            # Kind of weird to modify self.triggers while we're iterating
+            # over it, but should be okay since this is the last one
+            self.triggers['R'].append(self.set_poke_triggers)            
         
         else:
             self.stim = None
