@@ -61,7 +61,7 @@ class PAFT_Child(Task):
     }
 
     def __init__(self, stage_block=None, start=True, 
-        reward_duration_ms=250., **kwargs):
+        reward_duration_ms=150., **kwargs):
         """Initialize a new PAFT_Child"""
         super(PAFT_Child, self).__init__()
         
@@ -107,6 +107,9 @@ class PAFT_Child(Task):
         # Rewards
         for port_name, port in self.hardware['PORTS'].items():
             port.duration = float(reward_duration_ms)
+        
+        # Stim
+        self.stim = None
 
     def set_poke_triggers(self):
         """"Set triggers for poke entry
