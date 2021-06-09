@@ -33,27 +33,28 @@ The Parent can send the following message keys:
     The value is an empty dict.    
 """
 
-from collections import OrderedDict as odict
-import tables
+import threading
 import itertools
 import random
 import datetime
+import functools
+from collections import OrderedDict as odict
+import tables
 import numpy as np
 import autopilot.hardware.gpio
 from autopilot.stim.sound import sounds
 from autopilot.tasks.task import Task
-import time
-import functools
 from autopilot.networking import Net_Node
 from autopilot import prefs
-import threading
+from autopilot.hardware import BCM_TO_BOARD
+from autopilot.core.loggers import init_logger
 
 # The name of the task
 # This declaration allows Subject to identify which class in this file 
 # contains the task class. 
 TASK = 'PAFT'
 
-class PAFT(Task):
+class PAFT():
     """The probabalistic auditory foraging task (PAFT).
     
     This task chooses a port at random, lights up the LED for that port,
@@ -75,21 +76,13 @@ class PAFT(Task):
         stages (:class:`itertools.cycle`): 
             iterator to cycle indefinitely through task stages.
     """
-    ## List of stages
-    # These correspond to methods in this Class, I think (CR)
-    STAGE_NAMES = ["water", "response"]
-
-    
     ## Params
     PARAMS = odict()
-    PARAMS['reward'] = {'tag':'Reward Duration (ms)',
-                        'type':'int'}
-    PARAMS['allow_repeat'] = {'tag':'Allow Repeated Ports?',
-                              'type':'bool'}
-    
-    # CR: Added for sounds
-    PARAMS['stim']           = {'tag':'Sounds',
-                                'type':'sounds'}
+    PARAMS['reward'] = {
+        'tag':'Reward Duration (ms)',
+        'type':'int',
+        }
+
 
     ## Returned data
     DATA = {
@@ -147,7 +140,8 @@ class PAFT(Task):
     
     ## Methods
     def __init__(self, stage_block=None, stim=None, current_trial=0,
-        reward=150, allow_repeat=False, **kwargs):
+        reward=150, step_name=None, task_type=None, subject=None, step=None,
+        session=None, pilot=None, child=None):
         """Initialize a new PAFT Task
         
         Arguments
@@ -159,34 +153,35 @@ class PAFT(Task):
             If not zero, initial number of `trial_counter`
         reward (int): 
             ms to open solenoids
-        allow_repeat (bool): 
-            Whether the correct port is allowed to repeat between trials
         **kwargs:
         """
-        super(PAFT, self).__init__()
+        ## Task management
+        # a threading.Event used by the pilot to manage stage transitions
+        # Who provides this?
+        self.stage_block = stage_block  
+        
+        # Set up a logger
+        self.logger = init_logger(self)
 
-        # stage_block
-        if not stage_block:
-            raise Warning('No stage_block Event() was passed, youll need'
-                ' to handle stage progression on your own')
-        else:
-            self.stage_block = stage_block
-
-        # Fixed parameters
-        self.logger.debug("Reward is: {}".format(reward))
-        if isinstance(reward, dict):
-            self.reward = reward
-        else:
-            self.reward         = {'type':'duration',
-                                   'value': float(reward)}
-
-        # Variable parameters
+        # This dict keeps track of which self.CHILDREN have connected
         self.child_connected = {}
         for child in self.CHILDREN.keys():
             self.child_connected[child] = False
-        self.target = random.choice(['L', 'R'])
+        
+        # This is used for the current trial target
+        self.target = None
+        
+        # This keeps track of the current stim
+        self.stim = None
+        
+        # This is used to count the trials, it is initialized by
+        # something to wherever we are in the Protocol graduation
         self.trial_counter = itertools.count(int(current_trial))
-        self.n_trials = 0 # always start at zero
+        
+        # This is a trial counter that always starts at zero
+        self.n_trials = 0
+        
+        # A dict of hardware triggers
         self.triggers = {}
 
         # Stage list to iterate
@@ -194,18 +189,14 @@ class PAFT(Task):
         self.num_stages = len(stage_list)
         self.stages = itertools.cycle(stage_list)
 
-        # Init hardware
-        self.hardware = {}
-        self.pin_id = {} # Inverse pin dictionary
+        # Init hardware -- this sets self.hardware and self.pin_id
         self.init_hardware()
 
         # Set reward values for solenoids
-        # TODO: Super inelegant, implement better with reward manager
-        if self.reward['type'] == "volume":
-            self.set_reward(vol=self.reward['value'])
-        else:
-            self.logger.debug("setting reward to {}".format(self.reward['value']))
-            self.set_reward(duration=self.reward['value'])
+        for port_name, port in self.hardware['PORTS'].items():
+            self.logger.debug(
+                "setting reward for {} to {}".format(port_name, reward))
+            port.duration = float(reward)
 
         # Turn off LEDs
         self.hardware['LEDS']['L'].set(r=0, g=0, b=0)
@@ -215,19 +206,19 @@ class PAFT(Task):
         ## Initialize net node for communications with child
         # With instance=True, I get a threading error about current event loop
         self.node = Net_Node(id="T_{}".format(prefs.get('NAME')),
-                             upstream=prefs.get('NAME'),
-                             port=prefs.get('MSGPORT'),
-                             listens={},
-                             instance=False)
+            upstream=prefs.get('NAME'),
+            port=prefs.get('MSGPORT'),
+            listens={},
+            instance=False)
 
         # Construct a message to send to child
         # Specify the subjects for the child (twice)
-        self.subject = kwargs['subject']
+        self.subject = subject
         value = {
             'child': {
-                'parent': prefs.get('NAME'), 'subject': kwargs['subject']},
+                'parent': prefs.get('NAME'), 'subject': subject},
             'task_type': 'PAFT Child',
-            'subject': kwargs['subject'],
+            'subject': subject,
         }
 
         # send to the station object with a 'CHILD' key
@@ -264,30 +255,127 @@ class PAFT(Task):
         self.logger.debug(
             "All children have connected: {}".format(self.child_connected))
 
-        # If we aren't passed an event handler
-        # (used to signal that a trigger has been tripped),
-        # we should warn whoever called us that things could get a little screwy
-        if not stage_block:
-            raise Warning(
-                'No stage_block Event() was passed, youll need to '
-                'handle stage progression on your own'
-                )
+    def init_hardware(self):
+        """
+        Use the HARDWARE dict that specifies what we need to run the task
+        alongside the HARDWARE subdict in :mod:`prefs` to tell us how
+        they're plugged in to the pi
+
+        Instantiate the hardware, assign it :meth:`.Task.handle_trigger`
+        as a callback if it is a trigger.
+        
+        Sets the following:
+            self.hardware
+            self.pin_id
+        """
+        # We use the HARDWARE dict that specifies what we need to run the task
+        # alongside the HARDWARE subdict in the prefs structure to tell us 
+        # how they're plugged in to the pi
+        self.hardware = {}
+        self.pin_id = {} # Reverse dict to identify pokes
+        pin_numbers = prefs.get('HARDWARE')
+
+        # We first iterate through the types of hardware we need
+        for type, values in self.HARDWARE.items():
+            self.hardware[type] = {}
+            # then iterate through each pin and handler of this type
+            for pin, handler in values.items():
+                try:
+                    hw_args = pin_numbers[type][pin]
+                    if isinstance(hw_args, dict):
+                        if 'name' not in hw_args.keys():
+                            hw_args['name'] = "{}_{}".format(type, pin)
+                        hw = handler(**hw_args)
+                    else:
+                        hw_name = "{}_{}".format(type, pin)
+                        hw = handler(hw_args, name=hw_name)
+
+                    # if a pin is a trigger pin (event-based input), 
+                    # give it the trigger handler
+                    if hw.is_trigger:
+                        hw.assign_cb(self.handle_trigger)
+
+                    # add to forward and backwards pin dicts
+                    self.hardware[type][pin] = hw
+                    if isinstance(hw_args, int) or isinstance(hw_args, str):
+                        self.pin_id[hw_args] = pin
+                    elif isinstance(hw_args, list):
+                        for p in hw_args:
+                            self.pin_id[p] = pin
+                    elif isinstance(hw_args, dict):
+                        if 'pin' in hw_args.keys():
+                            self.pin_id[hw_args['pin']] = pin 
+
+                except:
+                    self.logger.exception(
+                        "Pin could not be instantiated - Type: "
+                        "{}, Pin: {}".format(type, pin))
+
+    def handle_trigger(self, pin, level=None, tick=None):
+        """Handle a GPIO trigger.
+        
+        All GPIO triggers call this function with the pin number, 
+        level (high, low), and ticks since booting pigpio.
+
+        Args:
+            pin (int): BCM Pin number
+            level (bool): True, False high/low
+            tick (int): ticks since booting pigpio
+        
+        This converts the BCM pin number to a board number using
+        BCM_TO_BOARD and then a letter using `self.pin_id`.
+        
+        That letter is used to look up the relevant triggers in
+        `self.triggers`, and calls each of them.
+        
+        `self.triggers` MUST be a list-like.
+        
+        This function does NOT clear the triggers or the stage block.
+        """
+        # Convert to BOARD_PIN
+        board_pin = BCM_TO_BOARD[pin]
+        
+        # Convert to letter, e.g., 'C'
+        pin_letter = self.pin_id[board_pin]
+
+        # Log
+        self.logger.debug(
+            'trigger bcm {}; board {}; letter {}; level {}; tick {}'.format(
+            pin, board_pin, pin_letter, level, tick))
+
+        # Call any triggers that exist
+        if pin_letter in self.triggers:
+            trigger_l = self.triggers[pin_letter]
+            for trigger in trigger_l:
+                trigger()
         else:
-            self.stage_block = stage_block
+            self.logger.debug(f"No trigger found for {pin}")
+            return
 
+    def end(self):
+        """
+        Release all hardware objects
+        """
+        for k, v in self.hardware.items():
+            for pin, obj in v.items():
+                obj.release()
 
-        # allow_repeat
-        self.allow_repeat = bool(allow_repeat)
-    
     def recv_poke(self, value):
         # Log it
         self.log_poke_from_child(value)
         
-        # Mark as complete if correct
-        target_child_name, target_side = self.target.split('_')
+        # Identify target
+        if '_' in self.target:
+            target_child_name, target_side = self.target.split('_')
+        else:
+            target_child_name = 'rpi01'
+            target_side = self.target
+        
+        # Identify poked
         child_name = value['from']
         poke_name = value['poke']
         
+        # Compare target to poked
         if target_child_name == child_name and target_side == poke_name:
             self.logger.debug('correct poke {}; target was {}'.format(value, self.target))
             self.stage_block.set()
@@ -317,7 +405,6 @@ class PAFT(Task):
         for poke in ['L', 'C', 'R']:
             self.triggers[poke] = [
                 functools.partial(self.log_poke, poke),
-                #~ functools.partial(self.report_poke, poke),
                 ]        
     
     def water(self, *args, **kwargs):
@@ -331,10 +418,6 @@ class PAFT(Task):
                 'timestamp': isoformatted timestamp
                 'trial_num': number of current trial
         """
-        ## What does this do? Anything?
-        self.stop_playing = False
-        
-        
         ## Prevents moving to next stage
         self.stage_block.clear()
 
@@ -380,6 +463,7 @@ class PAFT(Task):
             
             # Add a trigger to open the port
             self.triggers['L'].append(self.hardware['PORTS']['L'].open)
+            self.triggers['L'].append(self.stage_block.set)
             
         elif self.target == 'R':
             self.stim = sounds.Noise(
@@ -390,6 +474,7 @@ class PAFT(Task):
             
             # Add a trigger to open the port
             self.triggers['R'].append(self.hardware['PORTS']['R'].open)
+            self.triggers['R'].append(self.stage_block.set)
         
         elif self.target.startswith('rpi'):
             # It's a child target
