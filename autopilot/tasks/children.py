@@ -106,7 +106,7 @@ class PAFT_Child(Task):
         
         # Rewards
         for port_name, port in self.hardware['PORTS'].items():
-            port.duration = float(reward_duration_ms)/1000.        
+            port.duration = float(reward_duration_ms)
 
     def set_poke_triggers(self):
         """"Set triggers for poke entry
