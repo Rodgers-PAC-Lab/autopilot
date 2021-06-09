@@ -147,7 +147,7 @@ class PAFT(Task):
     
     ## Methods
     def __init__(self, stage_block=None, stim=None, current_trial=0,
-        reward=150, allow_repeat=False, **kwargs):
+        reward=500, allow_repeat=False, **kwargs):
         """Initialize a new PAFT Task
         
         Arguments
