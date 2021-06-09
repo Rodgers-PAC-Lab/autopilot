@@ -35,7 +35,7 @@ from autopilot.hardware import cameras
 from autopilot.transform import transforms
 
 
-class PAFT_Child():
+class PAFT_Child(object):
     # PARAMS to accept
     PARAMS = odict()
 
