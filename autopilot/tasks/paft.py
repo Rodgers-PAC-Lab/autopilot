@@ -54,7 +54,7 @@ from autopilot.core.loggers import init_logger
 # contains the task class. 
 TASK = 'PAFT'
 
-class PAFT():
+class PAFT(object):
     """The probabalistic auditory foraging task (PAFT).
     
     This task chooses a port at random, lights up the LED for that port,
