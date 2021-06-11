@@ -86,16 +86,23 @@ class PAFT(object):
 
     ## Returned data
     DATA = {
-        'trial_num': {'type':'i32'},
-        'target': {'type':'S1', 'plot':'target'},
-        'timestamp': {'type':'S26'}, # only one timestamp, since next trial instant
+        'trial': {'type':'i32'},
+        'trials_total': {'type': 'i32'},
+        'target': {'type':'S10', 'plot':'target'},
+        'timestamp': {'type':'S26'},
     }
 
-    # TODO: This should be generated from DATA above. 
-    # Perhaps parsimoniously by using tables types rather than string descriptors
     class TrialData(tables.IsDescription):
-        trial_num = tables.Int32Col()
-        target    = tables.StringCol(10)
+        # The trial within this session
+        trial = tables.Int32Col()
+        
+        # The trial number accumulated over all sessions
+        trials_total = tables.Int32Col()
+        
+        # The target speaker
+        target = tables.StringCol(10)
+        
+        # The timestamp
         timestamp = tables.StringCol(26)
 
 
@@ -448,7 +455,6 @@ class PAFT(object):
         if meth == 'CYCLE':
             self.target = all_possible_targets[
                 np.mod(self.n_trials, len(all_possible_targets))]
-            self.n_trials += 1
         elif meth == 'RANDOM':
             self.target = random.choice(excluding_previous)
         else:
@@ -520,8 +526,11 @@ class PAFT(object):
         data = {
             'target': self.target,
             'timestamp': datetime.datetime.now().isoformat(),
-            'trial_num' : next(self.trial_counter)
+            'trial': self.n_trials,
+            'trials_total' : next(self.trial_counter)
         }
+        self.n_trials = self.n_trials + 1
+
         return data
 
     def recv_hello(self, value):
