@@ -95,7 +95,7 @@ class PAFT(object):
     # Perhaps parsimoniously by using tables types rather than string descriptors
     class TrialData(tables.IsDescription):
         trial_num = tables.Int32Col()
-        target    = tables.StringCol(1)
+        target    = tables.StringCol(10)
         timestamp = tables.StringCol(26)
 
 
@@ -139,9 +139,8 @@ class PAFT(object):
 
     
     ## Methods
-    def __init__(self, stage_block=None, stim=None, current_trial=0,
-        reward=150, step_name=None, task_type=None, subject=None, step=None,
-        session=None, pilot=None, child=None):
+    def __init__(self, stage_block, current_trial, step_name, task_type, 
+        subject, step, session, pilot, reward):
         """Initialize a new PAFT Task
         
         Arguments
@@ -153,8 +152,18 @@ class PAFT(object):
             If not zero, initial number of `trial_counter`
         reward (int): 
             ms to open solenoids
-        **kwargs:
+            This is passed from the "protocol" json
+        step_name : 'PAFT'
+            This is passed from the "protocol" json
+        task_type : 'PAFT'
+            This is passed from the "protocol" json
+        subject : taken from Terminal
+        step : 0
+            Index into the "protocol" json?
+        session : number of times it's been started
+        pilot : name of pilot
         """
+
         ## Task management
         # a threading.Event used by the pilot to manage stage transitions
         # Who provides this?
@@ -219,6 +228,7 @@ class PAFT(object):
                 'parent': prefs.get('NAME'), 'subject': subject},
             'task_type': 'PAFT Child',
             'subject': subject,
+            'reward': reward,
         }
 
         # send to the station object with a 'CHILD' key
