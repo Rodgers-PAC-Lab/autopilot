@@ -55,11 +55,14 @@ class PAFT_Child(object):
         }
     }
 
-    def __init__(self, stage_block=None, start=True, 
-        reward_duration_ms=150., step_name=None, task_type=None, subject=None, 
-        step=None, sesion=None, pilot=None, child=None, **kwargs):
-        """Initialize a new PAFT_Child"""
-        print(kwargs)
+    def __init__(self, stage_block, task_type, subject, child, reward):
+        """Initialize a new PAFT_Child
+        
+        task_type : 'PAFT Child'
+        subject : from Terminal
+        child : {'parent': parent's name, 'subject' from Terminal}
+        reward : from value of START/CHILD message
+        """
 
         ## Init
         # Store my name
@@ -82,7 +85,7 @@ class PAFT_Child(object):
         
         # Rewards
         for port_name, port in self.hardware['PORTS'].items():
-            port.duration = float(reward_duration_ms)
+            port.duration = float(reward)
             
 
         ## Triggers
