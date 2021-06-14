@@ -503,53 +503,49 @@ class PAFT(object):
             
             # Set light on or off
             if self.stim_params['light']:
-                led_val = 255
-            else:
-                led_val = 0
+                other_side = 'R' if self.stim_params['side'] == 'L' else 'L'
+                self.hardware['LEDS'][self.stim_params['side']].set(
+                    r=0, g=255, b=0)
+                self.hardware['LEDS'][other_side].set(
+                    r=0, g=0, b=0)
             
-            if self.stim_params['side'] == 'L':
-                self.stim = sounds.Noise(
-                    duration=100, amplitude=.003, channel=0, nsamples=19456)
-            
-            
+            # Generate the sound
+            self.stim = sounds.Noise(
+                duration=100, amplitude=amplitude, channel=channel, 
+                nsamples=19456)
             
             # Turn on green led
-            self.hardware['LEDS']['L'].set(r=0, g=255, b=0)
-            self.hardware['LEDS']['R'].set(r=0, g=0, b=0)
+            if self.stim_params['side'] == 'L':
+                self.hardware['LEDS']['L'].set(r=0, g=led_val, b=0)
+                self.hardware['LEDS']['R'].set(r=0, g=0, b=0)
+            else:
+                self.hardware['LEDS']['L'].set(r=0, g=0, b=0)
+                self.hardware['LEDS']['R'].set(r=0, g=0, b=0)            
             
             # Add a trigger to open the port
-            self.triggers['L'].append(self.hardware['PORTS']['L'].open)
-            self.triggers['L'].append(self.stage_block.set)
-            
-        elif self.target == 'R':
-            self.stim = sounds.Noise(
-                duration=100, amplitude=.003, channel=1, nsamples=19456)
+            self.triggers[self.stim_params['side']].append(
+                self.hardware['PORTS'][self.stim_params['side']].open)
+            self.triggers[self.stim_params['side']].append(
+                self.stage_block.set)
 
-            self.hardware['LEDS']['L'].set(r=0, g=0, b=0)
-            self.hardware['LEDS']['R'].set(r=0, g=255, b=0)
-            
-            # Add a trigger to open the port
-            self.triggers['R'].append(self.hardware['PORTS']['R'].open)
-            self.triggers['R'].append(self.stage_block.set)
-        
-        elif self.target.startswith('rpi'):
-            # It's a child target
-            child_name, side = self.target.split('_')
-
-            # No LED or stim
+        else:
+            ## A child rpi controls the target port
+            # No stim
             self.stim = None
-            self.hardware['LEDS']['L'].set(r=0, g=0, b=0)
-            self.hardware['LEDS']['R'].set(r=0, g=0, b=0)
 
             # Tell child what the target is
             self.node2.send(
-                to=child_name,
+                to=self.stim_params['rpi'],
                 key='PLAY',
-                value={'target': side},
+                value={
+                    'side': self.stim_params['side'],
+                    'light': self.stim_params['light'],
+                    'sound': self.stim_params['sound'],
+                    },
                 )        
 
         else:
-            raise ValueError("unknown target: {}".format(target))
+            raise ValueError("unknown rpi: {}".format(self.stim_params['rpi']))
 
 
         ## Set the stim to repeat
@@ -590,13 +586,10 @@ class PAFT(object):
         self.hardware['LEDS']['L'].set(r=0, g=0, b=0)
         self.hardware['LEDS']['R'].set(r=0, g=0, b=0)
 
-        # Tell the child
-        if self.target.startswith('rpi'):
-            child_name, side = self.target.split('_')
-            
-            # Tell child what the target is
+        # Tell the child to stop
+        if self.stim_params['rpi'] != 'rpi01':
             self.node2.send(
-                to=child_name,
+                to=self.stim_params['rpi'],
                 key='STOP',
                 value={},
                 )                
@@ -624,6 +617,9 @@ class PAFT(object):
         # Turn off LEDs
         self.hardware['LEDS']['L'].set(r=0, g=0, b=0)
         self.hardware['LEDS']['R'].set(r=0, g=0, b=0)
+
+        # Release
+        self.node2.release()
 
         # Release all hardware
         for k, v in self.hardware.items():

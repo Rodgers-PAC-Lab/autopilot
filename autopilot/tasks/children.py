@@ -272,51 +272,61 @@ class PAFT_Child(object):
         self.logger.debug("recv_play with value: {}".format(value))
         
         # Set target
-        target = value['target']
-        if target == 'L':
-            self.stim = sounds.Noise(
-                duration=100, amplitude=.003, channel=0, nsamples=19456)
-            
-            # Turn on green led
-            self.hardware['LEDS']['L'].set(r=0, g=255, b=0)
-            self.hardware['LEDS']['R'].set(r=0, g=0, b=0)
-            
-            # Add a trigger to open the port
-            self.triggers['L'].append(self.hardware['PORTS']['L'].open)
-            
-            # Immediately after opening, reset the poke triggers
-            # Kind of weird to modify self.triggers while we're iterating
-            # over it, but should be okay since this is the last one
-            self.triggers['L'].append(self.set_poke_triggers)
-            
-        elif target == 'R':
-            self.stim = sounds.Noise(
-                duration=100, amplitude=.003, channel=1, nsamples=19456)
-
-            self.hardware['LEDS']['L'].set(r=0, g=0, b=0)
-            self.hardware['LEDS']['R'].set(r=0, g=255, b=0)
-            
-            # Add a trigger to open the port
-            self.triggers['R'].append(self.hardware['PORTS']['R'].open)
-
-            # Immediately after opening, reset the poke triggers
-            # Kind of weird to modify self.triggers while we're iterating
-            # over it, but should be okay since this is the last one
-            self.triggers['R'].append(self.set_poke_triggers)            
+        side = value['side']
+        use_light = value['light']
+        use_sound = value['sound']
         
+        # Set channel
+        if side == 'L':
+            channel = 0
         else:
-            self.stim = None
-            self.logger.debug("ignoring target {}".format(target))
+            channel = 1
+        
+        # Set sound on or off
+        if use_sound:
+            amplitude = .003
+        else:
+            amplitude = 0
+        
+        # Set light on or off
+        if use_light:
+            other_side = 'R' if side else 'L'
+            self.hardware['LEDS'][side].set(
+                r=0, g=255, b=0)
+            self.hardware['LEDS'][other_side].set(
+                r=0, g=0, b=0)
+        
+        # Generate the sound
+        self.stim = sounds.Noise(
+            duration=100, amplitude=amplitude, channel=channel, 
+            nsamples=19456)
+        
+        # Turn on green led
+        if side == 'L':
+            self.hardware['LEDS']['L'].set(r=0, g=led_val, b=0)
+            self.hardware['LEDS']['R'].set(r=0, g=0, b=0)
+        else:
+            self.hardware['LEDS']['L'].set(r=0, g=0, b=0)
+            self.hardware['LEDS']['R'].set(r=0, g=0, b=0)            
+        
+        # Add a trigger to open the port
+        self.triggers[side].append(
+            self.hardware['PORTS'][self.stim_params['side']].open)
 
+        # Immediately after opening, reset the poke triggers
+        # Kind of weird to modify self.triggers while we're iterating
+        # over it, but should be okay since this is the last one
+        self.triggers[side].append(
+            self.set_poke_triggers)
+        
 
         ## Set the stim to repeat
-        if self.stim is not None:
-            # Set the trigger to call function when stim is over
-            self.stim.set_trigger(self.delayed_play_again)
-            
-            # Buffer the stim and start playing it after a delay
-            self.stim.buffer()
-            threading.Timer(.75, self.stim.play).start()        
+        # Set the trigger to call function when stim is over
+        self.stim.set_trigger(self.delayed_play_again)
+        
+        # Buffer the stim and start playing it after a delay
+        self.stim.buffer()
+        threading.Timer(.75, self.stim.play).start()        
 
     def delayed_play_again(self):
         """Called when stim over
@@ -348,6 +358,9 @@ class PAFT_Child(object):
         # Turn off LEDs
         self.hardware['LEDS']['L'].set(r=0, g=0, b=0)
         self.hardware['LEDS']['R'].set(r=0, g=0, b=0)
+        
+        # Release Net_Node
+        self.node2.release()
         
         # Release all hardware
         for k, v in self.hardware.items():
