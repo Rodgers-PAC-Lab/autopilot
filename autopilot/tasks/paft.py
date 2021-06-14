@@ -109,7 +109,10 @@ class PAFT(object):
     DATA = {
         'trial': {'type':'i32'},
         'trials_total': {'type': 'i32'},
-        'target': {'type':'S10', 'plot':'target'},
+        'rpi': {'type': 'S10'},
+        'side': {'type': 'S10'},
+        'light': {'type': 'S10'},
+        'sound': {'type': 'S10'},
         'timestamp': {'type':'S26'},
     }
 
@@ -120,8 +123,11 @@ class PAFT(object):
         # The trial number accumulated over all sessions
         trials_total = tables.Int32Col()
         
-        # The target speaker
-        target = tables.StringCol(10)
+        # The target
+        rpi = tables.StringCol(10)
+        side = tables.StringCol(10)
+        light = tables.StringCol(10)
+        sound = tables.StringCol(10)
         
         # The timestamp
         timestamp = tables.StringCol(26)
@@ -204,9 +210,6 @@ class PAFT(object):
         self.child_connected = {}
         for child in self.CHILDREN.keys():
             self.child_connected[child] = False
-        
-        # This is used for the current trial target
-        self.target = None
         
         # This keeps track of the current stim
         self.stim = None
@@ -402,23 +405,22 @@ class PAFT(object):
         # Log it
         self.log_poke_from_child(value)
         
-        # Identify target
-        if '_' in self.target:
-            target_child_name, target_side = self.target.split('_')
-        else:
-            target_child_name = 'rpi01'
-            target_side = self.target
-        
         # Identify poked
         child_name = value['from']
         poke_name = value['poke']
         
         # Compare target to poked
-        if target_child_name == child_name and target_side == poke_name:
-            self.logger.debug('correct poke {}; target was {}'.format(value, self.target))
+        if (
+                self.stim_params['rpi'] == child_name and 
+                self.stim_params['side'] == poke_name):
+            self.logger.debug('correct poke {}; target was {}'.format(
+                value, 
+                self.stim_params['child'] + '_' + self.stim_params['side']))
             self.stage_block.set()
         else:
-            self.logger.debug('incorrect poke {}; target was {}'.format(value, self.target))
+            self.logger.debug('incorrect poke {}; target was {}'.format(
+                value, 
+                self.stim_params['child'] + '_' + self.stim_params['side']))
         
     def log_poke_from_child(self, value):
         child_name = value['from']
@@ -475,15 +477,7 @@ class PAFT(object):
         # Choose
         self.stim_index = random.choice(excluding_previous)
         self.stim_params = stimulus_set.loc[self.stim_index]
-        
-        # Parse into target
-        self.target = '{}_{}'.format(
-            self.stim_params.loc['rpi'],
-            self.stim_params.loc['side'],
-            )
-
-        # Print debug
-        self.logger.debug("The chosen target is {}".format(self.target))
+        self.logger.debug("Chosen stim params: {}".format(self.stim_params))
         
         
         ## Set stim
@@ -560,7 +554,10 @@ class PAFT(object):
         
         ## Return data
         data = {
-            'target': self.target,
+            'rpi': self.stim_params['rpi'],
+            'side': self.stim_params['side'],
+            'light': str(self.stim_params['light']),
+            'sound': str(self.stim_params['sound']),
             'timestamp': datetime.datetime.now().isoformat(),
             'trial': self.n_trials,
             'trials_total' : next(self.trial_counter)
