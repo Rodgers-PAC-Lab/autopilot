@@ -54,6 +54,27 @@ from autopilot.core.loggers import init_logger
 # contains the task class. 
 TASK = 'PAFT'
 
+# Define a stimulus set to use
+stimulus_set = pandas.DataFrame.from_records([
+    ('rpi01', 'L', True, False),
+    ('rpi01', 'R', True, False),
+    ('rpi02', 'L', True, False),
+    ('rpi02', 'R', True, False),
+    ('rpi03', 'L', True, False),
+    ('rpi03', 'R', True, False),
+    ('rpi04', 'L', True, False),
+    ('rpi04', 'R', True, False),
+    ('rpi01', 'L', False, True),
+    ('rpi01', 'R', False, True),
+    ('rpi02', 'L', False, True),
+    ('rpi02', 'R', False, True),
+    ('rpi03', 'L', False, True),
+    ('rpi03', 'R', False, True),
+    ('rpi04', 'L', False, True),
+    ('rpi04', 'R', False, True),
+    columns=['rpi', 'side', 'sound', 'light'],
+    )
+
 class PAFT(object):
     """The probabalistic auditory foraging task (PAFT).
     
@@ -438,40 +459,59 @@ class PAFT(object):
         ## Prevents moving to next stage
         self.stage_block.clear()
 
+
+        ## Set poke triggers (for logging)
+        # Make sure this doesn't depend on self.stim which hasn't been
+        # chosen yet!
+        self.set_poke_triggers()
         
-        ## Choose targets
-        # Identify possible targets
-        all_possible_targets = [
-            'L', 'R', 
-            'rpi02_L', 'rpi02_R', 
-            'rpi03_L', 'rpi03_R',
-            'rpi04_L', 'rpi04_R',
-            ]
+        
+        ## Choose target
+        # Identify possible stim
+        all_possible_stim_idx = list(stimulus_set.index)
         excluding_previous = [
-            t for t in all_possible_targets if t != self.target]
+            si for si in all_possible_stim_idx if si != self.stim_index]
         
         # Choose
-        meth = 'RANDOM'
-        if meth == 'CYCLE':
-            self.target = all_possible_targets[
-                np.mod(self.n_trials, len(all_possible_targets))]
-        elif meth == 'RANDOM':
-            self.target = random.choice(excluding_previous)
-        else:
-            raise ValueError("unknown trial choosing meth: {}".format(meth))
+        self.stim_index = random.choice(excluding_previous)
+        self.stim_params = stimulus_set.loc[self.stim_index]
+        
+        # Parse into target
+        self.target = '{}_{}'.format(
+            self.stim_params.loc['rpi'],
+            self.stim_params.loc['side'],
+            )
 
         # Print debug
         self.logger.debug("The chosen target is {}".format(self.target))
         
         
-        ## Set poke triggers (for logging)
-        self.set_poke_triggers()
-        
-
-        ## Set stim and LEDs by target
-        if self.target == 'L':
-            self.stim = sounds.Noise(
-                duration=100, amplitude=.003, channel=0, nsamples=19456)
+        ## Set stim
+        if self.stim_params['rpi'] == 'rpi01':
+            ## This rpi controls the target port
+            # Set channel
+            if self.stim_params['side'] == 'L':
+                channel = 0
+            else:
+                channel = 1
+            
+            # Set sound on or off
+            if self.stim_params['sound']:
+                amplitude = .003
+            else:
+                amplitude = 0
+            
+            # Set light on or off
+            if self.stim_params['light']:
+                led_val = 255
+            else:
+                led_val = 0
+            
+            if self.stim_params['side'] == 'L':
+                self.stim = sounds.Noise(
+                    duration=100, amplitude=.003, channel=0, nsamples=19456)
+            
+            
             
             # Turn on green led
             self.hardware['LEDS']['L'].set(r=0, g=255, b=0)
@@ -510,8 +550,8 @@ class PAFT(object):
 
         else:
             raise ValueError("unknown target: {}".format(target))
-        
-        
+
+
         ## Set the stim to repeat
         if self.stim is not None:
             # Set the trigger to call function when stim is over
