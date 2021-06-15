@@ -498,9 +498,7 @@ class PAFT(object):
                 amplitude = 0
             
             # Set light on or off
-            print("xxx")
-            print(self.stim_params['light'])
-            if self.stim_params['light'] == True:
+            if self.stim_params['light']:
                 other_side = 'R' if self.stim_params['side'] == 'L' else 'L'
                 self.hardware['LEDS'][self.stim_params['side']].set(
                     r=0, g=255, b=0)
@@ -511,17 +509,6 @@ class PAFT(object):
             self.stim = sounds.Noise(
                 duration=100, amplitude=amplitude, channel=channel, 
                 nsamples=19456)
-            
-            # Turn on green led
-            if self.stim_params['side'] == 'L':
-                self.hardware['LEDS']['L'].set(r=0, g=255, b=0)
-                self.hardware['LEDS']['R'].set(r=0, g=0, b=0)
-            elif self.stim_params['side'] == 'R':
-                self.hardware['LEDS']['L'].set(r=0, g=0, b=0)
-                self.hardware['LEDS']['R'].set(r=0, g=255, b=0)            
-            else:
-                raise ValueError(
-                    "unknown side: {}".format(self.stim_params['side']))
             
             # Add a trigger to open the port
             self.triggers[self.stim_params['side']].append(

@@ -289,8 +289,6 @@ class PAFT_Child(object):
             amplitude = 0
         
         # Set light on or off
-        print("xxx")
-        print(use_light)
         if use_light:
             other_side = 'R' if side else 'L'
             self.hardware['LEDS'][side].set(
@@ -303,17 +301,6 @@ class PAFT_Child(object):
             duration=100, amplitude=amplitude, channel=channel, 
             nsamples=19456)
         
-        # Turn on green led
-        if side == 'L':
-            self.hardware['LEDS']['L'].set(r=0, g=255, b=0)
-            self.hardware['LEDS']['R'].set(r=0, g=0, b=0)
-        elif side == 'R':
-            self.hardware['LEDS']['L'].set(r=0, g=0, b=0)
-            self.hardware['LEDS']['R'].set(r=0, g=255, b=0)            
-        else:
-            raise ValueError(
-                "unknown side: {}".format(side))
-                    
         # Add a trigger to open the port
         self.triggers[side].append(
             self.hardware['PORTS'][side].open)
