@@ -471,10 +471,15 @@ class PAFT(object):
         
         
         ## Choose target
-        # Identify possible stim
-        all_possible_stim_idx = list(stimulus_set.index)
-        excluding_previous = [
-            si for si in all_possible_stim_idx if si != self.stim_index]
+        # Identify possible stim (those that do not repeat the reward port)
+        excluding_previous = []
+        for idx in stimulus_set.index:
+            if (
+                stimulus_set.loc[idx, 'side'] == self.stim_params['side'] and
+                stimulus_set.loc[idx, 'rpi'] == self.stim_params['rpi'] and
+                ):
+                continue
+            excluding_previous.append(idx)
         
         # Choose
         print("prev stim_index: {}".format(self.stim_index))
