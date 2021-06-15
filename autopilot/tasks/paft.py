@@ -41,6 +41,7 @@ import functools
 from collections import OrderedDict as odict
 import tables
 import numpy as np
+import pandas
 import autopilot.hardware.gpio
 from autopilot.stim.sound import sounds
 from autopilot.tasks.task import Task
@@ -72,7 +73,7 @@ stimulus_set = pandas.DataFrame.from_records([
     ('rpi03', 'R', False, True),
     ('rpi04', 'L', False, True),
     ('rpi04', 'R', False, True),
-    columns=['rpi', 'side', 'sound', 'light'],
+    ], columns=['rpi', 'side', 'sound', 'light'],
     )
 
 class PAFT(object):
@@ -536,10 +537,7 @@ class PAFT(object):
                     'light': self.stim_params['light'],
                     'sound': self.stim_params['sound'],
                     },
-                )        
-
-        else:
-            raise ValueError("unknown rpi: {}".format(self.stim_params['rpi']))
+                )
 
 
         ## Set the stim to repeat
