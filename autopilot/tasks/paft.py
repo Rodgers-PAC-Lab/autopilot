@@ -417,12 +417,12 @@ class PAFT(object):
                 self.stim_params['side'] == poke_name):
             self.logger.debug('correct poke {}; target was {}'.format(
                 value, 
-                self.stim_params['child'] + '_' + self.stim_params['side']))
+                self.stim_params['rpi'] + '_' + self.stim_params['side']))
             self.stage_block.set()
         else:
             self.logger.debug('incorrect poke {}; target was {}'.format(
                 value, 
-                self.stim_params['child'] + '_' + self.stim_params['side']))
+                self.stim_params['rpi'] + '_' + self.stim_params['side']))
         
     def log_poke_from_child(self, value):
         child_name = value['from']
