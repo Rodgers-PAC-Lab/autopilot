@@ -477,7 +477,10 @@ class PAFT(object):
             si for si in all_possible_stim_idx if si != self.stim_index]
         
         # Choose
+        print("prev stim_index: {}".format(self.stim_index))
+        print("excluding_previous: {}".format(excluding_previous))
         self.stim_index = random.choice(excluding_previous)
+        print("chosen stim_index: {}".format(self.stim_index))
         self.stim_params = stimulus_set.loc[self.stim_index]
         stringy_stim_params = self.stim_params.to_string().replace('\n', '; ')
         self.logger.debug("Chosen stim params: {}".format(stringy_stim_params))
