@@ -289,6 +289,8 @@ class PAFT_Child(object):
             amplitude = 0
         
         # Set light on or off
+        print("xxx")
+        print(use_light)
         if use_light:
             other_side = 'R' if side else 'L'
             self.hardware['LEDS'][side].set(

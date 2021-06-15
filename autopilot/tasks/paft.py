@@ -497,7 +497,9 @@ class PAFT(object):
                 amplitude = 0
             
             # Set light on or off
-            if self.stim_params['light']:
+            print("xxx")
+            print(self.stim_params['light'])
+            if self.stim_params['light'] == True:
                 other_side = 'R' if self.stim_params['side'] == 'L' else 'L'
                 self.hardware['LEDS'][self.stim_params['side']].set(
                     r=0, g=255, b=0)
