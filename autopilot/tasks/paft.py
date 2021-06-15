@@ -479,7 +479,8 @@ class PAFT(object):
         # Choose
         self.stim_index = random.choice(excluding_previous)
         self.stim_params = stimulus_set.loc[self.stim_index]
-        self.logger.debug("Chosen stim params: {}".format(self.stim_params))
+        stringy_stim_params = self.stim_params.to_string().replace('\n', '; ')
+        self.logger.debug("Chosen stim params: {}".format(stringy_stim_params))
         
         
         ## Set stim
