@@ -314,7 +314,7 @@ class PAFT_Child(object):
                     
         # Add a trigger to open the port
         self.triggers[side].append(
-            self.hardware['PORTS'][self.stim_params['side']].open)
+            self.hardware['PORTS'][side].open)
 
         # Immediately after opening, reset the poke triggers
         # Kind of weird to modify self.triggers while we're iterating
