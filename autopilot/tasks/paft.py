@@ -476,7 +476,7 @@ class PAFT(object):
         for idx in stimulus_set.index:
             if (
                 stimulus_set.loc[idx, 'side'] == self.stim_params['side'] and
-                stimulus_set.loc[idx, 'rpi'] == self.stim_params['rpi'] and
+                stimulus_set.loc[idx, 'rpi'] == self.stim_params['rpi'] 
                 ):
                 continue
             excluding_previous.append(idx)
