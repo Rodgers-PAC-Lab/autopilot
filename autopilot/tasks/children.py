@@ -305,15 +305,18 @@ class PAFT_Child(object):
         
         # Turn on green led
         if side == 'L':
-            self.hardware['LEDS']['L'].set(r=0, g=led_val, b=0)
+            self.hardware['LEDS']['L'].set(r=0, g=255, b=0)
             self.hardware['LEDS']['R'].set(r=0, g=0, b=0)
-        else:
+        elif side == 'R':
             self.hardware['LEDS']['L'].set(r=0, g=0, b=0)
-            self.hardware['LEDS']['R'].set(r=0, g=0, b=0)            
-        
+            self.hardware['LEDS']['R'].set(r=0, g=255, b=0)            
+        else:
+            raise ValueError(
+                "unknown side: {}".format(side))
+                    
         # Add a trigger to open the port
         self.triggers[side].append(
-            self.hardware['PORTS'][self.stim_params['side']].open)
+            self.hardware['PORTS'][side].open)
 
         # Immediately after opening, reset the poke triggers
         # Kind of weird to modify self.triggers while we're iterating

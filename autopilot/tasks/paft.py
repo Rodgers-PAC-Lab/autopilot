@@ -214,6 +214,7 @@ class PAFT(object):
         
         # This keeps track of the current stim
         self.stim = None
+        self.stim_index = None
         
         # This is used to count the trials, it is initialized by
         # something to wherever we are in the Protocol graduation
@@ -416,12 +417,12 @@ class PAFT(object):
                 self.stim_params['side'] == poke_name):
             self.logger.debug('correct poke {}; target was {}'.format(
                 value, 
-                self.stim_params['child'] + '_' + self.stim_params['side']))
+                self.stim_params['rpi'] + '_' + self.stim_params['side']))
             self.stage_block.set()
         else:
             self.logger.debug('incorrect poke {}; target was {}'.format(
                 value, 
-                self.stim_params['child'] + '_' + self.stim_params['side']))
+                self.stim_params['rpi'] + '_' + self.stim_params['side']))
         
     def log_poke_from_child(self, value):
         child_name = value['from']
@@ -513,11 +514,14 @@ class PAFT(object):
             
             # Turn on green led
             if self.stim_params['side'] == 'L':
-                self.hardware['LEDS']['L'].set(r=0, g=led_val, b=0)
+                self.hardware['LEDS']['L'].set(r=0, g=255, b=0)
                 self.hardware['LEDS']['R'].set(r=0, g=0, b=0)
-            else:
+            elif self.stim_params['side'] == 'R':
                 self.hardware['LEDS']['L'].set(r=0, g=0, b=0)
-                self.hardware['LEDS']['R'].set(r=0, g=0, b=0)            
+                self.hardware['LEDS']['R'].set(r=0, g=255, b=0)            
+            else:
+                raise ValueError(
+                    "unknown side: {}".format(self.stim_params['side']))
             
             # Add a trigger to open the port
             self.triggers[self.stim_params['side']].append(
