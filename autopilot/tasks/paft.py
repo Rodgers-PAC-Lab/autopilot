@@ -215,6 +215,7 @@ class PAFT(object):
         # This keeps track of the current stim
         self.stim = None
         self.stim_index = None
+        self.stim_params = None
         
         # This is used to count the trials, it is initialized by
         # something to wherever we are in the Protocol graduation
@@ -474,11 +475,12 @@ class PAFT(object):
         # Identify possible stim (those that do not repeat the reward port)
         excluding_previous = []
         for idx in stimulus_set.index:
-            if (
-                stimulus_set.loc[idx, 'side'] == self.stim_params['side'] and
-                stimulus_set.loc[idx, 'rpi'] == self.stim_params['rpi'] 
-                ):
-                continue
+            if self.stim_params is not None:
+                if (
+                    stimulus_set.loc[idx, 'side'] == self.stim_params['side'] 
+                    and stimulus_set.loc[idx, 'rpi'] == self.stim_params['rpi'] 
+                    ):
+                    continue
             excluding_previous.append(idx)
         
         # Choose
