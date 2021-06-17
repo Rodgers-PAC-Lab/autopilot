@@ -298,8 +298,7 @@ class PAFT_Child(object):
         
         # Generate the sound
         self.stim = sounds.Noise(
-            duration=100, amplitude=amplitude, channel=channel, 
-            nsamples=19456)
+            duration=25, amplitude=amplitude, channel=channel)
         
         # Add a trigger to open the port
         self.triggers[side].append(
@@ -325,7 +324,7 @@ class PAFT_Child(object):
         """
         # Play it again, after a delay
         self.stim.buffer()
-        threading.Timer(.75, self.stim.play).start()
+        threading.Timer(.15, self.stim.play).start()
 
     def recv_stop(self, value):
         # debug
