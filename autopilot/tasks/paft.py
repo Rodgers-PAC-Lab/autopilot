@@ -228,7 +228,7 @@ class PAFT(object):
         self.triggers = {}
 
         # Stage list to iterate
-        stage_list = [self.water, self.response]
+        stage_list = [self.ITI_start, self.ITI_wait, self.water, self.response]
         self.num_stages = len(stage_list)
         self.stages = itertools.cycle(stage_list)
 
@@ -449,6 +449,34 @@ class PAFT(object):
             self.triggers[poke] = [
                 functools.partial(self.log_poke, poke),
                 ]        
+    
+    def ITI_start(self, *args, **kwargs):
+        """A state that initiates an ITI timer"""
+
+        ## Prevents moving to next stage
+        self.stage_block.clear()
+        
+        # This flag is set after the timer is over
+        self.iti_is_over = False
+        
+        # Start the timer
+        threading.Timer(5, self.ITI_stop).start()
+        
+        # Continue to next stage (self.ITI_wait)
+        self.stage_block.set()
+
+    def ITI_stop(self):
+        """Helper function just to set flag iti_is_over"""
+        self.iti_is_over = True
+        
+    def ITI_wait(self, *args, **kwargs):
+        """A state that waits for the ITI to be over"""
+        # Do not move to next stage
+        self.stage_block.clear()
+
+        # Unless ITI is over
+        if self.iti_is_over:
+            self.stage_block.set()
     
     def water(self, *args, **kwargs):
         """
