@@ -128,6 +128,7 @@ class PAFT_Child(object):
         self.node2.send(
             'parent_pi', 'HELLO', {'from': self.name})
         
+        self.init_sound.buffer()
         self.init_sound.play()
 
     def init_hardware(self):

@@ -315,6 +315,7 @@ class PAFT(object):
         self.logger.debug(
             "All children have connected: {}".format(self.child_connected))
         
+        self.init_sound.buffer()
         self.init_sound.play()
 
     def init_hardware(self):
