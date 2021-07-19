@@ -254,9 +254,9 @@ class PAFT(object):
 
         ## This is used for error pokes
         self.left_error_sound = sounds.Noise(
-            duration=250, amplitude=.03, channel=0)
+            duration=250, amplitude=.01, channel=0)
         self.right_error_sound = sounds.Noise(
-            duration=250, amplitude=.03, channel=1)
+            duration=250, amplitude=.01, channel=1)
 
         
         ## Initialize net node for communications with child
