@@ -370,14 +370,20 @@ class PAFT_Child(object):
         self.hardware['LEDS']['L'].set(r=0, g=0, b=0)
         self.hardware['LEDS']['R'].set(r=0, g=0, b=0)
         
+        # Reset poke triggers
+        self.set_poke_triggers(append_error_sound=False)
+        
         # Wait for the ITI
         # This allows time to consume without error sound
         self.iti_flag = True
         threading.Timer(5, self.set_iti_flag).start()
+        print("Waiting for ITI flag")
         while self.iti_flag:
             pass
+        print("ITI flag complete")
 
     def set_iti_flag(self):
+        print("Setting ITI flag to False")
         self.iti_flag = False
 
     def recv_end(self, value):

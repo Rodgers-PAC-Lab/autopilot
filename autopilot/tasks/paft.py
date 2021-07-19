@@ -631,7 +631,10 @@ class PAFT(object):
                 key='STOP',
                 value={},
                 )                
-
+        
+        # Reset poke triggers
+        self.set_poke_triggers(append_error_sound=False)
+        
         # Wait for the ITI
         # This allows time to consume without error sound
         self.iti_flag = True
