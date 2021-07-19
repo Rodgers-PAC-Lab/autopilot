@@ -250,7 +250,14 @@ class PAFT(object):
         # Turn off LEDs
         self.hardware['LEDS']['L'].set(r=0, g=0, b=0)
         self.hardware['LEDS']['R'].set(r=0, g=0, b=0)
-        
+
+
+        ## This is used for error pokes
+        self.left_error_sound = sounds.Noise(
+            duration=250, amplitude=.03, channel=0)
+        self.right_error_sound = sounds.Noise(
+            duration=250, amplitude=.03, channel=1)
+
         
         ## Initialize net node for communications with child
         # With instance=True, I get a threading error about current event loop
@@ -304,14 +311,6 @@ class PAFT(object):
                 break
         self.logger.debug(
             "All children have connected: {}".format(self.child_connected))
-
-
-        ## This is used for error pokes
-        self.left_error_sound = sounds.Noise(
-            duration=250, amplitude=.03, channel=0)
-        self.right_error_sound = sounds.Noise(
-            duration=250, amplitude=.03, channel=1)
-
 
     def init_hardware(self):
         """

@@ -86,7 +86,14 @@ class PAFT_Child(object):
         # Rewards
         for port_name, port in self.hardware['PORTS'].items():
             port.duration = float(reward)
-            
+
+
+        ## This is used for error pokes
+        self.left_error_sound = sounds.Noise(
+            duration=250, amplitude=.03, channel=0)
+        self.right_error_sound = sounds.Noise(
+            duration=250, amplitude=.03, channel=1)
+
 
         ## Triggers
         self.triggers = {}
@@ -117,13 +124,6 @@ class PAFT_Child(object):
         # Send
         self.node2.send(
             'parent_pi', 'HELLO', {'from': self.name})
-
-
-        ## This is used for error pokes
-        self.left_error_sound = sounds.Noise(
-            duration=250, amplitude=.03, channel=0)
-        self.right_error_sound = sounds.Noise(
-            duration=250, amplitude=.03, channel=1)
 
     def init_hardware(self):
         """
