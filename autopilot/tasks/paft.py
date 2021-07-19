@@ -305,6 +305,14 @@ class PAFT(object):
         self.logger.debug(
             "All children have connected: {}".format(self.child_connected))
 
+
+        ## This is used for error pokes
+        self.left_error_sound = sounds.Noise(
+            duration=250, amplitude=.03, channel=0)
+        self.right_error_sound = sounds.Noise(
+            duration=250, amplitude=.03, channel=1)
+
+
     def init_hardware(self):
         """
         Use the HARDWARE dict that specifies what we need to run the task
@@ -528,11 +536,13 @@ class PAFT(object):
         ## Set stim
         if self.stim_params['rpi'] == 'rpi01':
             ## This rpi controls the target port
-            # Set channel
+            # Set channel and other_side variables, used below
             if self.stim_params['side'] == 'L':
                 channel = 0
+                other_side = 'R'
             else:
                 channel = 1
+                other_side = 'L'
             
             # Set sound on or off
             if self.stim_params['sound']:
@@ -542,7 +552,6 @@ class PAFT(object):
             
             # Set light on or off
             if self.stim_params['light']:
-                other_side = 'R' if self.stim_params['side'] == 'L' else 'L'
                 self.hardware['LEDS'][self.stim_params['side']].set(
                     r=0, g=255, b=0)
                 self.hardware['LEDS'][other_side].set(
@@ -558,6 +567,12 @@ class PAFT(object):
             self.triggers[self.stim_params['side']].append(
                 self.stage_block.set)
 
+            # Set an error sound on the other_side
+            if other_side == 'R':
+                self.triggers['R'].append(self.right_error_sound.play)
+            elif other_side == 'L':
+                self.triggers['L'].append(self.left_error_sound.play)
+            
         else:
             ## A child rpi controls the target port
             # No stim

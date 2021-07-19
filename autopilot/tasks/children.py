@@ -118,6 +118,13 @@ class PAFT_Child(object):
         self.node2.send(
             'parent_pi', 'HELLO', {'from': self.name})
 
+
+        ## This is used for error pokes
+        self.left_error_sound = sounds.Noise(
+            duration=250, amplitude=.03, channel=0)
+        self.right_error_sound = sounds.Noise(
+            duration=250, amplitude=.03, channel=1)
+
     def init_hardware(self):
         """
         Use the HARDWARE dict that specifies what we need to run the task
@@ -276,11 +283,13 @@ class PAFT_Child(object):
         use_light = value['light']
         use_sound = value['sound']
         
-        # Set channel
+        # Set channel and other_side variables
         if side == 'L':
             channel = 0
+            other_side = 'R'
         else:
             channel = 1
+            other_side = 'L'
         
         # Set sound on or off
         if use_sound:
@@ -309,7 +318,14 @@ class PAFT_Child(object):
         # over it, but should be okay since this is the last one
         self.triggers[side].append(
             self.set_poke_triggers)
+
         
+        ## Set an error sound on the other_side
+        if other_side == 'R':
+            self.triggers['R'].append(self.right_error_sound.play)
+        elif other_side == 'L':
+            self.triggers['L'].append(self.left_error_sound.play)
+                    
 
         ## Set the stim to repeat
         # Set the trigger to call function when stim is over
