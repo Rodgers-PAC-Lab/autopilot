@@ -280,7 +280,7 @@ class PAFT_Child(object):
         """The noop stage"""
         # Set these triggers again, in case they were just unset by 
         # handle_trigger
-        self.set_poke_triggers()
+        #~ self.set_poke_triggers()
         
         # Prevent moving to the next stage, because there's only one stage
         # anyway
