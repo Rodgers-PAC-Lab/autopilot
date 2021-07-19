@@ -242,6 +242,10 @@ class PAFT_Child(object):
                 functools.partial(self.log_poke, poke),
                 functools.partial(self.report_poke, poke),
                 ]        
+        
+        # Append error sound to each
+        self.triggers['L'].append(self.left_error_sound.play)
+        self.triggers['R'].append(self.right_error_sound.play)
 
     def log_poke(self, poke):
         """Write in the logger that the poke happened"""
@@ -309,6 +313,11 @@ class PAFT_Child(object):
         self.stim = sounds.Noise(
             duration=25, amplitude=amplitude, channel=channel)
         
+        # Remove the error sound (should be the last one)
+        popped = self.triggers[side].pop()
+        assert popped in [
+            self.left_error_sound.play, self.right_error_sound.play]
+        
         # Add a trigger to open the port
         self.triggers[side].append(
             self.hardware['PORTS'][side].open)
@@ -319,13 +328,6 @@ class PAFT_Child(object):
         self.triggers[side].append(
             self.set_poke_triggers)
 
-        
-        ## Set an error sound on the other_side
-        if other_side == 'R':
-            self.triggers['R'].append(self.right_error_sound.play)
-        elif other_side == 'L':
-            self.triggers['L'].append(self.left_error_sound.play)
-                    
 
         ## Set the stim to repeat
         # Set the trigger to call function when stim is over

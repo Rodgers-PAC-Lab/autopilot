@@ -463,6 +463,10 @@ class PAFT(object):
             self.triggers[poke] = [
                 functools.partial(self.log_poke, poke),
                 ]        
+
+        # Append error sound to each
+        self.triggers['L'].append(self.left_error_sound.play)
+        self.triggers['R'].append(self.right_error_sound.play)
     
     def ITI_start(self, *args, **kwargs):
         """A state that initiates an ITI timer"""
@@ -560,6 +564,11 @@ class PAFT(object):
             # Generate the sound
             self.stim = sounds.Noise(
                 duration=25, amplitude=amplitude, channel=channel)
+
+            # Remove the error sound (should be the last one)
+            popped = self.triggers[self.stim_params['side']].pop()
+            assert popped in [
+                self.left_error_sound.play, self.right_error_sound.play]
             
             # Add a trigger to open the port
             self.triggers[self.stim_params['side']].append(
@@ -567,12 +576,6 @@ class PAFT(object):
             self.triggers[self.stim_params['side']].append(
                 self.stage_block.set)
 
-            # Set an error sound on the other_side
-            if other_side == 'R':
-                self.triggers['R'].append(self.right_error_sound.play)
-            elif other_side == 'L':
-                self.triggers['L'].append(self.left_error_sound.play)
-            
         else:
             ## A child rpi controls the target port
             # No stim
