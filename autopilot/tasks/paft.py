@@ -55,6 +55,9 @@ from autopilot.core.loggers import init_logger
 # contains the task class. 
 TASK = 'PAFT'
 
+# Duration of the ITI
+ITI_DURATION_SEC = 5
+
 # Define a stimulus set to use
 stimulus_set = pandas.DataFrame.from_records([
     ('rpi01', 'L', True, False),
@@ -226,6 +229,9 @@ class PAFT(object):
         
         # A dict of hardware triggers
         self.triggers = {}
+
+        # This is used in the ITI stage
+        self.iti_is_over = False
 
         # Stage list to iterate
         stage_list = [self.ITI_start, self.ITI_wait, self.water, self.response]
@@ -452,15 +458,16 @@ class PAFT(object):
     
     def ITI_start(self, *args, **kwargs):
         """A state that initiates an ITI timer"""
-
-        ## Prevents moving to next stage
-        self.stage_block.clear()
+        # Set poke triggers (for logging)
+        # Make sure this doesn't depend on self.stim which hasn't been
+        # chosen yet!
+        self.set_poke_triggers()
         
         # This flag is set after the timer is over
         self.iti_is_over = False
         
         # Start the timer
-        threading.Timer(5, self.ITI_stop).start()
+        threading.Timer(ITI_DURATION_SEC, self.ITI_stop).start()
         
         # Continue to next stage (self.ITI_wait)
         self.stage_block.set()
@@ -471,12 +478,12 @@ class PAFT(object):
         
     def ITI_wait(self, *args, **kwargs):
         """A state that waits for the ITI to be over"""
-        # Do not move to next stage
-        self.stage_block.clear()
-
-        # Unless ITI is over
-        if self.iti_is_over:
-            self.stage_block.set()
+        # Wait until the ITI is over
+        while not self.iti_is_over:
+            pass
+        
+        # Set the stage block
+        self.stage_block.set()
     
     def water(self, *args, **kwargs):
         """
