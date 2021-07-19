@@ -642,7 +642,7 @@ class PAFT(object):
         # Tell the Terminal the trial has ended
         return {'TRIAL_END':True}
 
-    def set_iti_flag:
+    def set_iti_flag(self):
         self.iti_flag = False
 
     def end(self):

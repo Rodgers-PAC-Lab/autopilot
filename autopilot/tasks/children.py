@@ -377,7 +377,7 @@ class PAFT_Child(object):
         while self.iti_flag:
             pass
 
-    def set_iti_flag:
+    def set_iti_flag(self):
         self.iti_flag = False
 
     def recv_end(self, value):
