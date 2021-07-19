@@ -89,10 +89,10 @@ class PAFT_Child(object):
 
 
         ## This is used for error pokes
-        self.left_error_sound = sounds.Noise(
-            duration=250, amplitude=.01, channel=0)
-        self.right_error_sound = sounds.Noise(
-            duration=250, amplitude=.01, channel=1)
+        self.left_error_sound = sounds.Tritone(
+            frequency=8000, duration=250, amplitude=.01, channel=0)
+        self.right_error_sound = sounds.Tritone(
+            frequency=8000, duration=250, amplitude=.01, channel=1)
 
         # init sound
         self.init_sound = sounds.Noise(duration=100, amplitude=.001, channel=0)
