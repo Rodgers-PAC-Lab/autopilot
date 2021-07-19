@@ -55,6 +55,9 @@ from autopilot.core.loggers import init_logger
 # contains the task class. 
 TASK = 'PAFT'
 
+# Duration of the ITI
+ITI_DURATION_SEC = 5
+
 # Define a stimulus set to use
 stimulus_set = pandas.DataFrame.from_records([
     ('rpi01', 'L', True, False),
@@ -227,6 +230,9 @@ class PAFT(object):
         # A dict of hardware triggers
         self.triggers = {}
 
+        # This is used in the ITI stage
+        self.iti_is_over = False
+
         # Stage list to iterate
         stage_list = [self.ITI_start, self.ITI_wait, self.water, self.response]
         self.num_stages = len(stage_list)
@@ -244,7 +250,17 @@ class PAFT(object):
         # Turn off LEDs
         self.hardware['LEDS']['L'].set(r=0, g=0, b=0)
         self.hardware['LEDS']['R'].set(r=0, g=0, b=0)
+
+
+        ## This is used for error pokes
+        self.left_error_sound = sounds.Noise(
+            duration=250, amplitude=.01, channel=0)
+        self.right_error_sound = sounds.Noise(
+            duration=250, amplitude=.01, channel=1)
         
+        # init sound
+        self.init_sound = sounds.Noise(duration=100, amplitude=.001, channel=0)
+
         
         ## Initialize net node for communications with child
         # With instance=True, I get a threading error about current event loop
@@ -298,6 +314,17 @@ class PAFT(object):
                 break
         self.logger.debug(
             "All children have connected: {}".format(self.child_connected))
+        
+        # Play init sound
+        # This is just because there's often weird audio garbling until the
+        # first sound is played, not sure why, not sure which of these lines
+        # helps
+        self.init_sound.buffer()
+        self.init_sound.set_trigger(self.do_nothing)
+        threading.Timer(.75, self.init_sound.play).start()
+    
+    def do_nothing(self):
+        pass
 
     def init_hardware(self):
         """
@@ -449,18 +476,23 @@ class PAFT(object):
             self.triggers[poke] = [
                 functools.partial(self.log_poke, poke),
                 ]        
+
+        # Append error sound to each
+        self.triggers['L'].append(self.left_error_sound.play)
+        self.triggers['R'].append(self.right_error_sound.play)
     
     def ITI_start(self, *args, **kwargs):
         """A state that initiates an ITI timer"""
-
-        ## Prevents moving to next stage
-        self.stage_block.clear()
+        # Set poke triggers (for logging)
+        # Make sure this doesn't depend on self.stim which hasn't been
+        # chosen yet!
+        self.set_poke_triggers()
         
         # This flag is set after the timer is over
         self.iti_is_over = False
         
         # Start the timer
-        threading.Timer(5, self.ITI_stop).start()
+        threading.Timer(ITI_DURATION_SEC, self.ITI_stop).start()
         
         # Continue to next stage (self.ITI_wait)
         self.stage_block.set()
@@ -471,12 +503,12 @@ class PAFT(object):
         
     def ITI_wait(self, *args, **kwargs):
         """A state that waits for the ITI to be over"""
-        # Do not move to next stage
-        self.stage_block.clear()
-
-        # Unless ITI is over
-        if self.iti_is_over:
-            self.stage_block.set()
+        # Wait until the ITI is over
+        while not self.iti_is_over:
+            pass
+        
+        # Set the stage block
+        self.stage_block.set()
     
     def water(self, *args, **kwargs):
         """
@@ -521,11 +553,13 @@ class PAFT(object):
         ## Set stim
         if self.stim_params['rpi'] == 'rpi01':
             ## This rpi controls the target port
-            # Set channel
+            # Set channel and other_side variables, used below
             if self.stim_params['side'] == 'L':
                 channel = 0
+                other_side = 'R'
             else:
                 channel = 1
+                other_side = 'L'
             
             # Set sound on or off
             if self.stim_params['sound']:
@@ -535,7 +569,6 @@ class PAFT(object):
             
             # Set light on or off
             if self.stim_params['light']:
-                other_side = 'R' if self.stim_params['side'] == 'L' else 'L'
                 self.hardware['LEDS'][self.stim_params['side']].set(
                     r=0, g=255, b=0)
                 self.hardware['LEDS'][other_side].set(
@@ -544,6 +577,11 @@ class PAFT(object):
             # Generate the sound
             self.stim = sounds.Noise(
                 duration=25, amplitude=amplitude, channel=channel)
+
+            # Remove the error sound (should be the last one)
+            popped = self.triggers[self.stim_params['side']].pop()
+            assert popped in [
+                self.left_error_sound.play, self.right_error_sound.play]
             
             # Add a trigger to open the port
             self.triggers[self.stim_params['side']].append(

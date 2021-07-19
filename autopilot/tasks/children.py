@@ -86,7 +86,17 @@ class PAFT_Child(object):
         # Rewards
         for port_name, port in self.hardware['PORTS'].items():
             port.duration = float(reward)
-            
+
+
+        ## This is used for error pokes
+        self.left_error_sound = sounds.Noise(
+            duration=250, amplitude=.01, channel=0)
+        self.right_error_sound = sounds.Noise(
+            duration=250, amplitude=.01, channel=1)
+
+        # init sound
+        self.init_sound = sounds.Noise(duration=100, amplitude=.001, channel=0)
+
 
         ## Triggers
         self.triggers = {}
@@ -117,6 +127,13 @@ class PAFT_Child(object):
         # Send
         self.node2.send(
             'parent_pi', 'HELLO', {'from': self.name})
+        
+        self.init_sound.buffer()
+        self.init_sound.set_trigger(self.do_nothing)
+        threading.Timer(.75, self.init_sound.play).start()
+    
+    def do_nothing(self):
+        pass
 
     def init_hardware(self):
         """
@@ -235,6 +252,10 @@ class PAFT_Child(object):
                 functools.partial(self.log_poke, poke),
                 functools.partial(self.report_poke, poke),
                 ]        
+        
+        # Append error sound to each
+        self.triggers['L'].append(self.left_error_sound.play)
+        self.triggers['R'].append(self.right_error_sound.play)
 
     def log_poke(self, poke):
         """Write in the logger that the poke happened"""
@@ -276,11 +297,13 @@ class PAFT_Child(object):
         use_light = value['light']
         use_sound = value['sound']
         
-        # Set channel
+        # Set channel and other_side variables
         if side == 'L':
             channel = 0
+            other_side = 'R'
         else:
             channel = 1
+            other_side = 'L'
         
         # Set sound on or off
         if use_sound:
@@ -300,6 +323,11 @@ class PAFT_Child(object):
         self.stim = sounds.Noise(
             duration=25, amplitude=amplitude, channel=channel)
         
+        # Remove the error sound (should be the last one)
+        popped = self.triggers[side].pop()
+        assert popped in [
+            self.left_error_sound.play, self.right_error_sound.play]
+        
         # Add a trigger to open the port
         self.triggers[side].append(
             self.hardware['PORTS'][side].open)
@@ -309,7 +337,7 @@ class PAFT_Child(object):
         # over it, but should be okay since this is the last one
         self.triggers[side].append(
             self.set_poke_triggers)
-        
+
 
         ## Set the stim to repeat
         # Set the trigger to call function when stim is over
