@@ -315,6 +315,10 @@ class PAFT(object):
         self.logger.debug(
             "All children have connected: {}".format(self.child_connected))
         
+        # Play init sound
+        # This is just because there's often weird audio garbling until the
+        # first sound is played, not sure why, not sure which of these lines
+        # helps
         self.init_sound.buffer()
         self.init_sound.set_trigger(self.do_nothing)
         threading.Timer(.75, self.init_sound.play).start()
