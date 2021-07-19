@@ -240,22 +240,25 @@ class PAFT_Child(object):
             for pin, obj in v.items():
                 obj.release()
 
-    def set_poke_triggers(self):
+    def set_poke_triggers(self, append_error_sound=False):
         """"Set triggers for poke entry
         
         For each poke, sets these triggers:
             self.log_poke (write to own debugger)
             self.report_poke (report to parent)
+
+        If append_error_sound is True, then also append a trigger to play
+        the error sound after these.
         """
-        for poke in ['L', 'R']:
+        for poke in ['L', 'C', 'R']:
             self.triggers[poke] = [
                 functools.partial(self.log_poke, poke),
-                functools.partial(self.report_poke, poke),
                 ]        
         
-        # Append error sound to each
-        self.triggers['L'].append(self.left_error_sound.play)
-        self.triggers['R'].append(self.right_error_sound.play)
+        if append_error_sound:
+            # Append error sound to each
+            self.triggers['L'].append(self.left_error_sound.play)
+            self.triggers['R'].append(self.right_error_sound.play)
 
     def log_poke(self, poke):
         """Write in the logger that the poke happened"""
@@ -324,6 +327,7 @@ class PAFT_Child(object):
             duration=25, amplitude=amplitude, channel=channel)
         
         # Remove the error sound (should be the last one)
+        self.set_poke_triggers(append_error_sound=True)
         popped = self.triggers[side].pop()
         assert popped in [
             self.left_error_sound.play, self.right_error_sound.play]
@@ -365,6 +369,16 @@ class PAFT_Child(object):
         # Turn off LEDs
         self.hardware['LEDS']['L'].set(r=0, g=0, b=0)
         self.hardware['LEDS']['R'].set(r=0, g=0, b=0)
+        
+        # Wait for the ITI
+        # This allows time to consume without error sound
+        self.iti_flag = True
+        threading.Timer(5, self.set_iti_flag).start()
+        while self.iti_flag:
+            pass
+
+    def set_iti_flag:
+        self.iti_flag = False
 
     def recv_end(self, value):
         # debug

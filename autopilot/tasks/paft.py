@@ -234,7 +234,7 @@ class PAFT(object):
         self.iti_is_over = False
 
         # Stage list to iterate
-        stage_list = [self.ITI_start, self.ITI_wait, self.water, self.response]
+        stage_list = [self.water, self.response]
         self.num_stages = len(stage_list)
         self.stages = itertools.cycle(stage_list)
 
@@ -463,12 +463,15 @@ class PAFT(object):
             port,
             ))
     
-    def set_poke_triggers(self):
+    def set_poke_triggers(self, append_error_sound=False):
         """"Set triggers for poke entry
         
         For each poke, sets these triggers:
             self.log_poke (write to own debugger)
             self.report_poke (report to parent)
+        
+        If append_error_sound is True, then also append a trigger to play
+        the error sound after these.
         
         The C-poke doesn't really exist, but this is useful for debugging.
         """
@@ -476,39 +479,11 @@ class PAFT(object):
             self.triggers[poke] = [
                 functools.partial(self.log_poke, poke),
                 ]        
-
-        # Append error sound to each
-        self.triggers['L'].append(self.left_error_sound.play)
-        self.triggers['R'].append(self.right_error_sound.play)
-    
-    def ITI_start(self, *args, **kwargs):
-        """A state that initiates an ITI timer"""
-        # Set poke triggers (for logging)
-        # Make sure this doesn't depend on self.stim which hasn't been
-        # chosen yet!
-        self.set_poke_triggers()
         
-        # This flag is set after the timer is over
-        self.iti_is_over = False
-        
-        # Start the timer
-        threading.Timer(ITI_DURATION_SEC, self.ITI_stop).start()
-        
-        # Continue to next stage (self.ITI_wait)
-        self.stage_block.set()
-
-    def ITI_stop(self):
-        """Helper function just to set flag iti_is_over"""
-        self.iti_is_over = True
-        
-    def ITI_wait(self, *args, **kwargs):
-        """A state that waits for the ITI to be over"""
-        # Wait until the ITI is over
-        while not self.iti_is_over:
-            pass
-        
-        # Set the stage block
-        self.stage_block.set()
+        if append_error_sound:
+            # Append error sound to each
+            self.triggers['L'].append(self.left_error_sound.play)
+            self.triggers['R'].append(self.right_error_sound.play)
     
     def water(self, *args, **kwargs):
         """
@@ -528,7 +503,9 @@ class PAFT(object):
         ## Set poke triggers (for logging)
         # Make sure this doesn't depend on self.stim which hasn't been
         # chosen yet!
-        self.set_poke_triggers()
+        # Here we actually append an error sound, which we'll later remove
+        # on the correct port
+        self.set_poke_triggers(append_error_sound=True)
         
         
         ## Choose target
@@ -655,8 +632,18 @@ class PAFT(object):
                 value={},
                 )                
 
+        # Wait for the ITI
+        # This allows time to consume without error sound
+        self.iti_flag = True
+        threading.Timer(5, self.set_iti_flag).start()
+        while self.iti_flag:
+            pass
+
         # Tell the Terminal the trial has ended
         return {'TRIAL_END':True}
+
+    def set_iti_flag:
+        self.iti_flag = False
 
     def end(self):
         """
