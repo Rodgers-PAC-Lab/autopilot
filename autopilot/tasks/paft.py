@@ -257,6 +257,9 @@ class PAFT(object):
             duration=250, amplitude=.01, channel=0)
         self.right_error_sound = sounds.Noise(
             duration=250, amplitude=.01, channel=1)
+        
+        # init sound
+        self.init_sound = sounds.Noise(duration=100, amplitude=.001)
 
         
         ## Initialize net node for communications with child
@@ -311,6 +314,8 @@ class PAFT(object):
                 break
         self.logger.debug(
             "All children have connected: {}".format(self.child_connected))
+        
+        self.init_sound.play()
 
     def init_hardware(self):
         """

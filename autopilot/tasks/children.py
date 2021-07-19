@@ -94,6 +94,9 @@ class PAFT_Child(object):
         self.right_error_sound = sounds.Noise(
             duration=250, amplitude=.01, channel=1)
 
+        # init sound
+        self.init_sound = sounds.Noise(duration=100, amplitude=.001)
+
 
         ## Triggers
         self.triggers = {}
@@ -124,6 +127,8 @@ class PAFT_Child(object):
         # Send
         self.node2.send(
             'parent_pi', 'HELLO', {'from': self.name})
+        
+        self.init_sound.play()
 
     def init_hardware(self):
         """
