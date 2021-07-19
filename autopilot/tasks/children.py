@@ -95,7 +95,7 @@ class PAFT_Child(object):
             duration=250, amplitude=.01, channel=1)
 
         # init sound
-        self.init_sound = sounds.Noise(duration=100, amplitude=.001)
+        self.init_sound = sounds.Noise(duration=100, amplitude=.001, channel=0)
 
 
         ## Triggers
@@ -129,7 +129,11 @@ class PAFT_Child(object):
             'parent_pi', 'HELLO', {'from': self.name})
         
         self.init_sound.buffer()
-        self.init_sound.play()
+        self.init_sound.set_trigger(self.do_nothing)
+        threading.Timer(.75, self.init_sound.play).start()
+    
+    def do_nothing(self):
+        pass
 
     def init_hardware(self):
         """
