@@ -59,7 +59,7 @@ TASK = 'PAFT'
 ITI_DURATION_SEC = 5
 
 # Define a stimulus set to use
-method = 'sound_and_light'
+method = 'sound_or_light'
 if method == 'sound_or_light':
     stimulus_set = pandas.DataFrame.from_records([
         ('rpi01', 'L', True, False),
