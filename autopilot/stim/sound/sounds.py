@@ -43,6 +43,7 @@ import sys
 from time import sleep
 from scipy.io import wavfile
 from scipy.signal import resample
+import scipy.signal
 import numpy as np
 import threading
 from itertools import cycle
@@ -712,7 +713,8 @@ class Noise(BASE_CLASS):
     # The type of the sound
     type='Noise'
     
-    def __init__(self, duration, amplitude=0.01, channel=None, **kwargs):
+    def __init__(self, duration, amplitude=0.01, channel=None, 
+        highpass=10000., **kwargs):
         """Initialize a new white noise burst with specified parameters.
         
         The sound itself is stored as the attribute `self.table`. This can
@@ -735,6 +737,7 @@ class Noise(BASE_CLASS):
         # Set the parameters specific to Noise
         self.duration = float(duration)
         self.amplitude = float(amplitude)
+        self.highpass = float(highpass)
         try:
             self.channel = int(channel)
         except TypeError:
@@ -774,11 +777,23 @@ class Noise(BASE_CLASS):
             if self.channel is None:
                 # The table will be 1-dimensional for mono sound
                 self.table = np.random.uniform(-1, 1, self.nsamples)
+                
+                # Filter
+                bhi, ahi = scipy.signal.butter(
+                    2, self.highpass / (self.fs / 2), 'high')
+                self.table = scipy.signal.filtfilt(bhi, ahi, self.table)
+
             else:
                 # The table will be 2-dimensional for stereo sound
                 # Each channel is a column
                 # Only the specified channel contains data and the other is zero
                 data = np.random.uniform(-1, 1, self.nsamples)
+                
+                # Filter
+                bhi, ahi = scipy.signal.butter(
+                    2, self.highpass / (self.fs / 2), 'high')
+                data = scipy.signal.filtfilt(bhi, ahi, data)
+                
                 self.table = np.zeros((self.nsamples, 2))
                 assert self.channel in [0, 1]
                 self.table[:, self.channel] = data
