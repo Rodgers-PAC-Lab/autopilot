@@ -35,7 +35,10 @@ from autopilot.hardware import cameras
 from autopilot.transform import transforms
 
 
-class PAFT_Child(object):
+class Child(object):
+    """Just a placeholder class for now to work with :func:`autopilot.get`"""
+
+class PAFT_Child(Child):
     # PARAMS to accept
     PARAMS = odict()
 
@@ -389,9 +392,6 @@ class PAFT_Child(object):
     def done_playing(self):
         # This is called when the last stim of the trial has finished playing
         pass
-
-class Child(object):
-    """Just a placeholder class for now to work with :func:`autopilot.get`"""
 
 class Wheel_Child(Child):
     STAGE_NAMES = ['collect']
