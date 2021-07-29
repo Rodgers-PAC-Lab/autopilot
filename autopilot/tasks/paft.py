@@ -95,7 +95,7 @@ elif method == 'sound_and_light':
 else:
     raise ValueError('unrecognized method: {}'.format(method))
 
-class PAFT(object):
+class PAFT(Task):
     """The probabalistic auditory foraging task (PAFT).
     
     This task chooses a port at random, lights up the LED for that port,
