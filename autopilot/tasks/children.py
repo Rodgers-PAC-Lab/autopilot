@@ -390,7 +390,10 @@ class PAFT_Child(object):
         # This is called when the last stim of the trial has finished playing
         pass
 
-class Wheel_Child(object):
+class Child(object):
+    """Just a placeholder class for now to work with :func:`autopilot.get`"""
+
+class Wheel_Child(Child):
     STAGE_NAMES = ['collect']
 
     PARAMS = odict()
@@ -407,6 +410,7 @@ class Wheel_Child(object):
 
 
     def __init__(self, stage_block=None, fs=10, thresh=100, **kwargs):
+        super(Wheel_Child, self).__init__(**kwargs)
         self.fs = fs
         self.thresh = thresh
 
@@ -429,7 +433,7 @@ class Wheel_Child(object):
         self.stage_block.set()
 
 
-class Video_Child(object):
+class Video_Child(Child):
     PARAMS = odict()
     PARAMS['cams'] = {'tag': 'Dictionary of camera params, or list of dicts',
                       'type': ('dict', 'list')}
@@ -445,6 +449,7 @@ class Video_Child(object):
                     'param1': 'first_param'
                 }
         """
+        super(Video_Child, self).__init__(**kwargs)
 
         if cams is None:
             Exception('Need to give us a cams dictionary!')
@@ -533,7 +538,7 @@ class Video_Child(object):
     #     for cam in self.cams.values():
     #         cam.release()
 
-class Transformer(object):
+class Transformer(Child):
 
     def __init__(self, transform,
                  operation: str ="trigger",
@@ -557,6 +562,7 @@ class Transformer(object):
             value_subset (str): Optional - subset a value from from a dict/list sent to :meth:`.l_process`
             **kwargs:
         """
+        super(Transformer, self).__init__(**kwargs)
         assert operation in ('trigger', 'stream', 'debug')
         self.operation = operation
         self._last_result = None
