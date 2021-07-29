@@ -1,7 +1,7 @@
 """This module defines the PAFT task
 
 
-Multiple Child rpis running the "PAFT Child" Task connect to this Parent.
+Multiple Child rpis running the "PAFT_Child" Task connect to this Parent.
 The Parent chooses the correct stimulus and logs all events. It tells each
 Child if it should start playing sounds and when it should stop. The Child
 knows that a poke into the port that is currently playing sound should
@@ -173,13 +173,13 @@ class PAFT(Task):
     ## The child rpi that handles the other ports
     CHILDREN = {
         'rpi02': {
-            'task_type': "PAFT Child",
+            'task_type': "PAFT_Child",
         },
         'rpi03': {
-            'task_type': "PAFT Child",
+            'task_type': "PAFT_Child",
         },
         'rpi04': {
-            'task_type': "PAFT Child",
+            'task_type': "PAFT_Child",
         },
     }
 
@@ -292,7 +292,7 @@ class PAFT(Task):
         value = {
             'child': {
                 'parent': prefs.get('NAME'), 'subject': subject},
-            'task_type': 'PAFT Child',
+            'task_type': 'PAFT_Child',
             'subject': subject,
             'reward': reward,
         }
