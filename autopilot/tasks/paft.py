@@ -57,6 +57,8 @@ TASK = 'PAFT'
 
 # Duration of the ITI
 ITI_DURATION_SEC = 5
+STIM_AMPLITUDE = .01
+STIM_HP_FILT = 5000
 
 # Define a stimulus set to use
 method = 'sound_or_light'
@@ -579,7 +581,7 @@ class PAFT(Task):
             
             # Set sound on or off
             if self.stim_params['sound']:
-                amplitude = .003
+                amplitude = STIM_AMPLITUDE
             else:
                 amplitude = 0
             
@@ -592,7 +594,8 @@ class PAFT(Task):
             
             # Generate the sound
             self.stim = sounds.Noise(
-                duration=25, amplitude=amplitude, channel=channel)
+                duration=25, amplitude=amplitude, channel=channel, 
+                highpass=STIM_HP_FILT)
 
             # Remove the error sound (should be the last one)
             popped = self.triggers[self.stim_params['side']].pop()

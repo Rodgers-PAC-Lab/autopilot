@@ -34,6 +34,9 @@ from autopilot.hardware.usb import Wheel
 from autopilot.hardware import cameras
 from autopilot.transform import transforms
 
+STIM_AMPLITUDE = .01
+STIM_HP_FILT = 5000
+
 
 class Child(object):
     """Just a placeholder class for now to work with :func:`autopilot.get`"""
@@ -310,7 +313,7 @@ class PAFT_Child(Child):
         
         # Set sound on or off
         if use_sound:
-            amplitude = .003
+            amplitude = STIM_AMPLITUDE
         else:
             amplitude = 0
         
@@ -324,7 +327,8 @@ class PAFT_Child(Child):
         
         # Generate the sound
         self.stim = sounds.Noise(
-            duration=25, amplitude=amplitude, channel=channel)
+            duration=25, amplitude=amplitude, channel=channel, 
+            highpass=STIM_HP_FILT)
         
         # Remove the error sound (should be the last one)
         popped = self.triggers[side].pop()
