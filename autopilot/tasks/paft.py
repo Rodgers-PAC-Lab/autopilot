@@ -56,7 +56,7 @@ from autopilot.core.loggers import init_logger
 TASK = 'PAFT'
 
 # Duration of the ITI
-ITI_DURATION_SEC = 5
+ITI_DURATION_SEC = 3
 STIM_AMPLITUDE = .01
 STIM_HP_FILT = 5000
 INTER_STIM_INTERVAL = .15
