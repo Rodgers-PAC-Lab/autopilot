@@ -36,8 +36,8 @@ from autopilot.transform import transforms
 
 STIM_AMPLITUDE = .01
 STIM_HP_FILT = 5000
-INTER_STIM_INTERVAL = .075
-STIM_DURATION_MS = 25
+INTER_STIM_INTERVAL = .1
+STIM_DURATION_MS = 10
 
 class Child(object):
     """Just a placeholder class for now to work with :func:`autopilot.get`"""
