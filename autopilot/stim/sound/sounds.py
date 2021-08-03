@@ -717,8 +717,8 @@ class Noise(BASE_CLASS):
     # The type of the sound
     type='Noise'
     
-    def __init__(self, duration, amplitude=0.01, channel=None, 
-        highpass=10000., **kwargs):
+    def __init__(self, duration, amplitude=0.03, channel=None, 
+        highpass=5000., **kwargs):
         """Initialize a new white noise burst with specified parameters.
         
         The sound itself is stored as the attribute `self.table`. This can
