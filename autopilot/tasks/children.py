@@ -36,7 +36,7 @@ from autopilot.transform import transforms
 
 STIM_AMPLITUDE = .01
 STIM_HP_FILT = 5000
-INTER_STIM_INTERVAL = .2
+INTER_STIM_INTERVAL = .15
 STIM_DURATION_MS = 10
 
 class Child(object):
