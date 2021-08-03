@@ -36,7 +36,8 @@ from autopilot.transform import transforms
 
 STIM_AMPLITUDE = .01
 STIM_HP_FILT = 5000
-
+INTER_STIM_INTERVAL = .075
+STIM_DURATION_MS = 25
 
 class Child(object):
     """Just a placeholder class for now to work with :func:`autopilot.get`"""
@@ -327,7 +328,7 @@ class PAFT_Child(Child):
         
         # Generate the sound
         self.stim = sounds.Noise(
-            duration=25, amplitude=amplitude, channel=channel, 
+            duration=STIM_DURATION_MS, amplitude=amplitude, channel=channel, 
             highpass=STIM_HP_FILT)
         
         # Remove the error sound (should be the last one)
@@ -359,7 +360,7 @@ class PAFT_Child(Child):
         """
         # Play it again, after a delay
         self.stim.buffer()
-        threading.Timer(.15, self.stim.play).start()
+        threading.Timer(INTER_STIM_INTERVAL, self.stim.play).start()
 
     def recv_stop(self, value):
         # debug
