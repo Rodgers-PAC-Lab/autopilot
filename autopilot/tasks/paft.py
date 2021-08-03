@@ -62,7 +62,7 @@ STIM_HP_FILT = 5000
 
 # Define a stimulus set to use
 method = 'sound_or_light'
-if method == 'sound_or_light':
+if method == 'sound_xor_light':
     stimulus_set = pandas.DataFrame.from_records([
         ('rpi01', 'L', True, False),
         ('rpi01', 'R', True, False),
@@ -80,6 +80,34 @@ if method == 'sound_or_light':
         ('rpi03', 'R', False, True),
         ('rpi04', 'L', False, True),
         ('rpi04', 'R', False, True),
+        ], columns=['rpi', 'side', 'sound', 'light'],
+        )
+elif method == 'sound_or_light':
+    stimulus_set = pandas.DataFrame.from_records([
+        ('rpi01', 'L', True, False),
+        ('rpi01', 'R', True, False),
+        ('rpi02', 'L', True, False),
+        ('rpi02', 'R', True, False),
+        ('rpi03', 'L', True, False),
+        ('rpi03', 'R', True, False),
+        ('rpi04', 'L', True, False),
+        ('rpi04', 'R', True, False),
+        ('rpi01', 'L', False, True),
+        ('rpi01', 'R', False, True),
+        ('rpi02', 'L', False, True),
+        ('rpi02', 'R', False, True),
+        ('rpi03', 'L', False, True),
+        ('rpi03', 'R', False, True),
+        ('rpi04', 'L', False, True),
+        ('rpi04', 'R', False, True),
+        ('rpi01', 'L', True, True),
+        ('rpi01', 'R', True, True),
+        ('rpi02', 'L', True, True),
+        ('rpi02', 'R', True, True),
+        ('rpi03', 'L', True, True),
+        ('rpi03', 'R', True, True),
+        ('rpi04', 'L', True, True),
+        ('rpi04', 'R', True, True),
         ], columns=['rpi', 'side', 'sound', 'light'],
         )
 elif method == 'sound_and_light':
