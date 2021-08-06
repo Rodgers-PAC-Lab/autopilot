@@ -63,7 +63,7 @@ INTER_STIM_INTERVAL = .15
 STIM_DURATION_MS = 10
 
 # Define a stimulus set to use
-method = 'sound_and_maybe_light'
+method = 'sound_and_not_light'
 if method == 'sound_xor_light':
     stimulus_set = pandas.DataFrame.from_records([
         ('rpi01', 'L', True, False),
@@ -84,6 +84,18 @@ if method == 'sound_xor_light':
         ('rpi04', 'R', False, True),
         ], columns=['rpi', 'side', 'sound', 'light'],
         )
+elif method == 'sound_and_not_light':
+    stimulus_set = pandas.DataFrame.from_records([
+        ('rpi01', 'L', True, False),
+        ('rpi01', 'R', True, False),
+        ('rpi02', 'L', True, False),
+        ('rpi02', 'R', True, False),
+        ('rpi03', 'L', True, False),
+        ('rpi03', 'R', True, False),
+        ('rpi04', 'L', True, False),
+        ('rpi04', 'R', True, False),
+        ], columns=['rpi', 'side', 'sound', 'light'],
+        )        
 elif method == 'sound_and_maybe_light':
     stimulus_set = pandas.DataFrame.from_records([
         ('rpi01', 'L', True, False),
