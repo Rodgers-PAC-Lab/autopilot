@@ -236,13 +236,13 @@ class PAFT(Task):
     
     ## The child rpi that handles the other ports
     CHILDREN = {
-        'rpi02': {
+        'rpi06': {
             'task_type': "PAFT_Child",
         },
-        'rpi03': {
+        'rpi07': {
             'task_type': "PAFT_Child",
         },
-        'rpi04': {
+        'rpi08': {
             'task_type': "PAFT_Child",
         },
     }
