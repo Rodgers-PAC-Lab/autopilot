@@ -797,7 +797,7 @@ class PAFT(Task):
         self.stim.buffer()
         
         # Draw the interval
-        interval = np.random.gamma(3, 0.1)
+        interval = np.random.gamma(3, 0.15)
         
         # Hard floor
         if interval < INTER_STIM_INTERVAL_FLOOR:
