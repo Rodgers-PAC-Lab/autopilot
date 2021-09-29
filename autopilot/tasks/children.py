@@ -363,7 +363,7 @@ class PAFT_Child(Child):
         self.stim.buffer()
         
         # Draw the interval
-        interval = np.random.gamma(3, 0.2)
+        interval = np.random.gamma(3, 0.1)
         
         # Hard floor
         if interval < INTER_STIM_INTERVAL_FLOOR:
