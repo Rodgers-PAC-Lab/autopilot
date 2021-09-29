@@ -36,7 +36,8 @@ from autopilot.transform import transforms
 
 STIM_AMPLITUDE = .01
 STIM_HP_FILT = 5000
-INTER_STIM_INTERVAL = .15
+#~ INTER_STIM_INTERVAL = .15
+INTER_STIM_INTERVAL_FLOOR = .15
 STIM_DURATION_MS = 10
 
 class Child(object):
@@ -360,7 +361,15 @@ class PAFT_Child(Child):
         """
         # Play it again, after a delay
         self.stim.buffer()
-        threading.Timer(INTER_STIM_INTERVAL, self.stim.play).start()
+        
+        # Draw the interval
+        interval = np.random.gamma(3, 0.2)
+        
+        # Hard floor
+        if interval < INTER_STIM_INTERVAL_FLOOR:
+            interval = INTER_STIM_INTERVAL_FLOOR
+        
+        threading.Timer(interval, self.stim.play).start()
 
     def recv_stop(self, value):
         # debug
