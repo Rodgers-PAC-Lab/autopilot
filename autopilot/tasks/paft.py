@@ -13,10 +13,10 @@ on each Child connects to it.
 The Parent responds to the following message keys on port 5001:
 * HELLO : This means the Child has booted the task.
     The value is dispatched to PAFT.recv_hello, with the following keys:
-    'from' : string; the name of the child (e.g., rpi02)
+    'from' : string; the name of the child (e.g., rpi06)
 * POKE : This means the Child has detected a poke.
     The value is dispatched to PAFT.recv_poke, with the following keys:
-    'from' : string; the name of the child (e.g., rpi02)
+    'from' : string; the name of the child (e.g., rpi06)
     'poke' : one of {'L', 'R'}; the side that was poked
 
 The Parent will not start the first trial until each Child in PAFT.CHILDREN
@@ -55,6 +55,27 @@ from autopilot.core.loggers import init_logger
 # contains the task class. 
 TASK = 'PAFT'
 
+# Figure out which box we're in
+MY_NAME = prefs.get('NAME')
+if MY_NAME in ['rpi01', 'rpi02', 'rpi03', 'rpi04']:
+    MY_BOX = 'Box1'
+    MY_PARENTS_NAME = 'rpi01'
+    MY_PI1 = 'rpi01'
+    MY_PI2 = 'rpi02'
+    MY_PI3 = 'rpi03'
+    MY_PI4 = 'rpi04'
+
+elif MY_NAME in ['rpi05', 'rpi06', 'rpi07', 'rpi08']:
+    MY_BOX = 'Box2'
+    MY_PARENTS_NAME = 'rpi05'
+    MY_PI1 = 'rpi05'
+    MY_PI2 = 'rpi06'
+    MY_PI3 = 'rpi07'
+    MY_PI4 = 'rpi08'
+
+else:
+    raise ValueError("Unrecognized value of pref NAME: {}".format(MY_NAME))
+
 # Duration of the ITI
 ITI_DURATION_SEC = 1
 STIM_AMPLITUDE = .01
@@ -67,94 +88,94 @@ STIM_DURATION_MS = 10
 method = 'sound_and_not_light'
 if method == 'sound_xor_light':
     stimulus_set = pandas.DataFrame.from_records([
-        ('rpi01', 'L', True, False),
-        ('rpi01', 'R', True, False),
-        ('rpi02', 'L', True, False),
-        ('rpi02', 'R', True, False),
-        ('rpi03', 'L', True, False),
-        ('rpi03', 'R', True, False),
-        ('rpi04', 'L', True, False),
-        ('rpi04', 'R', True, False),
-        ('rpi01', 'L', False, True),
-        ('rpi01', 'R', False, True),
-        ('rpi02', 'L', False, True),
-        ('rpi02', 'R', False, True),
-        ('rpi03', 'L', False, True),
-        ('rpi03', 'R', False, True),
-        ('rpi04', 'L', False, True),
-        ('rpi04', 'R', False, True),
+        (MY_PI1, 'L', True, False),
+        (MY_PI1, 'R', True, False),
+        (MY_PI2, 'L', True, False),
+        (MY_PI2, 'R', True, False),
+        (MY_PI3, 'L', True, False),
+        (MY_PI3, 'R', True, False),
+        (MY_PI4, 'L', True, False),
+        (MY_PI4, 'R', True, False),
+        (MY_PI1, 'L', False, True),
+        (MY_PI1, 'R', False, True),
+        (MY_PI2, 'L', False, True),
+        (MY_PI2, 'R', False, True),
+        (MY_PI3, 'L', False, True),
+        (MY_PI3, 'R', False, True),
+        (MY_PI4, 'L', False, True),
+        (MY_PI4, 'R', False, True),
         ], columns=['rpi', 'side', 'sound', 'light'],
         )
 elif method == 'sound_and_not_light':
     stimulus_set = pandas.DataFrame.from_records([
-        ('rpi01', 'L', True, False),
-        ('rpi01', 'R', True, False),
-        ('rpi02', 'L', True, False),
-        ('rpi02', 'R', True, False),
-        ('rpi03', 'L', True, False),
-        ('rpi03', 'R', True, False),
-        ('rpi04', 'L', True, False),
-        ('rpi04', 'R', True, False),
+        (MY_PI1, 'L', True, False),
+        (MY_PI1, 'R', True, False),
+        (MY_PI2, 'L', True, False),
+        (MY_PI2, 'R', True, False),
+        (MY_PI3, 'L', True, False),
+        (MY_PI3, 'R', True, False),
+        (MY_PI4, 'L', True, False),
+        (MY_PI4, 'R', True, False),
         ], columns=['rpi', 'side', 'sound', 'light'],
         )        
 elif method == 'sound_and_maybe_light':
     stimulus_set = pandas.DataFrame.from_records([
-        ('rpi01', 'L', True, False),
-        ('rpi01', 'R', True, False),
-        ('rpi02', 'L', True, False),
-        ('rpi02', 'R', True, False),
-        ('rpi03', 'L', True, False),
-        ('rpi03', 'R', True, False),
-        ('rpi04', 'L', True, False),
-        ('rpi04', 'R', True, False),
-        ('rpi01', 'L', True, True),
-        ('rpi01', 'R', True, True),
-        ('rpi02', 'L', True, True),
-        ('rpi02', 'R', True, True),
-        ('rpi03', 'L', True, True),
-        ('rpi03', 'R', True, True),
-        ('rpi04', 'L', True, True),
-        ('rpi04', 'R', True, True),
+        (MY_PI1, 'L', True, False),
+        (MY_PI1, 'R', True, False),
+        (MY_PI2, 'L', True, False),
+        (MY_PI2, 'R', True, False),
+        (MY_PI3, 'L', True, False),
+        (MY_PI3, 'R', True, False),
+        (MY_PI4, 'L', True, False),
+        (MY_PI4, 'R', True, False),
+        (MY_PI1, 'L', True, True),
+        (MY_PI1, 'R', True, True),
+        (MY_PI2, 'L', True, True),
+        (MY_PI2, 'R', True, True),
+        (MY_PI3, 'L', True, True),
+        (MY_PI3, 'R', True, True),
+        (MY_PI4, 'L', True, True),
+        (MY_PI4, 'R', True, True),
         ], columns=['rpi', 'side', 'sound', 'light'],
         )
 elif method == 'sound_or_light':
     stimulus_set = pandas.DataFrame.from_records([
-        ('rpi01', 'L', True, False),
-        ('rpi01', 'R', True, False),
-        ('rpi02', 'L', True, False),
-        ('rpi02', 'R', True, False),
-        ('rpi03', 'L', True, False),
-        ('rpi03', 'R', True, False),
-        ('rpi04', 'L', True, False),
-        ('rpi04', 'R', True, False),
-        ('rpi01', 'L', False, True),
-        ('rpi01', 'R', False, True),
-        ('rpi02', 'L', False, True),
-        ('rpi02', 'R', False, True),
-        ('rpi03', 'L', False, True),
-        ('rpi03', 'R', False, True),
-        ('rpi04', 'L', False, True),
-        ('rpi04', 'R', False, True),
-        ('rpi01', 'L', True, True),
-        ('rpi01', 'R', True, True),
-        ('rpi02', 'L', True, True),
-        ('rpi02', 'R', True, True),
-        ('rpi03', 'L', True, True),
-        ('rpi03', 'R', True, True),
-        ('rpi04', 'L', True, True),
-        ('rpi04', 'R', True, True),
+        (MY_PI1, 'L', True, False),
+        (MY_PI1, 'R', True, False),
+        (MY_PI2, 'L', True, False),
+        (MY_PI2, 'R', True, False),
+        (MY_PI3, 'L', True, False),
+        (MY_PI3, 'R', True, False),
+        (MY_PI4, 'L', True, False),
+        (MY_PI4, 'R', True, False),
+        (MY_PI1, 'L', False, True),
+        (MY_PI1, 'R', False, True),
+        (MY_PI2, 'L', False, True),
+        (MY_PI2, 'R', False, True),
+        (MY_PI3, 'L', False, True),
+        (MY_PI3, 'R', False, True),
+        (MY_PI4, 'L', False, True),
+        (MY_PI4, 'R', False, True),
+        (MY_PI1, 'L', True, True),
+        (MY_PI1, 'R', True, True),
+        (MY_PI2, 'L', True, True),
+        (MY_PI2, 'R', True, True),
+        (MY_PI3, 'L', True, True),
+        (MY_PI3, 'R', True, True),
+        (MY_PI4, 'L', True, True),
+        (MY_PI4, 'R', True, True),
         ], columns=['rpi', 'side', 'sound', 'light'],
         )
 elif method == 'sound_and_light':
     stimulus_set = pandas.DataFrame.from_records([
-        ('rpi01', 'L', True, True),
-        ('rpi01', 'R', True, True),
-        ('rpi02', 'L', True, True),
-        ('rpi02', 'R', True, True),
-        ('rpi03', 'L', True, True),
-        ('rpi03', 'R', True, True),
-        ('rpi04', 'L', True, True),
-        ('rpi04', 'R', True, True),
+        (MY_PI1, 'L', True, True),
+        (MY_PI1, 'R', True, True),
+        (MY_PI2, 'L', True, True),
+        (MY_PI2, 'R', True, True),
+        (MY_PI3, 'L', True, True),
+        (MY_PI3, 'R', True, True),
+        (MY_PI4, 'L', True, True),
+        (MY_PI4, 'R', True, True),
         ], columns=['rpi', 'side', 'sound', 'light'],
         )
 else:
@@ -237,13 +258,13 @@ class PAFT(Task):
     
     ## The child rpi that handles the other ports
     CHILDREN = {
-        'rpi02': {
+        MY_PI2: {
             'task_type': "PAFT_Child",
         },
-        'rpi03': {
+        MY_PI3: {
             'task_type': "PAFT_Child",
         },
-        'rpi04': {
+        MY_PI4: {
             'task_type': "PAFT_Child",
         },
     }
@@ -632,7 +653,7 @@ class PAFT(Task):
         
         
         ## Set stim
-        if self.stim_params['rpi'] == 'rpi01':
+        if self.stim_params['rpi'] == MY_PI1:
             ## This rpi controls the target port
             # Set channel and other_side variables, used below
             if self.stim_params['side'] == 'L':
@@ -730,7 +751,7 @@ class PAFT(Task):
         self.hardware['LEDS']['R'].set(r=0, g=0, b=0)
 
         # Tell the child to stop
-        if self.stim_params['rpi'] != 'rpi01':
+        if self.stim_params['rpi'] != MY_PI1:
             self.node2.send(
                 to=self.stim_params['rpi'],
                 key='STOP',
