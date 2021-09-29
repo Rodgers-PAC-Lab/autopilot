@@ -121,7 +121,7 @@ class PAFT_Child(Child):
             id=self.name,
             upstream='parent_pi',
             port=5001,
-            upstream_ip='192.168.11.205',
+            upstream_ip=prefs.get('PARENTIP'),
             listens={
                 'HELLO': self.recv_hello,
                 'PLAY': self.recv_play,
