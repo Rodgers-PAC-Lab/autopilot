@@ -90,6 +90,14 @@ STIM_HP_FILT = 5000
 INTER_STIM_INTERVAL_FLOOR = .15
 STIM_DURATION_MS = 10
 
+# Box-dependent stim param
+if MY_BOX == 'Box1':
+    GAMMA_SCALE = 0.15
+elif MY_BOX == 'Box2':
+    GAMMA_SCALE = 0.05
+else:
+    GAMMA_SCALE = 0.15
+
 # Define a stimulus set to use
 method = 'sound_and_not_light'
 if method == 'sound_xor_light':
@@ -803,7 +811,7 @@ class PAFT(Task):
         self.stim.buffer()
         
         # Draw the interval
-        interval = np.random.gamma(3, 0.15)
+        interval = np.random.gamma(3, GAMMA_SCALE)
         
         # Hard floor
         if interval < INTER_STIM_INTERVAL_FLOOR:

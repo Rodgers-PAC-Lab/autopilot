@@ -40,6 +40,24 @@ STIM_HP_FILT = 5000
 INTER_STIM_INTERVAL_FLOOR = .15
 STIM_DURATION_MS = 10
 
+# Figure out which box we're in
+MY_NAME = prefs.get('NAME')
+if MY_NAME in ['rpi01', 'rpi02', 'rpi03', 'rpi04']:
+    MY_BOX = 'Box1'
+elif MY_NAME in ['rpi05', 'rpi06', 'rpi07', 'rpi08']:
+    MY_BOX = 'Box2'
+else:
+    # This happens on the Terminal, for instance
+    MY_BOX = 'NoBox'
+    
+# Box-dependent stim param
+if MY_BOX == 'Box1':
+    GAMMA_SCALE = 0.15
+elif MY_BOX == 'Box2':
+    GAMMA_SCALE = 0.05
+else:
+    GAMMA_SCALE = 0.15
+
 class Child(object):
     """Just a placeholder class for now to work with :func:`autopilot.get`"""
 
@@ -363,7 +381,7 @@ class PAFT_Child(Child):
         self.stim.buffer()
         
         # Draw the interval
-        interval = np.random.gamma(3, 0.15)
+        interval = np.random.gamma(3, GAMMA_SCALE)
         
         # Hard floor
         if interval < INTER_STIM_INTERVAL_FLOOR:
