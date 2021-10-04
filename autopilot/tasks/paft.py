@@ -74,7 +74,13 @@ elif MY_NAME in ['rpi05', 'rpi06', 'rpi07', 'rpi08']:
     MY_PI4 = 'rpi08'
 
 else:
-    raise ValueError("Unrecognized value of pref NAME: {}".format(MY_NAME))
+    # This happens on the Terminal, for instance
+    MY_BOX = 'NoBox'
+    MY_PARENTS_NAME = 'NoParent'
+    MY_PI1 = 'NoPi1'
+    MY_PI2 = 'NoPi2'
+    MY_PI3 = 'NoPi3'
+    MY_PI4 = 'NoPi4'
 
 # Duration of the ITI
 ITI_DURATION_SEC = 1
