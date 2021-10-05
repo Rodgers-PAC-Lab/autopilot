@@ -92,11 +92,11 @@ STIM_DURATION_MS = 10
 
 # Box-dependent stim param
 if MY_BOX == 'Box1':
-    GAMMA_SCALE = 0.15
+    GAMMA_SCALE = 0.1
 elif MY_BOX == 'Box2':
-    GAMMA_SCALE = 0.05
+    GAMMA_SCALE = 0.1
 else:
-    GAMMA_SCALE = 0.15
+    GAMMA_SCALE = 0.1
 
 # Define a stimulus set to use
 method = 'sound_and_not_light'
