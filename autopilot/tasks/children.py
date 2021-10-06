@@ -52,11 +52,11 @@ else:
     
 # Box-dependent stim param
 if MY_BOX == 'Box1':
-    GAMMA_SCALE = 0.1
+    GAMMA_SCALE = 0.08
 elif MY_BOX == 'Box2':
-    GAMMA_SCALE = 0.1
+    GAMMA_SCALE = 0.08
 else:
-    GAMMA_SCALE = 0.1
+    GAMMA_SCALE = 0.08
 
 class Child(object):
     """Just a placeholder class for now to work with :func:`autopilot.get`"""
