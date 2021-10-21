@@ -593,20 +593,24 @@ class PokeTrain(Task):
         self.log_poke('{}_{}'.format(child_name, poke_name))
     
     def log_poke(self, port):
+        # This is weird because port can be "L" or "R" if this is called
+        # directly, or it can be rpiXX_L if called by log_poke_by_child
+        
         # Store this if it was a rewarded poke
         if (
                 self.stim_params['rpi'] == MY_NAME and 
                 self.stim_params['side'] == port):
             
-            print("Blocked poke identified")
-        
+            # Blocked poke, nothing to do here
+            pass
+            
         else:
-            # Store rewarded poke
-            print("Rewarded poke identified")
+            # Rewarded poke, store so it becomes target on next trial
             self.prev_rewarded_rpi = MY_NAME
             self.prev_rewarded_side = port
             
-        
+        # Log the poke
+        # TODO: if port is "L" or "R", make it MY_NAME_L or MY_NAME_R
         self.logger.debug('{} {} poke'.format(
             datetime.datetime.now().isoformat(),
             port,
