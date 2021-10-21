@@ -598,9 +598,14 @@ class PokeTrain(Task):
                 self.stim_params['rpi'] == MY_NAME and 
                 self.stim_params['side'] == port):
             
+            print("Blocked poke identified")
+        
+        else:
             # Store rewarded poke
+            print("Rewarded poke identified")
             self.prev_rewarded_rpi = MY_NAME
             self.prev_rewarded_side = port
+            
         
         self.logger.debug('{} {} poke'.format(
             datetime.datetime.now().isoformat(),
