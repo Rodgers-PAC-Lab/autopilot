@@ -678,7 +678,7 @@ class PokeTrain(Task):
         # This won't work properly if the same port occurs multiple times
         # in the stimulus set
         prev_rewarded_index_mask = (
-            (stimulus_set['side'] == self.prev_rewarded_side) &&
+            (stimulus_set['side'] == self.prev_rewarded_side) &
             (stimulus_set['rpi'] == self.prev_rewarded_rpi)
             )
         assert prev_rewarded_index_mask.sum() == 1
