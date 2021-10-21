@@ -693,11 +693,13 @@ class PokeTrain(Task):
             (stimulus_set['rpi'] == self.prev_rewarded_rpi)
             )
         if prev_rewarded_index_mask.sum() == 0:
-            self.logger.debug("ERROR: no match to prev_rewarded")
+            self.logger.debug("ERROR: no match to prev_rewarded; {} {}".format(
+            self.prev_rewarded_rpi, self.prev_rewarded_side))
             prev_rewarded_index = 0
         elif prev_rewarded_index_mask.sum() > 1:
             self.logger.debug(
-                "ERROR: multiple match to prev_rewarded; {}".format(
+                "ERROR: multiple match to prev_rewarded; {} {} {}".format(
+                self.prev_rewarded_rpi, self.prev_rewarded_side,
                 prev_rewarded_index_mask))
             prev_rewarded_index = stimulus_set.index[
                 np.where(prev_rewarded_index_mask)[0]][0]
