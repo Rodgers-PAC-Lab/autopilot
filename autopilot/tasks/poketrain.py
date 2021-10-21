@@ -692,9 +692,18 @@ class PokeTrain(Task):
             (stimulus_set['side'] == self.prev_rewarded_side) &
             (stimulus_set['rpi'] == self.prev_rewarded_rpi)
             )
-        assert prev_rewarded_index_mask.sum() == 1
-        prev_rewarded_index = stimulus_set.index[
-            np.where(prev_rewarded_index_mask)[0]][0]
+        if prev_rewarded_index_mask.sum() == 0:
+            self.logger.debug("ERROR: no match to prev_rewarded")
+            prev_rewarded_index = 0
+        elif prev_rewarded_index_mask.sum() > 1:
+            self.logger.debug(
+                "ERROR: multiple match to prev_rewarded; {}".format(
+                prev_rewarded_index_mask))
+            prev_rewarded_index = stimulus_set.index[
+                np.where(prev_rewarded_index_mask)[0]][0]
+        else:
+            prev_rewarded_index = stimulus_set.index[
+                np.where(prev_rewarded_index_mask)[0]][0]
         
         # Set the target (unrewarded port) to be the previously rewarded
         self.stim_index = prev_rewarded_index
