@@ -703,7 +703,7 @@ class PokeTrain_Child(Child):
         
         # Set sound on or off
         if use_sound:
-            amplitude = STIM_AMPLITUDE
+            amplitude = 0.00001 #STIM_AMPLITUDE
         else:
             amplitude = 0
         
