@@ -341,7 +341,7 @@ class PokeTrain(Task):
         self.stim_params = None
         
         # This keeps track of previously rewarded port
-        self.prev_rewarded_rpi = MY_PI01
+        self.prev_rewarded_rpi = MY_PI1
         self.prev_rewarded_side = 'L'
         
         # This is used to count the trials, it is initialized by
