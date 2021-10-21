@@ -296,7 +296,7 @@ class PokeTrain(Task):
     
     ## Methods
     def __init__(self, stage_block, current_trial, step_name, task_type, 
-        subject, step, session, pilot, reward):
+        subject, step, session, pilot, reward, graduation):
         """Initialize a new PokeTrain Task
         
         Arguments
@@ -319,6 +319,8 @@ class PokeTrain(Task):
         session : number of times it's been started
         pilot : name of pilot
         """
+
+        print(graduation)
 
         ## Task management
         # a threading.Event used by the pilot to manage stage transitions
