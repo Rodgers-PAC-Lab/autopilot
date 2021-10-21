@@ -644,8 +644,8 @@ class PokeTrain_Child(Child):
                 ]        
         
         # Append open to each
-        self.triggers['L'].append(self.hardware['PORTS'][side].open)
-        self.triggers['R'].append(self.hardware['PORTS'][side].open)
+        self.triggers['L'].append(self.hardware['PORTS']['L'].open)
+        self.triggers['R'].append(self.hardware['PORTS']['R'].open)
 
         # Immediately after opening, reset the poke triggers
         # Kind of weird to modify self.triggers while we're iterating
