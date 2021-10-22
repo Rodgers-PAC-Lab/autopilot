@@ -86,17 +86,8 @@ else:
 ITI_DURATION_SEC = 1
 STIM_AMPLITUDE = .00001
 STIM_HP_FILT = 5000
-#~ INTER_STIM_INTERVAL = .15
 INTER_STIM_INTERVAL_FLOOR = .15
 STIM_DURATION_MS = 10
-
-# Box-dependent stim param
-if MY_BOX == 'Box1':
-    GAMMA_SCALE = 0.15
-elif MY_BOX == 'Box2':
-    GAMMA_SCALE = 0.15
-else:
-    GAMMA_SCALE = 0.15
 
 # Define a stimulus set to use
 # Unlike PAFT, this defines the port that is NOT rewarded
@@ -318,10 +309,30 @@ class PokeTrain(Task):
             Index into the "protocol" json?
         session : number of times it's been started
         pilot : name of pilot
+        graduation : I think this is {}?
         """
-
-        print(graduation)
-
+        ## Subject-specific params
+        self.subject_params = {}
+        if subject in [
+            'tstPAFT', 'Female2_0903', 'Female3_0903', 'Female4_0903',
+            'Male3_0720', 'Male4_0720', 'Male5_0720',
+            ]:
+            # Irregular
+            self.subject_params['gamma_scale'] = 0.15
+        
+        elif subject in [
+            'Cage3276F', 'Cage3277F',
+            'Cage3279F', 'Cage3279M', 'Cage3277M',
+            ]:
+            # Regular
+            self.subject_params['gamma_scale'] = 0.001
+        
+        else:
+            # Default (but warn, because this should be specified)
+            self.logger.debug("warning: unknown subject {}".format(subject))
+            self.subject_params['gamma_scale'] = 0.001
+        
+        
         ## Task management
         # a threading.Event used by the pilot to manage stage transitions
         # Who provides this?
@@ -872,7 +883,7 @@ class PokeTrain(Task):
         self.stim.buffer()
         
         # Draw the interval
-        interval = np.random.gamma(3, GAMMA_SCALE)
+        interval = np.random.gamma(3, self.subject_params['gamma_scale'])
         
         # Hard floor
         if interval < INTER_STIM_INTERVAL_FLOOR:
