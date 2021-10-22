@@ -80,7 +80,19 @@ class PAFT_Child(Child):
         child : {'parent': parent's name, 'subject' from Terminal}
         reward : from value of START/CHILD message
         """
-        ## Subject-specific params
+        ## Init
+        # Store my name
+        # This is used for reporting pokes to the parent
+        self.name = prefs.get('NAME')
+
+        # This keeps track of the current stim
+        self.stim = None
+
+        # Set up a logger
+        self.logger = init_logger(self)
+        
+        
+        ## Subject-specific params (requires self.logger)
         self.subject_params = {}
         if subject in [
             'tstPAFT', 'Female2_0903', 'Female3_0903', 'Female4_0903',
@@ -102,18 +114,6 @@ class PAFT_Child(Child):
             self.subject_params['gamma_scale'] = 0.001
         
 
-        ## Init
-        # Store my name
-        # This is used for reporting pokes to the parent
-        self.name = prefs.get('NAME')
-
-        # This keeps track of the current stim
-        self.stim = None
-
-        # Set up a logger
-        self.logger = init_logger(self)
-        
-        
         ## Hardware
         self.init_hardware()
 
@@ -465,7 +465,19 @@ class PokeTrain_Child(Child):
         child : {'parent': parent's name, 'subject' from Terminal}
         reward : from value of START/CHILD message
         """
-        ## Subject-specific params
+        ## Init
+        # Store my name
+        # This is used for reporting pokes to the parent
+        self.name = prefs.get('NAME')
+
+        # This keeps track of the current stim
+        self.stim = None
+
+        # Set up a logger
+        self.logger = init_logger(self)
+        
+        
+        ## Subject-specific params (requires self.logger)
         self.subject_params = {}
         if subject in [
             'tstPAFT', 'Female2_0903', 'Female3_0903', 'Female4_0903',
@@ -486,19 +498,7 @@ class PokeTrain_Child(Child):
             self.logger.debug("warning: unknown subject {}".format(subject))
             self.subject_params['gamma_scale'] = 0.001
         
-        
-        ## Init
-        # Store my name
-        # This is used for reporting pokes to the parent
-        self.name = prefs.get('NAME')
 
-        # This keeps track of the current stim
-        self.stim = None
-
-        # Set up a logger
-        self.logger = init_logger(self)
-        
-        
         ## Hardware
         self.init_hardware()
 

@@ -308,28 +308,6 @@ class PAFT(Task):
         session : number of times it's been started
         pilot : name of pilot
         """
-        ## Subject-specific params
-        self.subject_params = {}
-        if subject in [
-            'tstPAFT', 'Female2_0903', 'Female3_0903', 'Female4_0903',
-            'Male3_0720', 'Male4_0720', 'Male5_0720',
-            ]:
-            # Irregular
-            self.subject_params['gamma_scale'] = 0.15
-        
-        elif subject in [
-            'Cage3276F', 'Cage3277F',
-            'Cage3279F', 'Cage3279M', 'Cage3277M',
-            ]:
-            # Regular
-            self.subject_params['gamma_scale'] = 0.001
-        
-        else:
-            # Default (but warn, because this should be specified)
-            self.logger.debug("warning: unknown subject {}".format(subject))
-            self.subject_params['gamma_scale'] = 0.001
-
-
         ## Task management
         # a threading.Event used by the pilot to manage stage transitions
         # Who provides this?
@@ -366,7 +344,30 @@ class PAFT(Task):
         self.num_stages = len(stage_list)
         self.stages = itertools.cycle(stage_list)
 
-        # Init hardware -- this sets self.hardware and self.pin_id
+
+        ## Subject-specific params (requires self.logger)
+        self.subject_params = {}
+        if subject in [
+            'tstPAFT', 'Female2_0903', 'Female3_0903', 'Female4_0903',
+            'Male3_0720', 'Male4_0720', 'Male5_0720',
+            ]:
+            # Irregular
+            self.subject_params['gamma_scale'] = 0.15
+        
+        elif subject in [
+            'Cage3276F', 'Cage3277F',
+            'Cage3279F', 'Cage3279M', 'Cage3277M',
+            ]:
+            # Regular
+            self.subject_params['gamma_scale'] = 0.001
+        
+        else:
+            # Default (but warn, because this should be specified)
+            self.logger.debug("warning: unknown subject {}".format(subject))
+            self.subject_params['gamma_scale'] = 0.001
+
+
+        ## Init hardware -- this sets self.hardware and self.pin_id
         self.init_hardware()
 
         # Set reward values for solenoids
