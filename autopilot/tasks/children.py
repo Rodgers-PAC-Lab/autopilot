@@ -97,6 +97,10 @@ class PAFT_Child(Child):
         if subject in [
             'tstPAFT', 'Female2_0903', 'Female3_0903', 'Female4_0903',
             'Male3_0720', 'Male4_0720', 'Male5_0720',
+            '3276-2', '3276-7',
+            '3279-2', '3279-9',
+            '3279-3',
+            '3277-1', '3277-3',
             ]:
             # Irregular
             self.subject_params['gamma_scale'] = 0.15
@@ -104,6 +108,11 @@ class PAFT_Child(Child):
         elif subject in [
             'Cage3276F', 'Cage3277F',
             'Cage3279F', 'Cage3279M', 'Cage3277M',
+            '3276-1', 
+            '3279-4',
+            '3277-4', '3277-5',
+            '3279-8',
+            '3277-2',
             ]:
             # Regular
             self.subject_params['gamma_scale'] = 0.001
