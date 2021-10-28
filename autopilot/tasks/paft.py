@@ -348,7 +348,7 @@ class PAFT(Task):
         ## Subject-specific params (requires self.logger)
         self.subject_params = {}
         if subject in [
-            'tstPAFT', 'Female2_0903', 'Female3_0903', 'Female4_0903',
+            'tstPAFT', 'Female2_0903', 'Female4_0903',
             'Male3_0720', 'Male4_0720', 'Male5_0720',
             '3276-2', '3276-7',
             '3279-2', '3279-9',
@@ -359,6 +359,7 @@ class PAFT(Task):
             self.subject_params['gamma_scale'] = 0.15
         
         elif subject in [
+            'Female3_0903', 
             'Cage3276F', 'Cage3277F',
             'Cage3279F', 'Cage3279M', 'Cage3277M',
             '3276-1', 
