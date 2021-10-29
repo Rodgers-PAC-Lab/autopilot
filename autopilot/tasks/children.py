@@ -101,6 +101,7 @@ class PAFT_Child(Child):
             '3279-2', '3279-9',
             '3279-3',
             '3277-1', '3277-3',
+            '3279-5', '3279-7', '3279-1', '3279-6',
             ]:
             # Irregular
             self.subject_params['gamma_scale'] = 0.15
