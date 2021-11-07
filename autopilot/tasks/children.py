@@ -102,6 +102,7 @@ class PAFT_Child(Child):
             '3279-3',
             '3277-1', '3277-3',
             '3279-5', '3279-7', '3279-1', '3279-6',
+            '3279-4', '3279-8',
             ]:
             # Irregular
             self.subject_params['gamma_scale'] = 0.15
@@ -112,9 +113,7 @@ class PAFT_Child(Child):
             'Cage3276F', 'Cage3277F',
             'Cage3279F', 'Cage3279M', 'Cage3277M',
             '3276-1', 
-            '3279-4',
             '3277-4', '3277-5',
-            '3279-8',
             '3277-2',
             ]:
             # Regular
