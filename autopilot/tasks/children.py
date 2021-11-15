@@ -101,11 +101,19 @@ class PAFT_Child(Child):
             '3279-2',
             '3277-1', '3277-3',
             '3279-5', '3279-1', 
-            '3279-4', '3279-8',
-            '3279-3', '3279-9',
+            '3279-4', 
+            '3279-3', 
             ]:
             # Irregular
             self.subject_params['gamma_scale'] = 0.15
+        
+        elif subject in [
+            '3279-8',
+            '3279-9',
+            '3279-7', '3279-6',
+            ]:
+            # Intermediate
+            self.subject_params['gamma_scale'] = 0.075
         
         elif subject in [
             'Female3_0903', 
@@ -115,14 +123,8 @@ class PAFT_Child(Child):
             '3276-1', 
             '3277-4', '3277-5',
             '3277-2',
-            '3279-7', '3279-6',
             ]:
             # Regular
-            self.subject_params['gamma_scale'] = 0.001
-        
-        else:
-            # Default (but warn, because this should be specified)
-            self.logger.debug("warning: unknown subject {}".format(subject))
             self.subject_params['gamma_scale'] = 0.001
         
 
