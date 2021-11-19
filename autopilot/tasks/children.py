@@ -127,6 +127,11 @@ class PAFT_Child(Child):
             # Regular
             self.subject_params['gamma_scale'] = 0.001
         
+        else:
+            # Default (but warn, because this should be specified)
+            self.logger.debug("warning: unknown subject {}".format(subject))
+            self.subject_params['gamma_scale'] = 0.001
+
 
         ## Hardware
         self.init_hardware()
