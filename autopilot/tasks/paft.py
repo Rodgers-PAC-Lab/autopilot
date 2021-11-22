@@ -356,6 +356,7 @@ class PAFT(Task):
             '3279-5', '3279-1', 
             '3279-4', 
             '3279-3', 
+            '3279-7', '3279-6',
             ]:
             # Irregular
             self.subject_params['gamma_scale'] = 0.15
@@ -363,7 +364,6 @@ class PAFT(Task):
         elif subject in [
             '3279-8',
             '3279-9',
-            '3279-7', '3279-6',
             ]:
             # Intermediate
             self.subject_params['gamma_scale'] = 0.075
