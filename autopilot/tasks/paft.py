@@ -399,6 +399,10 @@ class PAFT(Task):
         self.hardware['LEDS']['L'].set(r=0, g=0, b=0)
         self.hardware['LEDS']['R'].set(r=0, g=0, b=0)
 
+        # Opto trigger
+        self.opto_trigger = autopilot.hardware.gpio.Digital_Out(35)
+        self.opto_trigger.set(False)
+
 
         ## This is used for error pokes
         self.left_error_sound = sounds.Tritone(
@@ -765,6 +769,12 @@ class PAFT(Task):
             threading.Timer(.75, self.stim.play).start()        
         
         
+        ## Opto
+        #self.stim_params['opto'] = np.random.rand() < 0.5
+        if True: #self.stim_params['opto']: 
+            self.opto_trigger.set(True)
+        
+        
         ## Return data
         data = {
             'rpi': self.stim_params['rpi'],
@@ -795,6 +805,9 @@ class PAFT(Task):
         # Turn off any LEDs
         self.hardware['LEDS']['L'].set(r=0, g=0, b=0)
         self.hardware['LEDS']['R'].set(r=0, g=0, b=0)
+        
+        # Turn off opto_trigger
+        self.opto_trigger.set(False)
 
         # Tell the child to stop
         if self.stim_params['rpi'] != MY_PI1:
