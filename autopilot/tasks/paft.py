@@ -244,9 +244,6 @@ class PAFT(Task):
         light = tables.StringCol(10)
         sound = tables.StringCol(10)
         
-        # Opto
-        opto = tables.Int32Col()
-        
         # The timestamp
         timestamp = tables.StringCol(26)
 
@@ -781,11 +778,16 @@ class PAFT(Task):
         if self.stim_params['opto'] == 1: 
             self.logger.debug('opto is true on this trial {}'.format(self.n_trials))
             
+            # Hack
+            self.stim_params['light'] = 'opto_on'
+            
             # This actually activates the pin
             # Might want a delay here?
             self.opto_trigger.set(True)
         
         else:
+            # Hack
+            self.stim_params['light'] = 'opto_off'
             self.logger.debug('opto is false on this trial {}'.format(self.n_trials))
         
         
@@ -795,7 +797,7 @@ class PAFT(Task):
             'side': self.stim_params['side'],
             'light': str(self.stim_params['light']),
             'sound': str(self.stim_params['sound']),
-            'opto': self.stim_params['opto'], # int
+            #'opto': self.stim_params['opto'], # int
             'timestamp': datetime.datetime.now().isoformat(),
             'trial': self.n_trials,
             'trials_total' : next(self.trial_counter)
