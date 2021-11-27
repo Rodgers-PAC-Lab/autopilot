@@ -400,7 +400,7 @@ class PAFT(Task):
         self.hardware['LEDS']['R'].set(r=0, g=0, b=0)
 
         # Opto trigger
-        self.opto_trigger = autopilot.hardware.gpio.Digital_Out(27)
+        self.opto_trigger = autopilot.hardware.gpio.Digital_Out(35)
         self.opto_trigger.set(False)
 
 
