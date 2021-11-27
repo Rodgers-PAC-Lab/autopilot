@@ -774,8 +774,8 @@ class PAFT(Task):
         
         
         ## Opto
-        self.stim_params['opto'] = int(np.random.rand() < FRAC_OPTO_TRIALS)
-        if self.stim_params['opto'] == 1: 
+        is_opto_trial = int(np.random.rand() < FRAC_OPTO_TRIALS)
+        if is_opto_trial == 1: 
             self.logger.debug('opto is true on this trial {}'.format(self.n_trials))
             
             # Hack
@@ -787,7 +787,7 @@ class PAFT(Task):
         
         else:
             # Hack
-            self.stim_params['light'] = 'opto_off'
+            is_opto_trial = 'opto_off'
             self.logger.debug('opto is false on this trial {}'.format(self.n_trials))
         
         
@@ -797,7 +797,7 @@ class PAFT(Task):
             'side': self.stim_params['side'],
             'light': str(self.stim_params['light']),
             'sound': str(self.stim_params['sound']),
-            #'opto': self.stim_params['opto'], # int
+            #'opto': is_opto_trial, # int
             'timestamp': datetime.datetime.now().isoformat(),
             'trial': self.n_trials,
             'trials_total' : next(self.trial_counter)
