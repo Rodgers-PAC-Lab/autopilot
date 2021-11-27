@@ -244,6 +244,9 @@ class PAFT(Task):
         light = tables.StringCol(10)
         sound = tables.StringCol(10)
         
+        # Opto
+        opto = tables.Int32Col()
+        
         # The timestamp
         timestamp = tables.StringCol(26)
 
