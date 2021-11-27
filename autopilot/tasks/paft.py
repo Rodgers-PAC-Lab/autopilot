@@ -89,6 +89,9 @@ STIM_HP_FILT = 5000
 INTER_STIM_INTERVAL_FLOOR = .15
 STIM_DURATION_MS = 10
 
+# Fraction of trials to activate opto pin
+FRAC_OPTO_TRIALS = 0.3
+
 # Define a stimulus set to use
 method = 'sound_and_not_light'
 if method == 'sound_xor_light':
@@ -224,6 +227,7 @@ class PAFT(Task):
         'side': {'type': 'S10'},
         'light': {'type': 'S10'},
         'sound': {'type': 'S10'},
+        'opto': {'type':'i32'},
         'timestamp': {'type':'S26'},
     }
 
@@ -770,9 +774,16 @@ class PAFT(Task):
         
         
         ## Opto
-        #self.stim_params['opto'] = np.random.rand() < 0.5
-        if True: #self.stim_params['opto']: 
+        self.stim_params['opto'] = int(np.random.rand() < FRAC_OPTO_TRIALS)
+        if self.stim_params['opto'] == 1: 
+            self.logger.debug('opto is true on this trial {}'.format(self.n_trials))
+            
+            # This actually activates the pin
+            # Might want a delay here?
             self.opto_trigger.set(True)
+        
+        else:
+            self.logger.debug('opto is false on this trial {}'.format(self.n_trials))
         
         
         ## Return data
@@ -781,6 +792,7 @@ class PAFT(Task):
             'side': self.stim_params['side'],
             'light': str(self.stim_params['light']),
             'sound': str(self.stim_params['sound']),
+            'opto': self.stim_params['opto'], # int
             'timestamp': datetime.datetime.now().isoformat(),
             'trial': self.n_trials,
             'trials_total' : next(self.trial_counter)
