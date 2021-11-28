@@ -227,7 +227,6 @@ class PAFT(Task):
         'side': {'type': 'S10'},
         'light': {'type': 'S10'},
         'sound': {'type': 'S10'},
-        'opto': {'type':'i32'},
         'timestamp': {'type':'S26'},
     }
 
@@ -388,6 +387,10 @@ class PAFT(Task):
             # Default (but warn, because this should be specified)
             self.logger.debug("warning: unknown subject {}".format(subject))
             self.subject_params['gamma_scale'] = 0.001
+
+        # For testing opto
+        if subject in ['tstPAFT', 'tstPAFT2']:
+            FRAC_OPTO_TRIALS = 1
 
 
         ## Init hardware -- this sets self.hardware and self.pin_id
@@ -775,11 +778,12 @@ class PAFT(Task):
         
         ## Opto
         is_opto_trial = int(np.random.rand() < FRAC_OPTO_TRIALS)
+        hacked_light_string = 'hacked'
         if is_opto_trial == 1: 
             self.logger.debug('opto is true on this trial {}'.format(self.n_trials))
             
             # Hack
-            self.stim_params['light'] = 'opto_on'
+            hacked_light_string = 'opto_on'
             
             # This actually activates the pin
             # Might want a delay here?
@@ -787,7 +791,7 @@ class PAFT(Task):
         
         else:
             # Hack
-            is_opto_trial = 'opto_off'
+            hacked_light_string = 'opto_off'
             self.logger.debug('opto is false on this trial {}'.format(self.n_trials))
         
         
@@ -795,9 +799,8 @@ class PAFT(Task):
         data = {
             'rpi': self.stim_params['rpi'],
             'side': self.stim_params['side'],
-            'light': str(self.stim_params['light']),
+            'light': hacked_light_string, #str(self.stim_params['light']),
             'sound': str(self.stim_params['sound']),
-            #'opto': is_opto_trial, # int
             'timestamp': datetime.datetime.now().isoformat(),
             'trial': self.n_trials,
             'trials_total' : next(self.trial_counter)
