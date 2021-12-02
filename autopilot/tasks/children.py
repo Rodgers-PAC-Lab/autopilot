@@ -98,7 +98,6 @@ class PAFT_Child(Child):
             'tstPAFT', 'Female2_0903', 'Female4_0903',
             'Male4_0720', 'Male5_0720',
             '3276-2', '3276-7',
-            '3279-2',
             '3277-1', '3277-3',
             '3279-5', '3279-1', 
             '3279-4', 
@@ -111,6 +110,7 @@ class PAFT_Child(Child):
         elif subject in [
             '3279-8',
             '3279-9',
+            '3279-2',
             ]:
             # Intermediate
             self.subject_params['gamma_scale'] = 0.075

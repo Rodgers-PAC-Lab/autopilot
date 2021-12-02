@@ -354,7 +354,6 @@ class PAFT(Task):
             'tstPAFT', 'Female2_0903', 'Female4_0903',
             'Male4_0720', 'Male5_0720',
             '3276-2', '3276-7',
-            '3279-2',
             '3277-1', '3277-3',
             '3279-5', '3279-1', 
             '3279-4', 
@@ -367,6 +366,7 @@ class PAFT(Task):
         elif subject in [
             '3279-8',
             '3279-9',
+            '3279-2',
             ]:
             # Intermediate
             self.subject_params['gamma_scale'] = 0.075
@@ -387,10 +387,6 @@ class PAFT(Task):
             # Default (but warn, because this should be specified)
             self.logger.debug("warning: unknown subject {}".format(subject))
             self.subject_params['gamma_scale'] = 0.001
-
-        # For testing opto
-        if subject in ['tstPAFT', 'tstPAFT2']:
-            FRAC_OPTO_TRIALS = 1
 
 
         ## Init hardware -- this sets self.hardware and self.pin_id
