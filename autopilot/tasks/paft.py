@@ -296,11 +296,11 @@ class PAFT(Task):
         #~ self.n_trials = 0        
     
     
-        #~ ## Define the stages
-        #~ # Stage list to iterate
-        #~ stage_list = [self.ITI_start, self.ITI_wait, self.water, self.response]
-        #~ self.num_stages = len(stage_list)
-        #~ self.stages = itertools.cycle(stage_list)        
+        ## Define the stages
+        # Stage list to iterate
+        stage_list = [self.ITI_start, self.ITI_wait, self.water, self.response]
+        self.num_stages = len(stage_list)
+        self.stages = itertools.cycle(stage_list)        
         
 
         #~ ## Connect to the children
