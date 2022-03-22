@@ -302,6 +302,10 @@ class PAFT(Task):
         self.num_stages = len(stage_list)
         self.stages = itertools.cycle(stage_list)        
         
+        
+        ## Init hardware -- this sets self.hardware and self.pin_id
+        self.init_hardware()
+
 
         #~ ## Connect to the children
         #~ # This dict keeps track of which self.CHILDREN have connected
@@ -365,4 +369,59 @@ class PAFT(Task):
     
     def do_nothing(self):
         pass
-    
+
+    def init_hardware(self):
+        """
+        Use the HARDWARE dict that specifies what we need to run the task
+        alongside the HARDWARE subdict in :mod:`prefs` to tell us how
+        they're plugged in to the pi
+
+        Instantiate the hardware, assign it :meth:`.Task.handle_trigger`
+        as a callback if it is a trigger.
+        
+        Sets the following:
+            self.hardware
+            self.pin_id
+        """
+        # We use the HARDWARE dict that specifies what we need to run the task
+        # alongside the HARDWARE subdict in the prefs structure to tell us 
+        # how they're plugged in to the pi
+        self.hardware = {}
+        #~ self.pin_id = {} # Reverse dict to identify pokes
+        #~ pin_numbers = prefs.get('HARDWARE')
+
+        #~ # We first iterate through the types of hardware we need
+        #~ for type, values in self.HARDWARE.items():
+            #~ self.hardware[type] = {}
+            #~ # then iterate through each pin and handler of this type
+            #~ for pin, handler in values.items():
+                #~ try:
+                    #~ hw_args = pin_numbers[type][pin]
+                    #~ if isinstance(hw_args, dict):
+                        #~ if 'name' not in hw_args.keys():
+                            #~ hw_args['name'] = "{}_{}".format(type, pin)
+                        #~ hw = handler(**hw_args)
+                    #~ else:
+                        #~ hw_name = "{}_{}".format(type, pin)
+                        #~ hw = handler(hw_args, name=hw_name)
+
+                    #~ # if a pin is a trigger pin (event-based input), 
+                    #~ # give it the trigger handler
+                    #~ if hw.is_trigger:
+                        #~ hw.assign_cb(self.handle_trigger)
+
+                    #~ # add to forward and backwards pin dicts
+                    #~ self.hardware[type][pin] = hw
+                    #~ if isinstance(hw_args, int) or isinstance(hw_args, str):
+                        #~ self.pin_id[hw_args] = pin
+                    #~ elif isinstance(hw_args, list):
+                        #~ for p in hw_args:
+                            #~ self.pin_id[p] = pin
+                    #~ elif isinstance(hw_args, dict):
+                        #~ if 'pin' in hw_args.keys():
+                            #~ self.pin_id[hw_args['pin']] = pin 
+
+                #~ except:
+                    #~ self.logger.exception(
+                        #~ "Pin could not be instantiated - Type: "
+                        #~ "{}, Pin: {}".format(type, pin))
