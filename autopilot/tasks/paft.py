@@ -171,10 +171,32 @@ class PAFT(Task):
         subject, step, session, pilot, reward):
         """Initialize a new PAFT Task. 
         
+        
+        --
+        Plan
+        
+        The first version of this new task needs to:
+        * Connect to the children
+        
+        The second version needs to additionally:
+        * Report pokes from children
+        * Tell children to play sounds
+        
+        The third version needs to:
+        * Incorporate advancing through stages
+        * Return data about each trial
+        
+        The fourth version needs to:
+        * Incorporate subject-specific training params
+        
+        
+        ---
+        
         All arguments are provided by the Terminal.
         
-        Some of these arguments are handled and/or required by the
-        superclass named `Task`. (TODO: Doc which ones.)
+        Note that this __init__ does not call the superclass __init__, 
+        because that superclass Task inclues functions for punish_block
+        and so on that we don't want to use.
         
         Some params, such as `step_name` and `task_type`, are always required 
         to be specified in the json defining this protocol
@@ -208,3 +230,89 @@ class PAFT(Task):
             ms to open solenoids
             This is passed from the "protocol" json
         """    
+        ## These are things that would normally be done in superclass __init__
+        # Set up a logger first, so we can debug if anything goes wrong
+        self.logger = init_logger(self)
+
+        # Use the provided threading.Event to handle stage progression
+        self.stage_block = stage_block
+        
+        # This is used to count the trials, it is initialized by
+        # the Terminal to wherever we are in the Protocol graduation
+        self.trial_counter = itertools.count(int(current_trial))        
+
+        # A dict of hardware triggers
+        self.triggers = {}
+        
+        
+        #~ ## Init custom variables used by this task
+        #~ # This is a trial counter that always starts at zero
+        #~ self.n_trials = 0        
+    
+    
+        #~ ## Define the stages
+        #~ # Stage list to iterate
+        #~ stage_list = [self.ITI_start, self.ITI_wait, self.water, self.response]
+        #~ self.num_stages = len(stage_list)
+        #~ self.stages = itertools.cycle(stage_list)        
+        
+
+        #~ ## Connect to the children
+        #~ # This dict keeps track of which self.CHILDREN have connected
+        #~ self.child_connected = {}
+        #~ for child in self.CHILDREN.keys():
+            #~ self.child_connected[child] = False
+
+
+        #~ ## Initialize net node for communications with child
+        #~ # With instance=True, I get a threading error about current event loop
+        #~ self.node = Net_Node(id="T_{}".format(prefs.get('NAME')),
+            #~ upstream=prefs.get('NAME'),
+            #~ port=prefs.get('MSGPORT'),
+            #~ listens={},
+            #~ instance=False)
+
+        #~ # Construct a message to send to child
+        #~ # Specify the subjects for the child (twice)
+        #~ self.subject = subject
+        #~ value = {
+            #~ 'child': {
+                #~ 'parent': prefs.get('NAME'), 'subject': subject},
+            #~ 'task_type': 'PAFT_Child',
+            #~ 'subject': subject,
+            #~ 'reward': reward,
+        #~ }
+
+        #~ # send to the station object with a 'CHILD' key
+        #~ self.node.send(to=prefs.get('NAME'), key='CHILD', value=value)
+
+        
+        #~ ## Create a second node to communicate with the child
+        #~ # We (parent) are the "router"/server
+        #~ # The children are the "dealer"/clients
+        #~ # Many dealers, one router        
+        #~ self.node2 = Net_Node(
+            #~ id='parent_pi',
+            #~ upstream='',
+            #~ port=5000,
+            #~ router_port=5001,
+            #~ listens={
+                #~ 'HELLO': self.recv_hello,
+                #~ 'POKE': self.recv_poke,
+                #~ },
+            #~ instance=False,
+            #~ )
+
+        #~ # Wait until the child connects!
+        #~ self.logger.debug("Waiting for child to connect")
+        #~ while True:
+            #~ stop_looping = True
+            
+            #~ for child, is_conn in self.child_connected.items():
+                #~ if not is_conn:
+                    #~ stop_looping = False
+            
+            #~ if stop_looping:
+                #~ break
+        #~ self.logger.debug(
+            #~ "All children have connected: {}".format(self.child_connected))
