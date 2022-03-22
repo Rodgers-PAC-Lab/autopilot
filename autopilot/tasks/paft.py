@@ -298,7 +298,7 @@ class PAFT(Task):
     
         ## Define the stages
         # Stage list to iterate
-        stage_list = [self.ITI_start, self.ITI_wait, self.water, self.response]
+        stage_list = [self.do_nothing]
         self.num_stages = len(stage_list)
         self.stages = itertools.cycle(stage_list)        
         
@@ -362,3 +362,7 @@ class PAFT(Task):
                 #~ break
         #~ self.logger.debug(
             #~ "All children have connected: {}".format(self.child_connected))
+    
+    def do_nothing(self):
+        pass
+    
