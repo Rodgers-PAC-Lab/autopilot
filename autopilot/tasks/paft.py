@@ -54,6 +54,49 @@ from autopilot.core.loggers import init_logger
 # contains the task class. 
 TASK = 'PAFT'
 
+
+## Set box-specific params
+# TODO: Figure out some cleaner way of doing this
+# But right now vars like MY_PI2 are needed just to initiate a PAFT object
+
+# Figure out which box we're in
+MY_NAME = prefs.get('NAME')
+
+if MY_NAME in ['rpi01', 'rpi02', 'rpi03', 'rpi04']:
+    MY_BOX = 'Box1'
+    MY_PARENTS_NAME = 'rpi01'
+    MY_PI1 = 'rpi01'
+    MY_PI2 = 'rpi02'
+    MY_PI3 = 'rpi03'
+    MY_PI4 = 'rpi04'
+
+elif MY_NAME in ['rpi05', 'rpi06', 'rpi07', 'rpi08']:
+    MY_BOX = 'Box2'
+    MY_PARENTS_NAME = 'rpi05'
+    MY_PI1 = 'rpi05'
+    MY_PI2 = 'rpi06'
+    MY_PI3 = 'rpi07'
+    MY_PI4 = 'rpi08'
+
+elif MY_NAME in ['rpi09', 'rpi10', 'rpi11', 'rpi12']:
+    MY_BOX = 'Box2'
+    MY_PARENTS_NAME = 'rpi05'
+    MY_PI1 = 'rpi05'
+    MY_PI2 = 'rpi06'
+    MY_PI3 = 'rpi07'
+    MY_PI4 = 'rpi08'
+
+else:
+    # This happens on the Terminal, for instance
+    MY_BOX = 'NoBox'
+    MY_PARENTS_NAME = 'NoParent'
+    MY_PI1 = 'NoPi1'
+    MY_PI2 = 'NoPi2'
+    MY_PI3 = 'NoPi3'
+    MY_PI4 = 'NoPi4'
+
+
+## Define the Task
 class PAFT(Task):
     """The probabalistic auditory foraging task (PAFT).
     
