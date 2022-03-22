@@ -211,7 +211,7 @@ class PAFT(Task):
     
     ## Define the class methods
     def __init__(self, stage_block, current_trial, step_name, task_type, 
-        subject, step, session, pilot, reward):
+        subject, step, session, pilot, reward, **kwargs):
         """Initialize a new PAFT Task. 
         
         
@@ -273,6 +273,10 @@ class PAFT(Task):
             ms to open solenoids
             This is passed from the "protocol" json
         """    
+        if len(kwargs) > 0:
+            print("I got extra kwargs:")
+            print(kwargs)
+        
         ## These are things that would normally be done in superclass __init__
         # Set up a logger first, so we can debug if anything goes wrong
         self.logger = init_logger(self)
