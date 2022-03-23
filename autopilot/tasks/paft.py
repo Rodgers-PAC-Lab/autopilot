@@ -303,13 +303,30 @@ class PAFT(Task):
         
         ## Init hardware -- this sets self.hardware and self.pin_id
         self.init_hardware()
-
-
-
+        
+        
+        ## Define sounds
+        self.left_stim = sounds.Noise(
+            duration=10, amplitude=.01, channel=0, 
+            highpass=5000)       
+            
+        self.right_stim = sounds.Noise(
+            duration=10, amplitude=.01, channel=1, 
+            highpass=5000)        
     
     def do_nothing(self):
-        pass
+        self.left_stim.set_trigger(self.left_stim_done)
+        self.right_stim.set_trigger(self.right_stim_done)
 
+        threading.Timer(1, self.left_stim.play).start()
+        threading.Timer(2, self.right_stim.play).start()
+    
+    def left_stim_done(self):
+        self.logger.debug('done playing left sound')
+
+    def right_stim_done(self):
+        self.logger.debug('done playing right sound')    
+    
     def init_hardware(self):
         """
         Use the HARDWARE dict that specifies what we need to run the task
