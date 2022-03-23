@@ -49,6 +49,7 @@ int: Blocksize, or the amount of samples processed by jack per each :meth:`.Jack
 """
 
 QUEUE = None
+QUEUE2 = None
 """
 :class:`multiprocessing.Queue`: Queue to be loaded with frames of BLOCKSIZE audio.
 """
@@ -67,6 +68,7 @@ Note:
 """
 
 Q_LOCK = None
+Q2_LOCK = None
 """
 :class:`multiprocessing.Lock`: Lock that enforces a single writer to the `QUEUE` at a time.
 """
@@ -153,6 +155,10 @@ class JackClient(mp.Process):
         #self.pipe = pipe
         self.q = mp.Queue()
         self.q_lock = mp.Lock()
+        
+        # A second one
+        self.q2 = mp.Queue()
+        self.q2_lock = mp.Lock()
 
         self.play_evt = mp.Event()
         self.stop_evt = mp.Event()
@@ -190,6 +196,8 @@ class JackClient(mp.Process):
         globals()['BLOCKSIZE'] = copy(self.blocksize)
         globals()['QUEUE'] = self.q
         globals()['Q_LOCK'] = self.q_lock
+        globals()['QUEUE2'] = self.q2
+        globals()['Q2_LOCK'] = self.q2_lock
         globals()['PLAY'] = self.play_evt
         globals()['STOP'] = self.stop_evt
         globals()['CONTINUOUS'] = self.continuous
@@ -345,126 +353,46 @@ class JackClient(mp.Process):
         self.quit_evt.set()
 
     def process(self, frames):
-        """
-        Process a frame of audio.
+        """Process a frame of audio.
 
-        If the :attr:`.JackClient.play_evt` is not set, fill port buffers with zeroes.
-
-        Otherwise, pull frames of audio from the :attr:`.JackClient.q` until it's empty.
-
-        When it's empty, set the :attr:`.JackClient.stop_evt` and clear the :attr:`.JackClient.play_evt` .
+        Always play audio. If there is audio in the queue, play that. If not,
+        play silence.
 
         Args:
-            frames: number of frames (samples) to be processed. unused. passed by jack client
+            frames: number of frames (samples) to be processed. 
+            unused. passed by jack client
         """
-        if self.debug_timing:
-            state, pos = self.client.transport_query()
-            self.logger.debug(f'inproc - frame_time: {self.client.frame_time}, last_frame_time: {self.client.last_frame_time}, usecs: {pos["usecs"]}, frames: {self.client.frames_since_cycle_start}')
+        # Try to get data from the first queue
+        try:
+            data = self.q.get_nowait()
+        except queue.Empty:
+            data = np.transpose([
+                np.zeros(self.blocksize, dtype='float32'),
+                np.zeros(self.blocksize, dtype='float32'),
+                ])
 
-        ## Switch on whether the play event is set
-        if not self.play_evt.is_set():
-            # A play event has not been set
-            # Play only if we are in continuous mode, otherwise write zeros
-            
-            ## Switch on whether we are in continuous mode
-            if self.continuous.is_set():
-                # We are in continuous mode, keep playing
-                # check if the continuous sound has changed, even if we already have one
-                try:
-                    to_cycle = self.continuous_q.get_nowait()
-                    if self._continuous_dehydrated is None or self._continuous_dehydrated != to_cycle:
-                        self._continuous_dehydrated = to_cycle
-                        self._continuous_sound = autopilot.hydrate(self._continuous_dehydrated)
-                        self.continuous_cycle = self._continuous_sound
-                        self.logger.debug(f'got new continuous sound: {self._continuous_dehydrated}')
-                    elif self._continuous_dehydrated == to_cycle:
-                        self.logger.debug(f'received a new continuous sound, but was identical to old sound. not rehydrating')
+        # Try to get data from the second queue
+        try:
+            data2 = self.q2.get_nowait()
+        except queue.Empty:
+            data2 = np.transpose([
+                np.zeros(self.blocksize, dtype='float32'),
+                np.zeros(self.blocksize, dtype='float32'),
+                ])
 
-                    self.continuous_cycle = self._continuous_sound.iter_continuous()
-
-                except Empty:
-                    if self.continuous_cycle is None:
-                        self.logger.exception('told to play continuous sound but nothing in queue, will try again next loop around')
-                        self.write_to_outports(self.zero_arr.T)
-                        return
-
-                # Get the data to play
-                data = next(self.continuous_cycle).T
-                
-                # Write
-                self.write_to_outports(data)
-
-            else:
-                # We are not in continuous mode, play silence
-                # clear continuous sound after it's done
-                if self.continuous_cycle is not None:
-                    self.logger.debug('continuous flag cleared')
-                    self.continuous_cycle = None
-
-                # Play zeros
-                data = self.zero_arr.T
-                
-                # Write
-                self.write_to_outports(data)
-
-        else:
-            # A play event has been set
-            # Play a sound
-
-            # Try to get data
-            try:
-                data = self.q.get_nowait()
-                if self.debug_timing:
-                    self.logger.debug('Got new audio samples')
-            except queue.Empty:
-                data = None
-                self.logger.warning('Queue Empty')
-
-            ## Switch on whether data is available
-            if data is None:
-                # fill with continuous noise
-                if self.continuous.is_set():
-                    try:
-                        data = next(self.continuous_cycle)
-                    except Exception as e:
-                        self.logger.exception(f'Continuous mode was set but got exception with continuous queue:\n{e}')
-                        data = self.zero_arr
-
-                else:
-                    # Play zeros
-                    data = np.zeros(self.blocksize, dtype='float32')
-
-                # Write data
-                self.write_to_outports(data)
-
-
-                # sound is over
-                self.play_evt.clear()
-                # end time is just the start of the next frame??
-                self.wait_until = self.client.last_frame_time+(self.blocksize*self.alsa_nperiods)
-                # Thread(target=self._wait_for_end, args=(self.client.last_frame_time+self.blocksize,)).start()
-                if self.debug_timing:
-                    self.logger.debug(f'Sound has ended, requesting end event at {self.wait_until}')
-                
-            else:
-                ## There is data available
-                if data.shape[0] < self.blocksize:
-                    data = self._pad_continuous(data)
-                    # sound is over!
-                    self.wait_until = self.client.last_frame_time + (self.blocksize*self.alsa_nperiods) + data.shape[0]
-                    if self.debug_timing:
-                        self.logger.debug(
-                            f'Sound has ended, size {data.shape[0]}, requesting end event at {self.wait_until}')
-                    self.play_evt.clear()
-
-                # Write
-                self.write_to_outports(data)
-
-
-            # start timer if we haven't yet
-            if self.querythread is None:
-                self.querythread = Thread(target=self._wait_for_end)
-                self.querythread.start()
+        # Everything should be pre-padded and stereo
+        assert data.ndim == 2
+        assert data.shape[0] == self.blocksize
+        assert data.shape[1] == 2
+        assert data2.ndim == 2
+        assert data2.shape[0] == self.blocksize
+        assert data2.shape[1] == 2        
+        
+        # Add
+        data = data + data2
+        
+        # Write
+        self.write_to_outputs(data)
     
     def write_to_outports(self, data):
         """Write the sound in `data` to the outport(s).
