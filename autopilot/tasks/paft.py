@@ -318,8 +318,8 @@ class PAFT(Task):
         self.left_stim.set_trigger(self.left_stim_done)
         self.right_stim.set_trigger(self.right_stim_done)
 
-        threading.Timer(1, self.left_stim.play).start()
-        threading.Timer(2, self.right_stim.play).start()
+        threading.Timer(2, self.left_stim.play).start()
+        threading.Timer(1, self.right_stim.play).start()
     
     def left_stim_done(self):
         self.logger.debug('done playing left sound')
