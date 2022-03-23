@@ -299,7 +299,7 @@ class PAFT(Task):
     
         ## Define the stages
         # Stage list to iterate
-        stage_list = [self.play2]
+        stage_list = [self.play]
         self.num_stages = len(stage_list)
         self.stages = itertools.cycle(stage_list)        
         
@@ -323,7 +323,7 @@ class PAFT(Task):
         self.right_error_sound = sounds.Tritone(
             frequency=8000, duration=250, amplitude=.003, channel=1)
         
-        # Chunk (needed by play2 only)
+        # Chunk the sounds into frames
         if not self.left_stim.chunks:
             self.left_stim.chunk()
         if not self.right_stim.chunks:
@@ -333,7 +333,11 @@ class PAFT(Task):
         if not self.right_error_sound.chunks:
             self.right_error_sound.chunk()
         
-        # Generate the stimulus sound block
+        
+        ## Generate the stimulus sound block
+        # This is just a left sound, gap, then right sound, then gap
+        # And use a cycle to repeat forever
+        # But this could be made more complex
         self.sound_block = []
         for frame in self.left_stim.chunks:
             self.sound_block.append(frame)
@@ -343,40 +347,61 @@ class PAFT(Task):
             self.sound_block.append(frame)
         for n_blank_chunks in range(30):
             self.sound_block.append(np.zeros(jackclient.BLOCKSIZE, dtype='float32'))
+        
+        # Cycle so it can repeat forever
         self.sound_cycle = itertools.cycle(self.sound_block)
 
-        
+        # Some counters to keep track of how many sounds we've played
         self.n_frames = 0
-    
+        self.n_error_counter = 0
 
-    def play2(self):
-        # I think each block is like 4 ms
-        # And we want about 4 s of data in the queue
+    def play(self):
+        """A single stage that repeats forever and plays sound.
+        
+        On each call, jackclient.QUEUE is loaded to a target size with
+        the current data in self.sound_cycle.
+        
+        On occasion, jackclient.QUEUE2 is loaded with an error sound.
+        """
+        ## Keep the stimulus queue minimum this length
+        # Each block/frame is about 5 ms, so this is about 5 s of data
         # Longer is more buffer against unexpected delays
-        # So that's like 1000 blocks
         target_qsize = 1000
 
-        # Load the queue
+        
+        ## Load queue with stimulus, if needed
         print("before loading: {}".format(jackclient.QUEUE.qsize()))            
+        
+        # Add frames until target size reached
         qsize = jackclient.QUEUE.qsize()
         while qsize < target_qsize:
             with jackclient.Q_LOCK:
+                # Add a frame from the sound cycle
                 frame = next(self.sound_cycle)
                 jackclient.QUEUE.put_nowait(frame)
+                
+                # Keep track of how many frames played
                 self.n_frames = self.n_frames + 1
                 
             qsize = jackclient.QUEUE.qsize()
         print("after loading: {}".format(jackclient.QUEUE.qsize()))
 
-        # Load the queue
-        if self.n_frames > 1000 and np.mod(self.n_frames, 3) == 0:
-            print("before loading 2: {}".format(jackclient.QUEUE2.qsize()))            
-            qsize = jackclient.QUEUE2.qsize()
-            while qsize < target_qsize:
+        
+        ## Loade queue2 with error sound, if needed
+        # Only do this after an initial pause
+        if self.n_frames > 3000:
+            # Only do this on every third call to this function
+            if np.mod(self.n_error_counter, 3) == 0:
+                print("before loading 2: {}".format(jackclient.QUEUE2.qsize()))            
                 with jackclient.Q2_LOCK:
-                    jackclient.QUEUE2 = self.left_error_sound.chunks
+                    # Add frames from error sound
+                    for frame in self.left_error_sound.chunks:
+                        jackclient.QUEUE2.put_nowait(frame)
                 qsize = jackclient.QUEUE2.qsize()
-            print("after loading 2: {}".format(jackclient.QUEUE2.qsize()))        
+                print("after loading 2: {}".format(jackclient.QUEUE2.qsize()))        
+            
+            # Keep track of how many calls to this function
+            self.n_error_counter = self.n_error_counter + 1
 
         # Start it playing
         # The play event is cleared if it ever runs out of sound, which

@@ -379,20 +379,20 @@ class JackClient(mp.Process):
                 np.zeros(self.blocksize, dtype='float32'),
                 np.zeros(self.blocksize, dtype='float32'),
                 ])
-
-        # Everything should be pre-padded and stereo
-        assert data.ndim == 2
-        assert data.shape[0] == self.blocksize
-        assert data.shape[1] == 2
-        assert data2.ndim == 2
-        assert data2.shape[0] == self.blocksize
-        assert data2.shape[1] == 2        
+        
+        # Force to stereo
+        if data.ndim == 1:
+            data = np.transpose([data, data])
+        if data2.ndim == 1:
+            data = np.transpose([data, data])
         
         # Add
         data = data + data2
-        
+
         # Write
-        self.write_to_outputs(data)
+        self.write_to_outports(data)
+        
+    
     
     def write_to_outports(self, data):
         """Write the sound in `data` to the outport(s).
