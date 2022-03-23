@@ -48,6 +48,7 @@ from autopilot.networking import Net_Node
 from autopilot import prefs
 from autopilot.hardware import BCM_TO_BOARD
 from autopilot.core.loggers import init_logger
+from autopilot.stim.sound import jackclient
 
 # The name of the task
 # This declaration allows Subject to identify which class in this file 
@@ -296,7 +297,7 @@ class PAFT(Task):
     
         ## Define the stages
         # Stage list to iterate
-        stage_list = [self.do_nothing]
+        stage_list = [self.play2]
         self.num_stages = len(stage_list)
         self.stages = itertools.cycle(stage_list)        
         
@@ -309,18 +310,41 @@ class PAFT(Task):
         self.left_stim = sounds.Noise(
             duration=10, amplitude=.01, channel=0, 
             highpass=5000)       
-            
+
         self.right_stim = sounds.Noise(
             duration=10, amplitude=.01, channel=1, 
             highpass=5000)        
-    
-    def do_nothing(self):
+
+        # Sanity check to know if they are done
         self.left_stim.set_trigger(self.left_stim_done)
         self.right_stim.set_trigger(self.right_stim_done)
-
-        threading.Timer(2, self.left_stim.play).start()
-        threading.Timer(1, self.right_stim.play).start()
+        
+        # Chunk (needed by play2 only)
+        if not self.left_stim.chunks:
+            self.left_stim.chunk()
+        if not self.right_stim.chunks:
+            self.right_stim.chunk()
     
+    def play1(self):
+        # This does not work, only the first one plays
+        # I think the second one is cancelled by the first one somehow
+        # It will work if you wait till the first one is done before
+        # starting the second one
+        threading.Timer(1, self.left_stim.play).start()
+        threading.Timer(2, self.right_stim.play).start()
+
+    def play2(self):
+        sound = self.left_stim
+        
+        with jackclient.Q_LOCK:
+            for frame in sound.chunks:
+                jackclient.QUEUE.put_nowait(frame)
+            
+            # The jack server looks for a None object to clear the play flag
+            jackclient.QUEUE.put_nowait(None)
+        
+        time.sleep(1)
+
     def left_stim_done(self):
         self.logger.debug('done playing left sound')
 
