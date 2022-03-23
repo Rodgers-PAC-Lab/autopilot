@@ -39,6 +39,7 @@ import datetime
 import functools
 from collections import OrderedDict as odict
 import time
+import queue
 import tables
 import numpy as np
 import pandas
@@ -315,43 +316,79 @@ class PAFT(Task):
         self.right_stim = sounds.Noise(
             duration=10, amplitude=.01, channel=1, 
             highpass=5000)        
+        
+        self.left_error_sound = sounds.Tritone(
+            frequency=8000, duration=250, amplitude=.003, channel=0)
 
-        # Sanity check to know if they are done
-        self.left_stim.set_trigger(self.left_stim_done)
-        self.right_stim.set_trigger(self.right_stim_done)
+        self.right_error_sound = sounds.Tritone(
+            frequency=8000, duration=250, amplitude=.003, channel=1)
         
         # Chunk (needed by play2 only)
         if not self.left_stim.chunks:
             self.left_stim.chunk()
         if not self.right_stim.chunks:
             self.right_stim.chunk()
+        if not self.left_error_sound.chunks:
+            self.left_error_sound.chunk()
+        if not self.right_error_sound.chunks:
+            self.right_error_sound.chunk()
+        
+        # Generate the stimulus sound block
+        self.sound_block = []
+        for frame in self.left_stim.chunks:
+            self.sound_block.append(frame)
+        for n_blank_chunks in range(30):
+            self.sound_block.append(np.zeros(jackclient.BLOCKSIZE, dtype='float32'))
+        for frame in self.right_stim.chunks:
+            self.sound_block.append(frame)
+        for n_blank_chunks in range(30):
+            self.sound_block.append(np.zeros(jackclient.BLOCKSIZE, dtype='float32'))
+        self.sound_cycle = itertools.cycle(self.sound_block)
+
+        
+        self.n_frames = 0
     
-    def play1(self):
-        # This does not work, only the first one plays
-        # I think the second one is cancelled by the first one somehow
-        # It will work if you wait till the first one is done before
-        # starting the second one
-        threading.Timer(1, self.left_stim.play).start()
-        threading.Timer(2, self.right_stim.play).start()
 
     def play2(self):
-        sound = self.left_stim
-        
-        with jackclient.Q_LOCK:
-            for frame in sound.chunks:
+        # I think each block is like 4 ms
+        # And we want about 4 s of data in the queue
+        # Longer is more buffer against unexpected delays
+        # So that's like 1000 blocks
+        target_qsize = 1000
+
+        # Load the queue
+        print("before loading: {}".format(jackclient.QUEUE.qsize()))            
+        qsize = jackclient.QUEUE.qsize()
+        while qsize < target_qsize:
+            with jackclient.Q_LOCK:
+                frame = next(self.sound_cycle)
                 jackclient.QUEUE.put_nowait(frame)
-            
-            # The jack server looks for a None object to clear the play flag
-            jackclient.QUEUE.put_nowait(None)
+                self.n_frames = self.n_frames + 1
+                
+            qsize = jackclient.QUEUE.qsize()
+        print("after loading: {}".format(jackclient.QUEUE.qsize()))
+
+        # Load the queue
+        if self.n_frames > 1000 and np.mod(self.n_frames, 3) == 0:
+            print("before loading 2: {}".format(jackclient.QUEUE2.qsize()))            
+            qsize = jackclient.QUEUE2.qsize()
+            while qsize < target_qsize:
+                with jackclient.Q2_LOCK:
+                    jackclient.QUEUE2 = self.left_error_sound.chunks
+                qsize = jackclient.QUEUE2.qsize()
+            print("after loading 2: {}".format(jackclient.QUEUE2.qsize()))        
+
+        # Start it playing
+        # The play event is cleared if it ever runs out of sound, which
+        # ideally doesn't happen
+        jackclient.PLAY.set()
         
+        # Sleep so we don't go crazy
         time.sleep(1)
+        
+        # Continue to the next stage (which is this one again)
+        self.stage_block.set()
 
-    def left_stim_done(self):
-        self.logger.debug('done playing left sound')
-
-    def right_stim_done(self):
-        self.logger.debug('done playing right sound')    
-    
     def init_hardware(self):
         """
         Use the HARDWARE dict that specifies what we need to run the task
