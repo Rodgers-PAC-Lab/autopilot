@@ -219,9 +219,12 @@ class PAFT(Task):
         Plan
         
         The first version of this new task needs to:
-        * Connect to the children
+        * Be able to play streams of sounds from two speakers (no children)
         
-        The second version needs to additionally:
+        Another version needs to
+        * Connect to the children, without playing sounds
+        
+        Then these can be merged in a second version that can
         * Report pokes from children
         * Tell children to play sounds
         
@@ -290,11 +293,6 @@ class PAFT(Task):
         # A dict of hardware triggers
         self.triggers = {}
         
-        
-        #~ ## Init custom variables used by this task
-        #~ # This is a trial counter that always starts at zero
-        #~ self.n_trials = 0        
-    
     
         ## Define the stages
         # Stage list to iterate
@@ -307,65 +305,7 @@ class PAFT(Task):
         self.init_hardware()
 
 
-        #~ ## Connect to the children
-        #~ # This dict keeps track of which self.CHILDREN have connected
-        #~ self.child_connected = {}
-        #~ for child in self.CHILDREN.keys():
-            #~ self.child_connected[child] = False
 
-
-        #~ ## Initialize net node for communications with child
-        #~ # With instance=True, I get a threading error about current event loop
-        #~ self.node = Net_Node(id="T_{}".format(prefs.get('NAME')),
-            #~ upstream=prefs.get('NAME'),
-            #~ port=prefs.get('MSGPORT'),
-            #~ listens={},
-            #~ instance=False)
-
-        #~ # Construct a message to send to child
-        #~ # Specify the subjects for the child (twice)
-        #~ self.subject = subject
-        #~ value = {
-            #~ 'child': {
-                #~ 'parent': prefs.get('NAME'), 'subject': subject},
-            #~ 'task_type': 'PAFT_Child',
-            #~ 'subject': subject,
-            #~ 'reward': reward,
-        #~ }
-
-        #~ # send to the station object with a 'CHILD' key
-        #~ self.node.send(to=prefs.get('NAME'), key='CHILD', value=value)
-
-        
-        #~ ## Create a second node to communicate with the child
-        #~ # We (parent) are the "router"/server
-        #~ # The children are the "dealer"/clients
-        #~ # Many dealers, one router        
-        #~ self.node2 = Net_Node(
-            #~ id='parent_pi',
-            #~ upstream='',
-            #~ port=5000,
-            #~ router_port=5001,
-            #~ listens={
-                #~ 'HELLO': self.recv_hello,
-                #~ 'POKE': self.recv_poke,
-                #~ },
-            #~ instance=False,
-            #~ )
-
-        #~ # Wait until the child connects!
-        #~ self.logger.debug("Waiting for child to connect")
-        #~ while True:
-            #~ stop_looping = True
-            
-            #~ for child, is_conn in self.child_connected.items():
-                #~ if not is_conn:
-                    #~ stop_looping = False
-            
-            #~ if stop_looping:
-                #~ break
-        #~ self.logger.debug(
-            #~ "All children have connected: {}".format(self.child_connected))
     
     def do_nothing(self):
         pass
@@ -387,41 +327,3 @@ class PAFT(Task):
         # alongside the HARDWARE subdict in the prefs structure to tell us 
         # how they're plugged in to the pi
         self.hardware = {}
-        #~ self.pin_id = {} # Reverse dict to identify pokes
-        #~ pin_numbers = prefs.get('HARDWARE')
-
-        #~ # We first iterate through the types of hardware we need
-        #~ for type, values in self.HARDWARE.items():
-            #~ self.hardware[type] = {}
-            #~ # then iterate through each pin and handler of this type
-            #~ for pin, handler in values.items():
-                #~ try:
-                    #~ hw_args = pin_numbers[type][pin]
-                    #~ if isinstance(hw_args, dict):
-                        #~ if 'name' not in hw_args.keys():
-                            #~ hw_args['name'] = "{}_{}".format(type, pin)
-                        #~ hw = handler(**hw_args)
-                    #~ else:
-                        #~ hw_name = "{}_{}".format(type, pin)
-                        #~ hw = handler(hw_args, name=hw_name)
-
-                    #~ # if a pin is a trigger pin (event-based input), 
-                    #~ # give it the trigger handler
-                    #~ if hw.is_trigger:
-                        #~ hw.assign_cb(self.handle_trigger)
-
-                    #~ # add to forward and backwards pin dicts
-                    #~ self.hardware[type][pin] = hw
-                    #~ if isinstance(hw_args, int) or isinstance(hw_args, str):
-                        #~ self.pin_id[hw_args] = pin
-                    #~ elif isinstance(hw_args, list):
-                        #~ for p in hw_args:
-                            #~ self.pin_id[p] = pin
-                    #~ elif isinstance(hw_args, dict):
-                        #~ if 'pin' in hw_args.keys():
-                            #~ self.pin_id[hw_args['pin']] = pin 
-
-                #~ except:
-                    #~ self.logger.exception(
-                        #~ "Pin could not be instantiated - Type: "
-                        #~ "{}, Pin: {}".format(type, pin))
