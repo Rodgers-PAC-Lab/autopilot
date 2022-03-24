@@ -422,7 +422,7 @@ class PAFT(Task):
         self.node2.sock.close()
         self.node2.router.close()
         self.node2.loop.stop()
-        self.node2.loop_thread.stop()
+        #~ self.node2.loop_thread.stop()
         self.node2.release()
         
         
