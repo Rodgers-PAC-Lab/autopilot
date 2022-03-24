@@ -130,6 +130,7 @@ class PAFT_Child_Simple(Child):
         """This is called when the STOP signal is received from the parent"""
         self.logger.debug("Inside the self.end function")
 
+        self.node2.sock.close()
         self.node2.release()
         
         # Do this so it stops cycling through stages

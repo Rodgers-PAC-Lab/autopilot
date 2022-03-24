@@ -268,6 +268,8 @@ class PAFT_Parent_Child(Task):
 
         # Tell the child to end the task
         self.node.send(to=prefs.get('NAME'), key='CHILD', value={'KEY': 'STOP'})
+        
+        # This sock.close seems to be necessary to be able to communicate again
         self.node.sock.close()
         self.node.release()
         
