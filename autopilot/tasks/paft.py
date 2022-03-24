@@ -83,11 +83,11 @@ elif MY_NAME in ['rpi05', 'rpi06', 'rpi07', 'rpi08']:
 
 elif MY_NAME in ['rpi09', 'rpi10', 'rpi11', 'rpi12']:
     MY_BOX = 'Box2'
-    MY_PARENTS_NAME = 'rpi05'
-    MY_PI1 = 'rpi05'
-    MY_PI2 = 'rpi06'
-    MY_PI3 = 'rpi07'
-    MY_PI4 = 'rpi08'
+    MY_PARENTS_NAME = 'rpi09'
+    MY_PI1 = 'rpi09'
+    MY_PI2 = 'rpi10'
+    MY_PI3 = 'rpi11'
+    MY_PI4 = 'rpi12'
 
 else:
     # This happens on the Terminal, for instance
