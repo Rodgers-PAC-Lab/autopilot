@@ -418,6 +418,8 @@ class PAFT(Task):
                 value={},
                 )    
 
+        self.node.send(to=prefs.get('NAME'), key='CHILD', value={'KEY': 'STOP'})
+
         self.node.release()
         self.node2.sock.close()
         self.node2.router.close()
