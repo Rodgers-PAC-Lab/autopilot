@@ -32,6 +32,111 @@ from time import sleep
 class Child(object):
     """Just a placeholder class for now to work with :func:`autopilot.get`"""
 
+class PAFT_Child_Simple(Child):
+    """Define the child task associated with PAFT_Parent_Child"""
+    # PARAMS to accept
+    PARAMS = odict()
+
+    # HARDWARE to init
+    HARDWARE = {
+        'POKES':{
+            'L': autopilot.hardware.gpio.Digital_In,
+            'R': autopilot.hardware.gpio.Digital_In
+        },
+        'LEDS':{
+            'L': autopilot.hardware.gpio.LED_RGB,
+            'R': autopilot.hardware.gpio.LED_RGB
+        },
+        'PORTS':{
+            'L': autopilot.hardware.gpio.Solenoid,
+            'R': autopilot.hardware.gpio.Solenoid
+        }
+    }    
+
+    def __init__(self, stage_block, task_type, subject, child, reward):
+        """Initialize a new PAFT_Child_Simple
+        
+        task_type : 'PAFT_Child_Simple'
+        subject : from Terminal
+        child : {'parent': parent's name, 'subject' from Terminal}
+        reward : from value of START/CHILD message
+        """
+        ## Init
+        # Store my name
+        # This is used for reporting pokes to the parent
+        self.name = prefs.get('NAME')
+
+        # Set up a logger
+        self.logger = init_logger(self)
+
+
+        ## Hardware
+        self.init_hardware()
+
+
+        ## Stages
+        # Only one stage
+        self.stages = cycle([self.play])
+        self.stage_block = stage_block
+        
+        
+        ## Networking
+        self.node2 = Net_Node(
+            id=self.name,
+            upstream='parent_pi',
+            port=5001,
+            upstream_ip=prefs.get('PARENTIP'),
+            listens={
+                'HELLO': self.recv_hello,
+                'END': self.recv_end,
+                },
+            instance=False,
+            )        
+        
+        # Send
+        self.node2.send(
+            'parent_pi', 'HELLO', {'from': self.name})
+
+        self.stop_running = False
+
+    def init_hardware(self):
+        """Placeholder"""
+        self.hardware = {}        
+
+    def play(self):
+        """A single stage"""
+        self.logger.debug("Starting the play stage")
+        
+        # Sleep so we don't go crazy
+        time.sleep(1)
+
+        # Continue to the next stage (which is this one again)
+        if not self.stop_running:
+            self.stage_block.set()
+        else:
+            self.stage_block.clear()
+
+    def recv_hello(self, value):
+        self.logger.debug(
+            "received HELLO from parent with value {}".format(value))
+
+    def recv_end(self, value):
+        self.logger.debug("recv_end with value: {}".format(value))
+
+        # Release Net_Node
+        self.node2.release()
+    
+    def end(self):
+        """This is called when the STOP signal is received from the parent"""
+        self.logger.debug("Inside the self.end function")
+
+        self.node2.release()
+        
+        # Do this so it stops cycling through stages
+        self.stop_running = True
+        self.stage_block.clear()
+
+
 class PAFT_Child(Child):
     """Define the child task associated with PAFT"""
     # PARAMS to accept
