@@ -196,12 +196,12 @@ class PAFT(Task):
         MY_PI2: {
             'task_type': "PAFT_Child",
         },
-        MY_PI3: {
-            'task_type': "PAFT_Child",
-        },
-        MY_PI4: {
-            'task_type': "PAFT_Child",
-        },
+        #~ MY_PI3: {
+            #~ 'task_type': "PAFT_Child",
+        #~ },
+        #~ MY_PI4: {
+            #~ 'task_type': "PAFT_Child",
+        #~ },
     }
     
     # This is used by the terminal to plot the results of each trial
@@ -307,6 +307,59 @@ class PAFT(Task):
         ## Init hardware -- this sets self.hardware and self.pin_id
         self.init_hardware()
 
+
+        ## Initialize net node for communications with child
+        # With instance=True, I get a threading error about current event loop
+        self.node = Net_Node(id="T_{}".format(prefs.get('NAME')),
+            upstream=prefs.get('NAME'),
+            port=prefs.get('MSGPORT'),
+            listens={},
+            instance=False)
+
+        # Construct a message to send to child
+        # Specify the subjects for the child (twice)
+        self.subject = subject
+        value = {
+            'child': {
+                'parent': prefs.get('NAME'), 'subject': subject},
+            'task_type': 'PAFT_Child',
+            'subject': subject,
+            'reward': reward,
+        }
+
+        # send to the station object with a 'CHILD' key
+        self.node.send(to=prefs.get('NAME'), key='CHILD', value=value)
+
+        
+        ## Create a second node to communicate with the child
+        # We (parent) are the "router"/server
+        # The children are the "dealer"/clients
+        # Many dealers, one router        
+        self.node2 = Net_Node(
+            id='parent_pi',
+            upstream='',
+            port=5000,
+            router_port=5001,
+            listens={
+                'HELLO': self.recv_hello,
+                'POKE': self.recv_poke,
+                },
+            instance=False,
+            )
+
+        # Wait until the child connects!
+        self.logger.debug("Waiting for child to connect")
+        while True:
+            stop_looping = True
+            
+            for child, is_conn in self.child_connected.items():
+                if not is_conn:
+                    stop_looping = False
+            
+            if stop_looping:
+                break
+        self.logger.debug(
+            "All children have connected: {}".format(self.child_connected))
 
     def play(self):
         # Sleep so we don't go crazy

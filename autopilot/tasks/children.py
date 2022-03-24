@@ -31,6 +31,86 @@ from time import sleep
 class Child(object):
     """Just a placeholder class for now to work with :func:`autopilot.get`"""
 
+class PAFT_Child(Child):
+    """Define the child task associated with PAFT"""
+    # PARAMS to accept
+    PARAMS = odict()
+
+    # HARDWARE to init
+    HARDWARE = {
+        'POKES':{
+            'L': autopilot.hardware.gpio.Digital_In,
+            'R': autopilot.hardware.gpio.Digital_In
+        },
+        'LEDS':{
+            'L': autopilot.hardware.gpio.LED_RGB,
+            'R': autopilot.hardware.gpio.LED_RGB
+        },
+        'PORTS':{
+            'L': autopilot.hardware.gpio.Solenoid,
+            'R': autopilot.hardware.gpio.Solenoid
+        }
+    }    
+
+    def __init__(self, stage_block, task_type, subject, child, reward):
+        """Initialize a new PAFT_Child
+        
+        task_type : 'PAFT Child'
+        subject : from Terminal
+        child : {'parent': parent's name, 'subject' from Terminal}
+        reward : from value of START/CHILD message
+        """
+        ## Init
+        # Store my name
+        # This is used for reporting pokes to the parent
+        self.name = prefs.get('NAME')
+
+        # Set up a logger
+        self.logger = init_logger(self)
+
+
+        ## Hardware
+        self.init_hardware()
+
+
+        ## Stages
+        # Only one stage
+        self.stages = cycle([self.noop])
+        self.stage_block = stage_block
+        
+        
+        ## Networking
+        self.node2 = Net_Node(
+            id=self.name,
+            upstream='parent_pi',
+            port=5001,
+            upstream_ip=prefs.get('PARENTIP'),
+            listens={
+                'HELLO': self.recv_hello,
+                'PLAY': self.recv_play,
+                'STOP': self.recv_stop,
+                'END': self.recv_end,
+                },
+            instance=False,
+            )        
+        
+        # Send
+        self.node2.send(
+            'parent_pi', 'HELLO', {'from': self.name})
+
+    def init_hardware(self):
+        """Placeholder"""
+        self.hardware = {}        
+
+    def play(self):
+        """A single stage"""
+        # Sleep so we don't go crazy
+        time.sleep(1)
+
+        # This seems to be how all other child tasks work
+        self.stage_block.clear()
+        return {}        
+    
 class Wheel_Child(Child):
     STAGE_NAMES = ['collect']
 
