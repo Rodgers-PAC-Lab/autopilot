@@ -119,6 +119,12 @@ class PAFT_Child(Child):
 
     def recv_end(self, value):
         self.logger.debug("recv_end with value: {}".format(value))
+
+        # Release Net_Node
+        self.node2.release()
+    
+    def end(self):
+        self.logger.debug("Inside the self.end function")
     
 class Wheel_Child(Child):
     STAGE_NAMES = ['collect']

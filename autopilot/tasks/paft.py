@@ -401,4 +401,17 @@ class PAFT(Task):
     def recv_poke(self, value):
         self.logger.debug(
             "received POKE from child with value {}".format(value))
-        
+
+    def end(self):
+        """
+        When shutting down, release all hardware objects and turn LEDs off.
+        """
+        # Tell each child to END
+        for child_name in self.CHILDREN.keys():
+            # Tell child what the target is
+            self.node2.send(
+                to=child_name,
+                key='END',
+                value={},
+                )    
+
