@@ -107,13 +107,13 @@ class PAFT_Parent_Child(Task):
     # This defines the child rpis to connect to
     CHILDREN = {
         MY_PI2: {
-            'task_type': "PAFT_Child_simple",
+            'task_type': "PAFT_Child_Simple",
         },
         #~ MY_PI3: {
-            #~ 'task_type': "PAFT_Child_simple",
+            #~ 'task_type': "PAFT_Child_Simple",
         #~ },
         #~ MY_PI4: {
-            #~ 'task_type': "PAFT_Child_simple",
+            #~ 'task_type': "PAFT_Child_Simple",
         #~ },
     }
     
@@ -176,7 +176,7 @@ class PAFT_Parent_Child(Task):
         value = {
             'child': {
                 'parent': prefs.get('NAME'), 'subject': subject},
-            'task_type': 'PAFT_Child_simple',
+            'task_type': 'PAFT_Child_Simple',
             'subject': subject,
             'reward': reward,
         }
