@@ -128,6 +128,9 @@ class PAFT_Child(Child):
     
     def end(self):
         self.logger.debug("Inside the self.end function")
+        
+        # Do this so it stops cycling through stages
+        self.stage_block.clear()
     
 class Wheel_Child(Child):
     STAGE_NAMES = ['collect']
