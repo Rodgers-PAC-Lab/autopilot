@@ -415,3 +415,5 @@ class PAFT(Task):
                 value={},
                 )    
 
+    
+        self.node2.release()
