@@ -127,18 +127,16 @@ class PAFT_Child(Child):
 
         # Release Net_Node
         self.node2.release()
-        
-        # What is supposed to call this? It doesn't happen automatically
-        #~ self.end()
     
     def end(self):
+        """This is called when the STOP signal is received from the parent"""
         self.logger.debug("Inside the self.end function")
-        self.stop_running = True
+        #~ self.stop_running = True
 
         self.node2.release()
         
         # Do this so it stops cycling through stages
-        self.stage_block.clear()
+        #~ self.stage_block.clear()
     
 class Wheel_Child(Child):
     STAGE_NAMES = ['collect']
