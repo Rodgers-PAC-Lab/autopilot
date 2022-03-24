@@ -319,7 +319,7 @@ class PAFT(Task):
             upstream=prefs.get('NAME'),
             port=prefs.get('MSGPORT'),
             listens={},
-            #~ instance=False,
+            instance=False,
             )
 
         # Construct a message to send to child
@@ -350,7 +350,7 @@ class PAFT(Task):
                 'HELLO': self.recv_hello,
                 'POKE': self.recv_poke,
                 },
-            #~ instance=False,
+            instance=False,
             )
 
         # Wait until the child connects!
