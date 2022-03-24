@@ -96,7 +96,6 @@ class PAFT_Child(Child):
             )        
         
         # Send
-        print("I am sending the hello")
         self.node2.send(
             'parent_pi', 'HELLO', {'from': self.name})
 
@@ -106,6 +105,8 @@ class PAFT_Child(Child):
 
     def play(self):
         """A single stage"""
+        self.logger.debug("Starting the play stage"
+        
         # Sleep so we don't go crazy
         time.sleep(1)
 
