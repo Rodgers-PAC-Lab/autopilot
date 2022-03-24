@@ -131,12 +131,12 @@ class PAFT_Child(Child):
     def end(self):
         """This is called when the STOP signal is received from the parent"""
         self.logger.debug("Inside the self.end function")
-        #~ self.stop_running = True
 
         self.node2.release()
         
         # Do this so it stops cycling through stages
-        #~ self.stage_block.clear()
+        self.stop_running = True
+        self.stage_block.clear()
     
 class Wheel_Child(Child):
     STAGE_NAMES = ['collect']
