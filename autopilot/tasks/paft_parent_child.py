@@ -268,6 +268,7 @@ class PAFT_Parent_Child(Task):
 
         # Tell the child to end the task
         self.node.send(to=prefs.get('NAME'), key='CHILD', value={'KEY': 'STOP'})
+        self.node.router.close()
         self.node.release()
         
         # This router.close() prevents ZMQError on the next start
