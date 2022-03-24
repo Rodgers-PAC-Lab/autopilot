@@ -99,6 +99,8 @@ class PAFT_Child(Child):
         self.node2.send(
             'parent_pi', 'HELLO', {'from': self.name})
 
+        self.stop_running = False
+
     def init_hardware(self):
         """Placeholder"""
         self.hardware = {}        
@@ -111,7 +113,10 @@ class PAFT_Child(Child):
         time.sleep(1)
 
         # Continue to the next stage (which is this one again)
-        self.stage_block.set()
+        if not self.stop_running:
+            self.stage_block.set()
+        else:
+            self.stage_block.clear()
 
     def recv_hello(self, value):
         self.logger.debug(
@@ -129,6 +134,12 @@ class PAFT_Child(Child):
     
     def end(self):
         self.logger.debug("Inside the self.end function")
+        self.stop_running = True
+
+        self.node2.sock.close()
+        self.node2.router.close()
+        self.node2.loop.stop()
+        self.node2.release()
         
         # Do this so it stops cycling through stages
         self.stage_block.clear()
