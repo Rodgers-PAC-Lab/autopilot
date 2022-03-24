@@ -796,8 +796,10 @@ class Pilot:
                 self.logger.exception(f'got exception while stopping task: {e}')
             del self.task
             self.task = None
-            row.append()
-            table.flush()
+            if row is not None: # This happens if there have never been trials
+                row.append()
+            if table is not None: # This happens if there have never been trials
+                table.flush()
             gpio.clear_scripts()
             self.logger.debug('stopped task and cleared scripts')
 
