@@ -385,3 +385,12 @@ class PAFT(Task):
         # alongside the HARDWARE subdict in the prefs structure to tell us 
         # how they're plugged in to the pi
         self.hardware = {}
+
+    def recv_hello(self, value):
+        self.logger.debug(
+            "received HELLO from child with value {}".format(value))
+    
+    def recv_poke(self, value):
+        self.logger.debug(
+            "received POKE from child with value {}".format(value))
+        

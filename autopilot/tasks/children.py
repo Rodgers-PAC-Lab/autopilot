@@ -87,8 +87,8 @@ class PAFT_Child(Child):
             upstream_ip=prefs.get('PARENTIP'),
             listens={
                 'HELLO': self.recv_hello,
-                'PLAY': self.recv_play,
-                'STOP': self.recv_stop,
+                #~ 'PLAY': self.recv_play,
+                #~ 'STOP': self.recv_stop,
                 'END': self.recv_end,
                 },
             instance=False,
@@ -110,6 +110,13 @@ class PAFT_Child(Child):
         # This seems to be how all other child tasks work
         self.stage_block.clear()
         return {}        
+
+    def recv_hello(self, value):
+        self.logger.debug(
+            "received HELLO from parent with value {}".format(value))
+
+    def recv_end(self, value):
+        self.logger.debug("recv_end with value: {}".format(value))
     
 class Wheel_Child(Child):
     STAGE_NAMES = ['collect']
