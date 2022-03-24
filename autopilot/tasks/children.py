@@ -75,7 +75,7 @@ class PAFT_Child(Child):
 
         ## Stages
         # Only one stage
-        self.stages = cycle([self.noop])
+        self.stages = cycle([self.play])
         self.stage_block = stage_block
         
         
