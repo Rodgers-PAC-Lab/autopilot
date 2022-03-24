@@ -406,6 +406,8 @@ class PAFT(Task):
         """
         When shutting down, release all hardware objects and turn LEDs off.
         """
+        self.logger.debug('inside self.end')
+        
         # Tell each child to END
         for child_name in self.CHILDREN.keys():
             # Tell child what the target is
@@ -415,5 +417,5 @@ class PAFT(Task):
                 value={},
                 )    
 
-    
+        self.node.release()
         self.node2.release()
