@@ -126,19 +126,15 @@ class PAFT_Child(Child):
         self.logger.debug("recv_end with value: {}".format(value))
 
         # Release Net_Node
-        self.node2.sock.close()
         self.node2.release()
         
         # What is supposed to call this? It doesn't happen automatically
-        self.end()
+        #~ self.end()
     
     def end(self):
         self.logger.debug("Inside the self.end function")
         self.stop_running = True
 
-        self.node2.sock.close()
-        #~ self.node2.router.close()
-        self.node2.loop.stop()
         self.node2.release()
         
         # Do this so it stops cycling through stages
