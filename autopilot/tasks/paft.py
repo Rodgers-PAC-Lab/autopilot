@@ -419,6 +419,7 @@ class PAFT(Task):
                 )    
 
         self.node.release()
+        self.node2.sock.close()
         self.node2.release()
         
-        del self.node2
+        

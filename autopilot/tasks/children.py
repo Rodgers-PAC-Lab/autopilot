@@ -121,8 +121,8 @@ class PAFT_Child(Child):
         self.logger.debug("recv_end with value: {}".format(value))
 
         # Release Net_Node
+        self.node2.sock.close()
         self.node2.release()
-        del self.node2
         
         # What is supposed to call this? It doesn't happen automatically
         self.end()
