@@ -420,13 +420,8 @@ class PAFT(Task):
 
         # Tell the child to end the task
         self.node.send(to=prefs.get('NAME'), key='CHILD', value={'KEY': 'STOP'})
-        #~ self.node.release()
+        self.node.release()
         
-        
-        #~ # One of these is needed to prevent ZMQ Error
-        #~ self.node2.sock.close()
-        #~ self.node2.router.close()
-        #~ self.node2.loop.stop()
-        #~ self.node2.release()
-        
-        
+        # This router.close() prevents ZMQError on the next start
+        self.node2.router.close()
+        self.node2.release()
