@@ -122,6 +122,9 @@ class PAFT_Child(Child):
 
         # Release Net_Node
         self.node2.release()
+        
+        # What is supposed to call this? It doesn't happen automatically
+        self.end()
     
     def end(self):
         self.logger.debug("Inside the self.end function")
