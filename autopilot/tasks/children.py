@@ -110,9 +110,8 @@ class PAFT_Child(Child):
         # Sleep so we don't go crazy
         time.sleep(1)
 
-        # This seems to be how all other child tasks work
-        self.stage_block.clear()
-        return {}        
+        # Continue to the next stage (which is this one again)
+        self.stage_block.set()
 
     def recv_hello(self, value):
         self.logger.debug(
