@@ -309,6 +309,11 @@ class PAFT(Task):
 
 
         ## Initialize net node for communications with child
+        # This dict keeps track of which self.CHILDREN have connected
+        self.child_connected = {}
+        for child in self.CHILDREN.keys():
+            self.child_connected[child] = False
+        
         # With instance=True, I get a threading error about current event loop
         self.node = Net_Node(id="T_{}".format(prefs.get('NAME')),
             upstream=prefs.get('NAME'),
@@ -389,6 +394,9 @@ class PAFT(Task):
     def recv_hello(self, value):
         self.logger.debug(
             "received HELLO from child with value {}".format(value))
+        
+        # Set this flag
+        self.child_connected[value['from']] = True
     
     def recv_poke(self, value):
         self.logger.debug(
