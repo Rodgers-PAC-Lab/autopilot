@@ -95,6 +95,7 @@ class PAFT_Child(Child):
             )        
         
         # Send
+        print("I am sending the hello")
         self.node2.send(
             'parent_pi', 'HELLO', {'from': self.name})
 
