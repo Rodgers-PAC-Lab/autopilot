@@ -97,8 +97,6 @@ class PAFT_Child_Simple(Child):
         self.node2.send(
             'parent_pi', 'HELLO', {'from': self.name})
 
-        self.stop_running = False
-
     def init_hardware(self):
         """Placeholder"""
         self.hardware = {}        
@@ -111,10 +109,7 @@ class PAFT_Child_Simple(Child):
         time.sleep(1)
 
         # Continue to the next stage (which is this one again)
-        if not self.stop_running:
-            self.stage_block.set()
-        else:
-            self.stage_block.clear()
+        self.stage_block.set()
 
     def recv_hello(self, value):
         self.logger.debug(
@@ -122,14 +117,15 @@ class PAFT_Child_Simple(Child):
 
     def recv_end(self, value):
         self.logger.debug("recv_end with value: {}".format(value))
+        
+        # Here would be a good place to release hardware, although
+        # could also just do this in regular end
 
-        # Release Net_Node
-        self.node2.release()
-    
     def end(self):
         """This is called when the STOP signal is received from the parent"""
         self.logger.debug("Inside the self.end function")
 
+        # Explicitly close the socket (helps with restarting cleanly)
         self.node2.sock.close()
         self.node2.release()
         
