@@ -162,7 +162,7 @@ class PAFT_Child(children.Child):
         This function does NOT clear the triggers or the stage block.
         """
         # Convert to BOARD_PIN
-        board_pin = BCM_TO_BOARD[pin]
+        board_pin = autopilot.hardware.BCM_TO_BOARD[pin]
         
         # Convert to letter, e.g., 'C'
         pin_letter = self.pin_id[board_pin]
