@@ -2,7 +2,7 @@ from collections import OrderedDict as odict
 import time
 import functools
 import datetime
-from itertools import cycle
+import itertools
 import numpy as np
 import autopilot
 from autopilot import prefs
