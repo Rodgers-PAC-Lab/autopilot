@@ -237,10 +237,6 @@ class PAFT_Child(Child):
         self.logger.debug(
             "received HELLO from parent with value {}".format(value))
 
-    def recv_end(self, value):
-        """This is probably redundant with self.end"""
-        self.logger.debug("recv_end with value: {}".format(value))
-    
     def end(self):
         """This is called when the STOP signal is received from the parent"""
         self.logger.debug("Inside the self.end function")

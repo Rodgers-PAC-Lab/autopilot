@@ -446,15 +446,6 @@ class PAFT(Task):
         """
         self.logger.debug('inside self.end')
         
-        # Tell each child to END
-        for child_name in self.CHILDREN.keys():
-            # Tell child what the target is
-            self.node2.send(
-                to=child_name,
-                key='END',
-                value={},
-                )    
-
         # Tell the child to end the task
         self.node.send(to=prefs.get('NAME'), key='CHILD', value={'KEY': 'STOP'})
 
