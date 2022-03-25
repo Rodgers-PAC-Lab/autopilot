@@ -323,6 +323,9 @@ class PAFT_Child(children.Child):
         ## Sleep so we don't go crazy
         time.sleep(0.2)
 
+        # Continue to the next stage (which is this one again)
+        self.stage_block.set()
+
     def empty_queue1(self):
         """Empty queue1"""
         with autopilot.stim.sound.jackclient.Q_LOCK:
