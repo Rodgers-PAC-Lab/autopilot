@@ -175,6 +175,7 @@ class PAFT_Child(Child):
         ## Hardware
         self.triggers = {}
         self.init_hardware()
+        self.set_poke_triggers()
 
 
         ## Stages
