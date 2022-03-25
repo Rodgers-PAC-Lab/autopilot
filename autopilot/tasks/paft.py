@@ -196,12 +196,12 @@ class PAFT(Task):
         MY_PI2: {
             'task_type': "PAFT_Child",
         },
-        #~ MY_PI3: {
-            #~ 'task_type': "PAFT_Child",
-        #~ },
-        #~ MY_PI4: {
-            #~ 'task_type': "PAFT_Child",
-        #~ },
+        MY_PI3: {
+            'task_type': "PAFT_Child",
+        },
+        MY_PI4: {
+            'task_type': "PAFT_Child",
+        },
     }
     
     # This is used by the terminal to plot the results of each trial
@@ -308,14 +308,36 @@ class PAFT(Task):
         self.init_hardware()
 
 
-        ## Initialize net node for communications with child
+        ## Connect to children
         # This dict keeps track of which self.CHILDREN have connected
         self.child_connected = {}
         for child in self.CHILDREN.keys():
             self.child_connected[child] = False
         
+        # Tell each child to start the task
+        self.initiate_task_on_children(self, subject, reward)
+        
+        # Create a Net_Node for communicating with the children, and
+        # wait until all children have connected
+        self.create_inter_pi_communication_node()
+
+    def initiate_task_on_children(self, subject, reward):
+        """Defines a Net_Node and uses it to tell each child to start
+        
+        This Net_Node is saved as `self.node`. A 'CHILD' message is sent,
+        I think to the Pilot_Node, which is handled by
+        networking.station.Pilot_Node.l_child .
+        
+        That code broadcasts the 'START' message to each of the children
+        specified in CHILDID in prefs.json, telling them to start the
+        'PAFT_Child' task. That 'START' message also includes task 
+        parameters specified here, such as subject name and reward value.
+        
+        The same `self.node` is used later to end the session on the children.
+        """
         # With instance=True, I get a threading error about current event loop
-        self.node = Net_Node(id="T_{}".format(prefs.get('NAME')),
+        self.node = Net_Node(
+            id="T_{}".format(prefs.get('NAME')),
             upstream=prefs.get('NAME'),
             port=prefs.get('MSGPORT'),
             listens={},
@@ -324,7 +346,6 @@ class PAFT(Task):
 
         # Construct a message to send to child
         # Specify the subjects for the child (twice)
-        self.subject = subject
         value = {
             'child': {
                 'parent': prefs.get('NAME'), 'subject': subject},
@@ -334,9 +355,25 @@ class PAFT(Task):
         }
 
         # send to the station object with a 'CHILD' key
-        self.node.send(to=prefs.get('NAME'), key='CHILD', value=value)
+        self.node.send(to=prefs.get('NAME'), key='CHILD', value=value)        
 
+    def create_inter_pi_communication_node():
+        """Defines a Net_Node to communicate with the children
         
+        This is a second Net_Node that is used to directly exchange information
+        with the children about pokes and sounds. Unlike the first Net_Node,
+        for this one the parent is the "router" / server and the children
+        are the "dealer" / clients .. ie many dealers, one router.
+        
+        Each child needs to create a corresponding Net_Node and connect to
+        this one. This function will block until that happens.
+        
+        The Net_Node defined here also specifies "listens" (ie triggers)
+        of functions to be called upon receiving specified messages
+        from the children, such as "HELLO" or "POKE".
+        
+        This Net_Node is saved as `self.node2`.
+        """
         ## Create a second node to communicate with the child
         # We (parent) are the "router"/server
         # The children are the "dealer"/clients

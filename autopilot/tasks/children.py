@@ -133,7 +133,6 @@ class PAFT_Child_Simple(Child):
         self.stop_running = True
         self.stage_block.clear()
 
-
 class PAFT_Child(Child):
     """Define the child task associated with PAFT"""
     # PARAMS to accept
@@ -182,7 +181,26 @@ class PAFT_Child(Child):
         self.stage_block = stage_block
         
         
-        ## Networking
+        ## Set up NET_Node to communicate with Parent
+        self.create_inter_pi_communication_node()
+
+    def create_inter_pi_communication_node(self):
+        """Defines a Net_Node to communicate with the Parent
+        
+        This is a Net_Node that is used to directly exchange information
+        with the parent about pokes and sounds. The parent is the 
+        "router" / server and the children are the "dealer" / clients .. 
+        ie many dealers, one router.
+        
+        The Parent will be blocked until each Child sends a "HELLO" message
+        which happens in this function.
+        
+        The Net_Node defined here also specifies "listens" (ie triggers)
+        of functions to be called upon receiving specified messages
+        from the parrent, such as "HELLO" or "END".
+        
+        This Net_Node is saved as `self.node2`.
+        """
         self.node2 = Net_Node(
             id=self.name,
             upstream='parent_pi',
@@ -197,11 +215,8 @@ class PAFT_Child(Child):
             instance=False,
             )        
         
-        # Send
-        self.node2.send(
-            'parent_pi', 'HELLO', {'from': self.name})
-
-        self.stop_running = False
+        # Send HELLO so that Parent knows we are here
+        self.node2.send('parent_pi', 'HELLO', {'from': self.name})        
 
     def init_hardware(self):
         """Placeholder"""
@@ -215,30 +230,24 @@ class PAFT_Child(Child):
         time.sleep(1)
 
         # Continue to the next stage (which is this one again)
-        if not self.stop_running:
-            self.stage_block.set()
-        else:
-            self.stage_block.clear()
+        self.stage_block.set()
 
     def recv_hello(self, value):
+        """This is probably unnecessary"""
         self.logger.debug(
             "received HELLO from parent with value {}".format(value))
 
     def recv_end(self, value):
+        """This is probably redundant with self.end"""
         self.logger.debug("recv_end with value: {}".format(value))
-
-        # Release Net_Node
-        self.node2.release()
     
     def end(self):
         """This is called when the STOP signal is received from the parent"""
         self.logger.debug("Inside the self.end function")
 
+        # Explicitly close the socket (helps with restarting cleanly)
+        self.node2.sock.close()
         self.node2.release()
-        
-        # Do this so it stops cycling through stages
-        self.stop_running = True
-        self.stage_block.clear()
     
 class Wheel_Child(Child):
     STAGE_NAMES = ['collect']
