@@ -7,8 +7,8 @@ from autopilot import prefs
 from itertools import cycle
 from . import children
 
-class Paft_With_Children_Pokes_Child(children.Child):
-    """Define the child task associated with Paft_With_Children_Pokes"""
+class PAFT_Child(Child):
+    """Define the child task associated with PAFT"""
     # PARAMS to accept
     PARAMS = odict()
 
@@ -29,9 +29,9 @@ class Paft_With_Children_Pokes_Child(children.Child):
     }    
 
     def __init__(self, stage_block, task_type, subject, child, reward):
-        """Initialize a new Paft_With_Children_Pokes_Child
+        """Initialize a new PAFT_Child
         
-        task_type : 'Paft_With_Children_Pokes_Child'
+        task_type : 'PAFT Child'
         subject : from Terminal
         child : {'parent': parent's name, 'subject' from Terminal}
         reward : from value of START/CHILD message
@@ -84,6 +84,8 @@ class Paft_With_Children_Pokes_Child(children.Child):
             upstream_ip=prefs.get('PARENTIP'),
             listens={
                 'HELLO': self.recv_hello,
+                #~ 'PLAY': self.recv_play,
+                #~ 'STOP': self.recv_stop,
                 'END': self.recv_end,
                 },
             instance=False,
@@ -161,7 +163,7 @@ class Paft_With_Children_Pokes_Child(children.Child):
         This function does NOT clear the triggers or the stage block.
         """
         # Convert to BOARD_PIN
-        board_pin = autopilot.hardware.BCM_TO_BOARD[pin]
+        board_pin = BCM_TO_BOARD[pin]
         
         # Convert to letter, e.g., 'C'
         pin_letter = self.pin_id[board_pin]
