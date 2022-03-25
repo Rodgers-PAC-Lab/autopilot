@@ -54,7 +54,7 @@ class PAFT_Child(children.Child):
 
         ## Stages
         # Only one stage
-        self.stages = cycle([self.play])
+        self.stages = itertools.cycle([self.play])
         self.stage_block = stage_block
         
         
