@@ -406,11 +406,13 @@ class PAFT(Task):
 
     def play(self):
         ## Sleep so we don't go crazy
+        self.logger.debug('entering play state')
         time.sleep(3)
         
         
         ## Send
         for rewarded_pi in ['rpi10', 'rpi11', 'rpi12']:
+            self.logger.debug('rewarding {}'.format(rewarded_pi))
             # Tell the rewarded one to reward left
             self.node2.send(
                 to=rewarded_pi,
@@ -425,7 +427,8 @@ class PAFT(Task):
             for other_pi in ['rpi10', 'rpi11', 'rpi2']:
                 if other_pi == rewarded_pi:
                     continue
-                    
+                
+                self.logger.debug('silencing {}'.format(other_pi))
                 self.node2.send(
                     to=other_pi,
                     key='PLAY',
@@ -436,8 +439,23 @@ class PAFT(Task):
                     )
             
             # Sleep
-            time.sleep(3)
-        
+            time.sleep(5)
+
+            # Tell all children to reward neither
+            for other_pi in ['rpi10', 'rpi11', 'rpi2']:
+                self.logger.debug('silencing {}'.format(other_pi))
+                self.node2.send(
+                    to=other_pi,
+                    key='PLAY',
+                    value={
+                        'left_on': False, 'right_on': False,
+                        'left_punish': True, 'right_punish': True,
+                        },
+                    )
+
+            # Sleep
+            time.sleep(5)
+
         ## Continue to the next stage (which is this one again)
         self.stage_block.set()
 
