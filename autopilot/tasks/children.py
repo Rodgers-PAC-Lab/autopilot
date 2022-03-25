@@ -34,6 +34,7 @@ from time import sleep
 class Child(object):
     """Just a placeholder class for now to work with :func:`autopilot.get`"""
 
+# This has to be after the definition of Child to avoid circularity
 from .paft_with_children_pokes_child import Paft_With_Children_Pokes_Child
 
 
