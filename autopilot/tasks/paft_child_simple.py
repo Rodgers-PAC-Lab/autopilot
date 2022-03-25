@@ -82,7 +82,6 @@ class PAFT_Child_Simple(children.Child):
             upstream_ip=prefs.get('PARENTIP'),
             listens={
                 'HELLO': self.recv_hello,
-                'END': self.recv_end,
                 },
             instance=False,
             )        
