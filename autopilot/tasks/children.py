@@ -210,7 +210,7 @@ class PAFT_Child(Child):
                 'HELLO': self.recv_hello,
                 #~ 'PLAY': self.recv_play,
                 #~ 'STOP': self.recv_stop,
-                'END': self.recv_end,
+                #~ 'END': self.recv_end,
                 },
             instance=False,
             )        
