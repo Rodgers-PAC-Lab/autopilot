@@ -270,7 +270,10 @@ class PAFT_Child(children.Child):
             self.triggers[poke] = [
                 functools.partial(self.log_poke, poke),
                 functools.partial(self.report_poke, poke),
-                ]        
+                ]       
+        
+        # Always play error sound on R pokes
+        self.trigger['R'].append(self.append_error_sound_to_queue2)
 
     def log_poke(self, poke):
         """Write in the logger that the poke happened"""
@@ -294,17 +297,7 @@ class PAFT_Child(children.Child):
         # Add stimulus sounds to queue 1 as needed
         self.append_sound_to_queue1_as_needed()
         
-        # Add error sound to queue2 sporadically
-        if self.n_frames > 3000:
-            # Only do this after an initial pause
-            if np.mod(self.n_error_counter, 3) == 0:
-                # Only do this on every third call to this function
-                self.append_error_sound_to_queue2()
-            
-            # Keep track of how many calls to this function
-            self.n_error_counter = self.n_error_counter + 1
 
-        
         ## Start it playing
         # The play event is cleared if it ever runs out of sound, which
         # ideally doesn't happen
