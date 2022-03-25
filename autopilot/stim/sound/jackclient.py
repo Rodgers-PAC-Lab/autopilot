@@ -364,7 +364,8 @@ class JackClient(mp.Process):
         """
         # Try to get data from the first queue
         try:
-            data = self.q.get_nowait()
+            with self.q_lock:
+                data = self.q.get_nowait()
         except queue.Empty:
             data = np.transpose([
                 np.zeros(self.blocksize, dtype='float32'),
@@ -373,7 +374,8 @@ class JackClient(mp.Process):
 
         # Try to get data from the second queue
         try:
-            data2 = self.q2.get_nowait()
+            with self.q2_lock:
+                data2 = self.q2.get_nowait()
         except queue.Empty:
             data2 = np.transpose([
                 np.zeros(self.blocksize, dtype='float32'),
@@ -384,15 +386,13 @@ class JackClient(mp.Process):
         if data.ndim == 1:
             data = np.transpose([data, data])
         if data2.ndim == 1:
-            data = np.transpose([data, data])
+            data2 = np.transpose([data2, data2])
         
         # Add
         data = data + data2
 
         # Write
         self.write_to_outports(data)
-        
-    
     
     def write_to_outports(self, data):
         """Write the sound in `data` to the outport(s).
