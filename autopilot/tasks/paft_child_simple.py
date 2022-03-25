@@ -7,7 +7,7 @@ from autopilot import prefs
 from itertools import cycle
 from . import children
 
-class PAFT_Child_Simple(Child):
+class PAFT_Child_Simple(children.Child):
     """Define the child task associated with PAFT_Parent_Child"""
     # PARAMS to accept
     PARAMS = odict()
