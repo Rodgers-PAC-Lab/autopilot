@@ -320,6 +320,71 @@ class PAFT(Task):
         # Create a Net_Node for communicating with the children, and
         # wait until all children have connected
         self.create_inter_pi_communication_node()
+        
+        
+        ## Initialize sounds
+        # Define the sounds that will be used in the cycle
+        self.initalize_sounds()
+        
+        # Define a cycle of those sounds
+        self.set_sound_cycle()
+
+        # Some counters to keep track of how many sounds we've played
+        self.n_frames = 0
+        self.n_error_counter = 0        
+
+    def initalize_sounds(self):
+        """Defines sounds that will be played during the task"""
+        ## Define sounds
+        # Left and right noise bursts
+        self.left_stim = sounds.Noise(
+            duration=10, amplitude=.01, channel=0, 
+            highpass=5000)       
+
+        self.right_stim = sounds.Noise(
+            duration=10, amplitude=.01, channel=1, 
+            highpass=5000)        
+        
+        # Left and right tritone error noises
+        self.left_error_sound = sounds.Tritone(
+            frequency=8000, duration=250, amplitude=.003, channel=0)
+
+        self.right_error_sound = sounds.Tritone(
+            frequency=8000, duration=250, amplitude=.003, channel=1)
+        
+        # Chunk the sounds into frames
+        if not self.left_stim.chunks:
+            self.left_stim.chunk()
+        if not self.right_stim.chunks:
+            self.right_stim.chunk()
+        if not self.left_error_sound.chunks:
+            self.left_error_sound.chunk()
+        if not self.right_error_sound.chunks:
+            self.right_error_sound.chunk()
+    
+    def set_sound_cycle(self):
+        """Define self.sound_cycle, to go through sounds"""
+        # This is just a left sound, gap, then right sound, then gap
+        # And use a cycle to repeat forever
+        # But this could be made more complex
+        self.sound_block = []
+        
+        for frame in self.left_stim.chunks:
+            self.sound_block.append(frame)
+        
+        for n_blank_chunks in range(30):
+            self.sound_block.append(
+                np.zeros(jackclient.BLOCKSIZE, dtype='float32'))
+        
+        for frame in self.right_stim.chunks:
+            self.sound_block.append(frame)
+        
+        for n_blank_chunks in range(30):
+            self.sound_block.append(
+                np.zeros(jackclient.BLOCKSIZE, dtype='float32'))
+        
+        # Cycle so it can repeat forever
+        self.sound_cycle = itertools.cycle(self.sound_block)        
 
     def initiate_task_on_children(self, subject, reward):
         """Defines a Net_Node and uses it to tell each child to start
@@ -405,10 +470,57 @@ class PAFT(Task):
             "All children have connected: {}".format(self.child_connected))
 
     def play(self):
-        # Sleep so we don't go crazy
-        time.sleep(3)
+        ## Keep the stimulus queue minimum this length
+        # Each block/frame is about 5 ms, so this is about 5 s of data
+        # Longer is more buffer against unexpected delays
+        target_qsize = 1000
+
         
-        # Continue to the next stage (which is this one again)
+        ## Load queue with stimulus, if needed
+        print("before loading: {}".format(jackclient.QUEUE.qsize()))            
+        
+        # Add frames until target size reached
+        qsize = jackclient.QUEUE.qsize()
+        while qsize < target_qsize:
+            with jackclient.Q_LOCK:
+                # Add a frame from the sound cycle
+                frame = next(self.sound_cycle)
+                jackclient.QUEUE.put_nowait(frame)
+                
+                # Keep track of how many frames played
+                self.n_frames = self.n_frames + 1
+                
+            qsize = jackclient.QUEUE.qsize()
+        print("after loading: {}".format(jackclient.QUEUE.qsize()))
+
+        
+        ## Loade queue2 with error sound, if needed
+        # Only do this after an initial pause
+        if self.n_frames > 3000:
+            # Only do this on every third call to this function
+            if np.mod(self.n_error_counter, 3) == 0:
+                print("before loading 2: {}".format(jackclient.QUEUE2.qsize()))            
+                with jackclient.Q2_LOCK:
+                    # Add frames from error sound
+                    for frame in self.left_error_sound.chunks:
+                        jackclient.QUEUE2.put_nowait(frame)
+                qsize = jackclient.QUEUE2.qsize()
+                print("after loading 2: {}".format(jackclient.QUEUE2.qsize()))        
+            
+            # Keep track of how many calls to this function
+            self.n_error_counter = self.n_error_counter + 1
+
+        # Start it playing
+        # The play event is cleared if it ever runs out of sound, which
+        # ideally doesn't happen
+        jackclient.PLAY.set()
+        
+
+        ## Sleep so we don't go crazy
+        time.sleep(1)
+        
+        
+        ## Continue to the next stage (which is this one again)
         self.stage_block.set()
 
     def init_hardware(self):
