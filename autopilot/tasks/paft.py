@@ -410,16 +410,33 @@ class PAFT(Task):
         
         
         ## Send
-        self.node2.send(
-            to='rpi10',
-            key='PLAY',
-            value={
-                'left_on': True,
-                'right_on': False,
-                'left_punish': False,
-                'right_punish': True,
-                },
-            )
+        for rewarded_pi in ['rpi10', 'rpi11', 'rpi12']:
+            # Tell the rewarded one to reward left
+            self.node2.send(
+                to=rewarded_pi,
+                key='PLAY',
+                value={
+                    'left_on': True, 'right_on': False,
+                    'left_punish': False, 'right_punish': True,
+                    },
+                )
+            
+            # Tell all other children to reward neither
+            for other_pi in ['rpi10', 'rpi11', 'rpi2']:
+                if other_pi == rewarded_pi:
+                    continue
+                    
+                self.node2.send(
+                    to=other_pi,
+                    key='PLAY',
+                    value={
+                        'left_on': False, 'right_on': False,
+                        'left_punish': True, 'right_punish': True,
+                        },
+                    )
+            
+            # Sleep
+            time.sleep(3)
         
         ## Continue to the next stage (which is this one again)
         self.stage_block.set()
