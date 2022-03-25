@@ -69,6 +69,10 @@ class PAFT_Child(children.Child):
         # Define a cycle of those sounds
         self.set_sound_cycle()
 
+        # Each block/frame is about 5 ms, so this is about 5 s of data
+        # Longer is more buffer against unexpected delays
+        self.target_qsize = 1000
+
         # Some counters to keep track of how many sounds we've played
         self.n_frames = 0
         self.n_error_counter = 0        
@@ -150,8 +154,8 @@ class PAFT_Child(children.Child):
             upstream_ip=prefs.get('PARENTIP'),
             listens={
                 'HELLO': self.recv_hello,
-                #~ 'PLAY': self.recv_play,
-                #~ 'STOP': self.recv_stop,
+                'PLAY': self.recv_play,
+                'STOP': self.recv_stop,
                 },
             instance=False,
             )        
@@ -285,21 +289,42 @@ class PAFT_Child(children.Child):
         """A single stage"""
         self.logger.debug("Starting the play stage")
 
-
-
-
-        ## Keep the stimulus queue minimum this length
-        # Each block/frame is about 5 ms, so this is about 5 s of data
-        # Longer is more buffer against unexpected delays
-        target_qsize = 1000
+        
+        ## Add sounds to queues
+        # Add stimulus sounds to queue 1 as needed
+        self.append_sound_to_queue1_as_needed()
+        
+        # Add error sound to queue2 sporadically
+        if self.n_frames > 3000:
+            # Only do this after an initial pause
+            if np.mod(self.n_error_counter, 3) == 0:
+                # Only do this on every third call to this function
+                self.append_error_sound_to_queue2()
+            
+            # Keep track of how many calls to this function
+            self.n_error_counter = self.n_error_counter + 1
 
         
-        ## Load queue with stimulus, if needed
-        print("before loading: {}".format(autopilot.stim.sound.jackclient.QUEUE.qsize()))            
-        
-        # Add frames until target size reached
+        ## Start it playing
+        # The play event is cleared if it ever runs out of sound, which
+        # ideally doesn't happen
+        autopilot.stim.sound.jackclient.PLAY.set()
+
+
+        ## Sleep so we don't go crazy
+        time.sleep(3)
+
+        # Continue to the next stage (which is this one again)
+        self.stage_block.set()
+
+    def append_sound_to_queue1_as_needed(self):
+        # Get the size of QUEUE1 now
         qsize = autopilot.stim.sound.jackclient.QUEUE.qsize()
-        while qsize < target_qsize:
+        self.logger.debug(
+            'append_sound_to_queue1_as_needed: qsize before = {}'.format(qsize))
+
+        # Add frames until target size reached
+        while qsize < self.target_qsize:
             with autopilot.stim.sound.jackclient.Q_LOCK:
                 # Add a frame from the sound cycle
                 frame = next(self.sound_cycle)
@@ -307,44 +332,52 @@ class PAFT_Child(children.Child):
                 
                 # Keep track of how many frames played
                 self.n_frames = self.n_frames + 1
-                
-            qsize = autopilot.stim.sound.jackclient.QUEUE.qsize()
-        print("after loading: {}".format(autopilot.stim.sound.jackclient.QUEUE.qsize()))
-
-        
-        ## Loade queue2 with error sound, if needed
-        # Only do this after an initial pause
-        if self.n_frames > 3000:
-            # Only do this on every third call to this function
-            if np.mod(self.n_error_counter, 3) == 0:
-                print("before loading 2: {}".format(autopilot.stim.sound.jackclient.QUEUE2.qsize()))            
-                with autopilot.stim.sound.jackclient.Q2_LOCK:
-                    # Add frames from error sound
-                    for frame in self.left_error_sound.chunks:
-                        autopilot.stim.sound.jackclient.QUEUE2.put_nowait(frame)
-                qsize = autopilot.stim.sound.jackclient.QUEUE2.qsize()
-                print("after loading 2: {}".format(autopilot.stim.sound.jackclient.QUEUE2.qsize()))        
             
-            # Keep track of how many calls to this function
-            self.n_error_counter = self.n_error_counter + 1
-
-        # Start it playing
-        # The play event is cleared if it ever runs out of sound, which
-        # ideally doesn't happen
-        autopilot.stim.sound.jackclient.PLAY.set()
-
-
+            # Update qsize
+            qsize = autopilot.stim.sound.jackclient.QUEUE.qsize()
         
-        # Sleep so we don't go crazy
-        time.sleep(3)
+        # Get the size of QUEUE1 now
+        qsize = autopilot.stim.sound.jackclient.QUEUE.qsize()
+        self.logger.debug(
+            'append_sound_to_queue1_as_needed: qsize after = {}'.format(qsize))        
 
-        # Continue to the next stage (which is this one again)
-        self.stage_block.set()
+    def append_error_sound_to_queue2(self):
+        """Dump frames from error sound into queue2
+        
+        Since queue2 is only sporadically used, they will likely be
+        played immediately.
+        """
+        # Get the size of QUEUE2 now
+        qsize = autopilot.stim.sound.jackclient.QUEUE2.qsize()
+        self.logger.debug('play_error_sound: qsize before = {}'.format(qsize))
 
+        # Add sounds from the left_error_sound to QUEUE2
+        with autopilot.stim.sound.jackclient.Q2_LOCK:
+            for frame in self.left_error_sound.chunks:
+                autopilot.stim.sound.jackclient.QUEUE2.put_nowait(frame)
+
+        # Get the size of QUEUE2 afterward
+        qsize = autopilot.stim.sound.jackclient.QUEUE2.qsize()
+        self.logger.debug('play_error_sound: qsize after = {}'.format(qsize))
+    
     def recv_hello(self, value):
         """This is probably unnecessary"""
         self.logger.debug(
             "received HELLO from parent with value {}".format(value))
+
+    def recv_play(self, value):
+        self.logger.debug("recv_play with value: {}".format(value))
+        
+        # Set target
+        L_mean_interval = value['L_mean_interval']
+        L_var_interval = value['L_var_interval']
+        R_mean_interval = value['R_mean_interval']
+        R_var_interval = value['R_var_interval']
+        
+    def recv_stop(self, value):
+        # debug
+        self.logger.debug("recv_stop with value: {}".format(value))
+        
 
     def end(self):
         """This is called when the STOP signal is received from the parent"""
