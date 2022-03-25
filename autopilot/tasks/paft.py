@@ -405,54 +405,8 @@ class PAFT(Task):
             "All children have connected: {}".format(self.child_connected))
 
     def play(self):
-        ## Keep the stimulus queue minimum this length
-        # Each block/frame is about 5 ms, so this is about 5 s of data
-        # Longer is more buffer against unexpected delays
-        target_qsize = 1000
-
-        
-        ## Load queue with stimulus, if needed
-        print("before loading: {}".format(jackclient.QUEUE.qsize()))            
-        
-        # Add frames until target size reached
-        qsize = jackclient.QUEUE.qsize()
-        while qsize < target_qsize:
-            with jackclient.Q_LOCK:
-                # Add a frame from the sound cycle
-                frame = next(self.sound_cycle)
-                jackclient.QUEUE.put_nowait(frame)
-                
-                # Keep track of how many frames played
-                self.n_frames = self.n_frames + 1
-                
-            qsize = jackclient.QUEUE.qsize()
-        print("after loading: {}".format(jackclient.QUEUE.qsize()))
-
-        
-        ## Loade queue2 with error sound, if needed
-        # Only do this after an initial pause
-        if self.n_frames > 3000:
-            # Only do this on every third call to this function
-            if np.mod(self.n_error_counter, 3) == 0:
-                print("before loading 2: {}".format(jackclient.QUEUE2.qsize()))            
-                with jackclient.Q2_LOCK:
-                    # Add frames from error sound
-                    for frame in self.left_error_sound.chunks:
-                        jackclient.QUEUE2.put_nowait(frame)
-                qsize = jackclient.QUEUE2.qsize()
-                print("after loading 2: {}".format(jackclient.QUEUE2.qsize()))        
-            
-            # Keep track of how many calls to this function
-            self.n_error_counter = self.n_error_counter + 1
-
-        # Start it playing
-        # The play event is cleared if it ever runs out of sound, which
-        # ideally doesn't happen
-        jackclient.PLAY.set()
-        
-
         ## Sleep so we don't go crazy
-        time.sleep(1)
+        time.sleep(3)
         
         
         ## Continue to the next stage (which is this one again)

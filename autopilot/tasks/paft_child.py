@@ -114,14 +114,14 @@ class PAFT_Child(children.Child):
         
         for n_blank_chunks in range(30):
             self.sound_block.append(
-                np.zeros(jackclient.BLOCKSIZE, dtype='float32'))
+                np.zeros(autopilot.stim.sound.jackclient.BLOCKSIZE, dtype='float32'))
         
         for frame in self.right_stim.chunks:
             self.sound_block.append(frame)
         
         for n_blank_chunks in range(30):
             self.sound_block.append(
-                np.zeros(jackclient.BLOCKSIZE, dtype='float32'))
+                np.zeros(autopilot.stim.sound.jackclient.BLOCKSIZE, dtype='float32'))
         
         # Cycle so it can repeat forever
         self.sound_cycle = itertools.cycle(self.sound_block)        
@@ -284,6 +284,56 @@ class PAFT_Child(children.Child):
     def play(self):
         """A single stage"""
         self.logger.debug("Starting the play stage")
+
+
+
+
+        ## Keep the stimulus queue minimum this length
+        # Each block/frame is about 5 ms, so this is about 5 s of data
+        # Longer is more buffer against unexpected delays
+        target_qsize = 1000
+
+        
+        ## Load queue with stimulus, if needed
+        print("before loading: {}".format(autopilot.stim.sound.jackclient.QUEUE.qsize()))            
+        
+        # Add frames until target size reached
+        qsize = autopilot.stim.sound.jackclient.QUEUE.qsize()
+        while qsize < target_qsize:
+            with autopilot.stim.sound.jackclient.Q_LOCK:
+                # Add a frame from the sound cycle
+                frame = next(self.sound_cycle)
+                autopilot.stim.sound.jackclient.QUEUE.put_nowait(frame)
+                
+                # Keep track of how many frames played
+                self.n_frames = self.n_frames + 1
+                
+            qsize = autopilot.stim.sound.jackclient.QUEUE.qsize()
+        print("after loading: {}".format(autopilot.stim.sound.jackclient.QUEUE.qsize()))
+
+        
+        ## Loade queue2 with error sound, if needed
+        # Only do this after an initial pause
+        if self.n_frames > 3000:
+            # Only do this on every third call to this function
+            if np.mod(self.n_error_counter, 3) == 0:
+                print("before loading 2: {}".format(autopilot.stim.sound.jackclient.QUEUE2.qsize()))            
+                with autopilot.stim.sound.jackclient.Q2_LOCK:
+                    # Add frames from error sound
+                    for frame in self.left_error_sound.chunks:
+                        autopilot.stim.sound.jackclient.QUEUE2.put_nowait(frame)
+                qsize = autopilot.stim.sound.jackclient.QUEUE2.qsize()
+                print("after loading 2: {}".format(autopilot.stim.sound.jackclient.QUEUE2.qsize()))        
+            
+            # Keep track of how many calls to this function
+            self.n_error_counter = self.n_error_counter + 1
+
+        # Start it playing
+        # The play event is cleared if it ever runs out of sound, which
+        # ideally doesn't happen
+        autopilot.stim.sound.jackclient.PLAY.set()
+
+
         
         # Sleep so we don't go crazy
         time.sleep(3)
