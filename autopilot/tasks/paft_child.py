@@ -76,19 +76,19 @@ class PAFT_Child(children.Child):
         """Defines sounds that will be played during the task"""
         ## Define sounds
         # Left and right noise bursts
-        self.left_stim = sounds.Noise(
+        self.left_stim = autopilot.stim.sounds.Noise(
             duration=10, amplitude=.01, channel=0, 
             highpass=5000)       
 
-        self.right_stim = sounds.Noise(
+        self.right_stim = autopilot.stim.sounds.Noise(
             duration=10, amplitude=.01, channel=1, 
             highpass=5000)        
         
         # Left and right tritone error noises
-        self.left_error_sound = sounds.Tritone(
+        self.left_error_sound = autopilot.stim.sounds.Tritone(
             frequency=8000, duration=250, amplitude=.003, channel=0)
 
-        self.right_error_sound = sounds.Tritone(
+        self.right_error_sound = autopilot.stim.sounds.Tritone(
             frequency=8000, duration=250, amplitude=.003, channel=1)
         
         # Chunk the sounds into frames
