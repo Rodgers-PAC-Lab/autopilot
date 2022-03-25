@@ -357,7 +357,7 @@ class PAFT(Task):
         # send to the station object with a 'CHILD' key
         self.node.send(to=prefs.get('NAME'), key='CHILD', value=value)        
 
-    def create_inter_pi_communication_node():
+    def create_inter_pi_communication_node(self):
         """Defines a Net_Node to communicate with the children
         
         This is a second Net_Node that is used to directly exchange information
