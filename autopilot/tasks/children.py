@@ -30,6 +30,7 @@ from queue import Empty, LifoQueue
 import threading
 import logging
 from time import sleep
+from Paft_With_Children_Pokes_Child import Paft_With_Children_Pokes_Child
 
 class Child(object):
     """Just a placeholder class for now to work with :func:`autopilot.get`"""
