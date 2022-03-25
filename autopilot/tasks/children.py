@@ -11,7 +11,7 @@ Sub-tasks that serve as children to other tasks.
 from collections import OrderedDict as odict
 from collections import deque
 import time
-
+import functools
 import autopilot.transform
 from autopilot import prefs
 from autopilot.hardware.gpio import Digital_Out
