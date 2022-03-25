@@ -409,6 +409,18 @@ class PAFT(Task):
         time.sleep(3)
         
         
+        ## Send
+        self.node2.send(
+            to='rpi10',
+            key='PLAY',
+            value={
+                'left_on': True,
+                'right_on': False,
+                'left_punish': False,
+                'right_punish': True,
+                },
+            )
+        
         ## Continue to the next stage (which is this one again)
         self.stage_block.set()
 

@@ -106,26 +106,36 @@ class PAFT_Child(children.Child):
         if not self.right_error_sound.chunks:
             self.right_error_sound.chunk()
     
-    def set_sound_cycle(self):
+    def set_sound_cycle(self, left_on=False, right_on=False):
         """Define self.sound_cycle, to go through sounds"""
         # This is just a left sound, gap, then right sound, then gap
         # And use a cycle to repeat forever
         # But this could be made more complex
         self.sound_block = []
+
+        # Helper function
+        def append_gap(gap_chunk_size=30):
+            """Append `gap_chunk_size` silent chunks to sound_block"""
+            for n_blank_chunks in range(gap_chunk_size):
+                self.sound_block.append(
+                    np.zeros(autopilot.stim.sound.jackclient.BLOCKSIZE, 
+                    dtype='float32'))
+
+        # If left_on, append left sound and gap
+        if left_on:
+            for frame in self.left_stim.chunks:
+                self.sound_block.append(frame)
+            append_gap()
         
-        for frame in self.left_stim.chunks:
-            self.sound_block.append(frame)
+        # If right_on, append right sound and gap
+        if right_on:
+            for frame in self.right_stim.chunks:
+                self.sound_block.append(frame)
+            append_gap()
         
-        for n_blank_chunks in range(30):
-            self.sound_block.append(
-                np.zeros(autopilot.stim.sound.jackclient.BLOCKSIZE, dtype='float32'))
-        
-        for frame in self.right_stim.chunks:
-            self.sound_block.append(frame)
-        
-        for n_blank_chunks in range(30):
-            self.sound_block.append(
-                np.zeros(autopilot.stim.sound.jackclient.BLOCKSIZE, dtype='float32'))
+        # If nothing else, append gap (so it's not empty)
+        if len(self.sound_block) == 0:
+            append_gap()
         
         # Cycle so it can repeat forever
         self.sound_cycle = itertools.cycle(self.sound_block)        
@@ -259,7 +269,7 @@ class PAFT_Child(children.Child):
             for pin, obj in v.items():
                 obj.release()
 
-    def set_poke_triggers(self):
+    def set_poke_triggers(self, left_punish=False, right_punish=False):
         """"Set triggers for poke entry
         
         For each poke, sets these triggers:
@@ -267,13 +277,21 @@ class PAFT_Child(children.Child):
             self.report_poke (report to parent)
         """
         for poke in ['L', 'R']:
+            # Always trigger reporting pokes
             self.triggers[poke] = [
                 functools.partial(self.log_poke, poke),
                 functools.partial(self.report_poke, poke),
                 ]       
+            
+            # Trigger punish sounds
+            if left_punish:
+                self.triggers['L'].append(functools.partial(
+                    self.append_error_sound_to_queue2, 'left')))
+            elif right_punish:
+                self.triggers['R'].append(functools.partial(
+                    self.append_error_sound_to_queue2, 'right'))
         
-        # Always play error sound on R pokes
-        self.triggers['R'].append(self.append_error_sound_to_queue2)
+            # TODO: also trigger rewards here
 
     def log_poke(self, poke):
         """Write in the logger that the poke happened"""
@@ -305,7 +323,7 @@ class PAFT_Child(children.Child):
 
 
         ## Sleep so we don't go crazy
-        time.sleep(3)
+        time.sleep(1)
 
         # Continue to the next stage (which is this one again)
         self.stage_block.set()
@@ -334,20 +352,29 @@ class PAFT_Child(children.Child):
         self.logger.debug(
             'append_sound_to_queue1_as_needed: qsize after = {}'.format(qsize))        
 
-    def append_error_sound_to_queue2(self):
+    def append_error_sound_to_queue2(self, which):
         """Dump frames from error sound into queue2
         
         Since queue2 is only sporadically used, they will likely be
         played immediately.
+        
+        TODO: empty queue2 before adding error sound .. no reason to 
+        accumulate error sounds over time.
         """
         # Get the size of QUEUE2 now
         qsize = autopilot.stim.sound.jackclient.QUEUE2.qsize()
         self.logger.debug('play_error_sound: qsize before = {}'.format(qsize))
 
-        # Add sounds from the left_error_sound to QUEUE2
+        # Add sounds from the appropriate error sound to QUEUE2
         with autopilot.stim.sound.jackclient.Q2_LOCK:
-            for frame in self.left_error_sound.chunks:
-                autopilot.stim.sound.jackclient.QUEUE2.put_nowait(frame)
+            if which == 'left':
+                for frame in self.left_error_sound.chunks:
+                    autopilot.stim.sound.jackclient.QUEUE2.put_nowait(frame)
+            elif which == 'right':
+                for frame in self.right_error_sound.chunks:
+                    autopilot.stim.sound.jackclient.QUEUE2.put_nowait(frame)
+            else:
+                raise ValueError("unrecognized which: {}".format(which))
 
         # Get the size of QUEUE2 afterward
         qsize = autopilot.stim.sound.jackclient.QUEUE2.qsize()
@@ -361,16 +388,24 @@ class PAFT_Child(children.Child):
     def recv_play(self, value):
         self.logger.debug("recv_play with value: {}".format(value))
         
-        # Set target
-        L_mean_interval = value['L_mean_interval']
-        L_var_interval = value['L_var_interval']
-        R_mean_interval = value['R_mean_interval']
-        R_var_interval = value['R_var_interval']
+        # Extract which pokes are punished
+        left_punish = value['left_punish']
+        right_punish = value['right_punish']
+        
+        # Use this to set triggers
+        self.set_poke_triggers(
+            left_punish=left_punish, right_punish=right_punish)
+        
+        # Extract which speakers are active
+        left_on = value['left_on']
+        right_on = value['right_on']
+        
+        # Use this to update the sound cycle
+        self.set_sound_cycle(left_on=left_on, right_on=right_on)
         
     def recv_stop(self, value):
         # debug
         self.logger.debug("recv_stop with value: {}".format(value))
-        
 
     def end(self):
         """This is called when the STOP signal is received from the parent"""
