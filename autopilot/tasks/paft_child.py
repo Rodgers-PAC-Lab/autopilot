@@ -328,6 +328,15 @@ class PAFT_Child(children.Child):
         # Continue to the next stage (which is this one again)
         self.stage_block.set()
 
+    def empty_queue1(self):
+        """Empty queue1"""
+        with autopilot.stim.sound.jackclient.Q_LOCK:
+            while True:
+                try:
+                    data = autopilot.stim.sound.jackclient.QUEUE.get_nowait()
+                except queue.Empty:
+                    break
+
     def append_sound_to_queue1_as_needed(self):
         # Get the size of QUEUE1 now
         qsize = autopilot.stim.sound.jackclient.QUEUE.qsize()
@@ -402,6 +411,10 @@ class PAFT_Child(children.Child):
         
         # Use this to update the sound cycle
         self.set_sound_cycle(left_on=left_on, right_on=right_on)
+        
+        # Empty queue1 and refill
+        self.empty_queue1()
+        self.append_sound_to_queue1_as_needed()
         
     def recv_stop(self, value):
         # debug
