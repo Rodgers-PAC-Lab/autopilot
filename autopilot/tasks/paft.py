@@ -315,7 +315,7 @@ class PAFT(Task):
             self.child_connected[child] = False
         
         # Tell each child to start the task
-        self.initiate_task_on_children(self, subject, reward)
+        self.initiate_task_on_children(subject, reward)
         
         # Create a Net_Node for communicating with the children, and
         # wait until all children have connected
