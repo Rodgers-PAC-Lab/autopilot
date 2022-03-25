@@ -3,6 +3,7 @@ import time
 import functools
 import datetime
 import itertools
+import queue
 import numpy as np
 import autopilot
 from autopilot import prefs
