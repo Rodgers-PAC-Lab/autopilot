@@ -309,9 +309,6 @@ class PAFT_Child(children.Child):
     
     def play(self):
         """A single stage"""
-        self.logger.debug("Starting the play stage")
-
-        
         ## Add sounds to queues
         # Add stimulus sounds to queue 1 as needed
         self.append_sound_to_queue1_as_needed()
@@ -324,10 +321,7 @@ class PAFT_Child(children.Child):
 
 
         ## Sleep so we don't go crazy
-        time.sleep(1)
-
-        # Continue to the next stage (which is this one again)
-        self.stage_block.set()
+        time.sleep(0.2)
 
     def empty_queue1(self):
         """Empty queue1"""
