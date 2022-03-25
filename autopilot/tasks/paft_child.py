@@ -273,7 +273,7 @@ class PAFT_Child(children.Child):
                 ]       
         
         # Always play error sound on R pokes
-        self.trigger['R'].append(self.append_error_sound_to_queue2)
+        self.triggers['R'].append(self.append_error_sound_to_queue2)
 
     def log_poke(self, poke):
         """Write in the logger that the poke happened"""
