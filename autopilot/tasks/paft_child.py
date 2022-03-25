@@ -2,9 +2,10 @@ from collections import OrderedDict as odict
 import time
 import functools
 import datetime
+from itertools import cycle
+import numpy as np
 import autopilot
 from autopilot import prefs
-from itertools import cycle
 from . import children
 
 class PAFT_Child(children.Child):
