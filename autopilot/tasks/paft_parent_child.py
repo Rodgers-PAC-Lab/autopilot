@@ -245,7 +245,12 @@ class PAFT_Parent_Child(Task):
             "received HELLO from child with value {}".format(value))
         
         # Set this flag
-        self.child_connected[value['from']] = True
+        child_name = value['from']
+        if child_name in self.child_connected.keys():
+            self.child_connected[value['from']] = True
+        else:
+            self.logger.debug(
+                "unexpected contact from unknown child: {}".format(child_name))
     
     def recv_poke(self, value):
         self.logger.debug(
