@@ -406,7 +406,7 @@ class PAFT(Task):
 
     def play(self):
         # Sleep so we don't go crazy
-        time.sleep(1)
+        time.sleep()
         
         # Continue to the next stage (which is this one again)
         self.stage_block.set()

@@ -173,6 +173,7 @@ class PAFT_Child(Child):
 
 
         ## Hardware
+        self.triggers = {}
         self.init_hardware()
 
 
@@ -346,7 +347,7 @@ class PAFT_Child(Child):
         self.logger.debug("Starting the play stage")
         
         # Sleep so we don't go crazy
-        time.sleep(1)
+        time.sleep(3)
 
         # Continue to the next stage (which is this one again)
         self.stage_block.set()
