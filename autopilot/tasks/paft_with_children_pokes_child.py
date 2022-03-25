@@ -5,9 +5,9 @@ import datetime
 import autopilot
 from autopilot import prefs
 from itertools import cycle
-from children import Child
+from . import children
 
-class Paft_With_Children_Pokes_Child(Child):
+class Paft_With_Children_Pokes_Child(children.Child):
     """Define the child task associated with Paft_With_Children_Pokes"""
     # PARAMS to accept
     PARAMS = odict()
