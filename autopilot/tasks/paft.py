@@ -58,47 +58,6 @@ from autopilot.stim.sound import jackclient
 TASK = 'PAFT'
 
 
-## Set box-specific params
-# TODO: Figure out some cleaner way of doing this
-# But right now vars like MY_PI2 are needed just to initiate a PAFT object
-
-# Figure out which box we're in
-MY_NAME = prefs.get('NAME')
-
-if MY_NAME in ['rpi01', 'rpi02', 'rpi03', 'rpi04']:
-    MY_BOX = 'Box1'
-    MY_PARENTS_NAME = 'rpi01'
-    MY_PI1 = 'rpi01'
-    MY_PI2 = 'rpi02'
-    MY_PI3 = 'rpi03'
-    MY_PI4 = 'rpi04'
-
-elif MY_NAME in ['rpi05', 'rpi06', 'rpi07', 'rpi08']:
-    MY_BOX = 'Box2'
-    MY_PARENTS_NAME = 'rpi05'
-    MY_PI1 = 'rpi05'
-    MY_PI2 = 'rpi06'
-    MY_PI3 = 'rpi07'
-    MY_PI4 = 'rpi08'
-
-elif MY_NAME in ['rpi09', 'rpi10', 'rpi11', 'rpi12']:
-    MY_BOX = 'Box2'
-    MY_PARENTS_NAME = 'rpi09'
-    MY_PI1 = 'rpi09'
-    MY_PI2 = 'rpi10'
-    MY_PI3 = 'rpi11'
-    MY_PI4 = 'rpi12'
-
-else:
-    # This happens on the Terminal, for instance
-    MY_BOX = 'NoBox'
-    MY_PARENTS_NAME = 'NoParent'
-    MY_PI1 = 'NoPi1'
-    MY_PI2 = 'NoPi2'
-    MY_PI3 = 'NoPi3'
-    MY_PI4 = 'NoPi4'
-
-
 ## Define the Task
 class PAFT(Task):
     """The probabalistic auditory foraging task (PAFT).
@@ -141,67 +100,53 @@ class PAFT(Task):
     
     ## Define the class attributes
     # This defines params we receive from terminal on session init
+    # It also determines the params that are available to specify in the
+    # Protocol creation GUI.
+    # The params themselves are defined the protocol json.
+    # Presently these can only be of type int, bool, enum (aka list), or sound
+    # Defaults cannot be specified here or in the GUI, only in the corresponding
+    # kwarg in __init__
     PARAMS = odict()
     PARAMS['reward'] = {
         'tag':'Reward Duration (ms)',
         'type':'int',
         }
 
-    # This defines the data we return after each trial
-    DATA = {
-        'trial': {'type':'i32'},
-        'trials_total': {'type': 'i32'},
-        'rpi': {'type': 'S10'},
-        'side': {'type': 'S10'},
-        'light': {'type': 'S10'},
-        'sound': {'type': 'S10'},
-        'timestamp': {'type':'S26'},
-    }
-
-    # This is used by the terminal to build an HDF5 file of data for each trial 
+    # Per https://docs.auto-pi-lot.com/en/latest/guide/task.html:
+    # The `TrialData` object is used by the `Subject` class when a task
+    # is assigned to create the data storage table
+    # I think that the `DATA` parameter is no longer necessary here
     class TrialData(tables.IsDescription):
         # The trial within this session
         trial = tables.Int32Col()
         
-        # The trial number accumulated over all sessions
-        trials_total = tables.Int32Col()
-        
-        # The target
-        rpi = tables.StringCol(10)
-        side = tables.StringCol(10)
-        light = tables.StringCol(10)
-        sound = tables.StringCol(10)
+        # The rewarded port
+        # Must specify the max length of the string, we use 64 to be safe
+        rewarded_port = tables.StringCol(64)
         
         # The timestamp
-        timestamp = tables.StringCol(26)
+        trial_start_timestamp = tables.StringCol(64)
 
-    # This defines the hardware that is required
+    # Per https://docs.auto-pi-lot.com/en/latest/guide/task.html:
+    # The HARDWARE dictionary maps a hardware type (eg. POKES) and 
+    # identifier (eg. 'L') to a Hardware object. The task uses the hardware 
+    # parameterization in the prefs file (also see setup_pilot) to 
+    # instantiate each of the hardware objects, so their naming system 
+    # must match (ie. there must be a prefs.PINS['POKES']['L'] entry in 
+    # prefs for a task that has a task.HARDWARE['POKES']['L'] object).
     HARDWARE = {
         'POKES':{
             'L': autopilot.hardware.gpio.Digital_In,
-            'R': autopilot.hardware.gpio.Digital_In
+            'R': autopilot.hardware.gpio.Digital_In,
         },
         'LEDS':{
             'L': autopilot.hardware.gpio.LED_RGB,
-            'R': autopilot.hardware.gpio.LED_RGB
+            'R': autopilot.hardware.gpio.LED_RGB,
         },
         'PORTS':{
             'L': autopilot.hardware.gpio.Solenoid,
-            'R': autopilot.hardware.gpio.Solenoid
+            'R': autopilot.hardware.gpio.Solenoid,
         }
-    }
-    
-    # This defines the child rpis to connect to
-    CHILDREN = {
-        MY_PI2: {
-            'task_type': "PAFT_Child",
-        },
-        MY_PI3: {
-            'task_type': "PAFT_Child",
-        },
-        MY_PI4: {
-            'task_type': "PAFT_Child",
-        },
     }
     
     # This is used by the terminal to plot the results of each trial
@@ -299,225 +244,36 @@ class PAFT(Task):
     
         ## Define the stages
         # Stage list to iterate
-        stage_list = [self.play]
+        stage_list = [self.play, self.wait]
         self.num_stages = len(stage_list)
         self.stages = itertools.cycle(stage_list)        
         
         
         ## Init hardware -- this sets self.hardware and self.pin_id
         self.init_hardware()
-
-
-        ## Connect to children
-        # This dict keeps track of which self.CHILDREN have connected
-        self.child_connected = {}
-        for child in self.CHILDREN.keys():
-            self.child_connected[child] = False
-        
-        # Tell each child to start the task
-        self.initiate_task_on_children(subject, reward)
-        
-        # Create a Net_Node for communicating with the children, and
-        # wait until all children have connected
-        self.create_inter_pi_communication_node()
     
-    def initiate_task_on_children(self, subject, reward):
-        """Defines a Net_Node and uses it to tell each child to start
-        
-        This Net_Node is saved as `self.node`. A 'CHILD' message is sent,
-        I think to the Pilot_Node, which is handled by
-        networking.station.Pilot_Node.l_child .
-        
-        That code broadcasts the 'START' message to each of the children
-        specified in CHILDID in prefs.json, telling them to start the
-        'PAFT_Child' task. That 'START' message also includes task 
-        parameters specified here, such as subject name and reward value.
-        
-        The same `self.node` is used later to end the session on the children.
-        """
-        # With instance=True, I get a threading error about current event loop
-        self.node = Net_Node(
-            id="T_{}".format(prefs.get('NAME')),
-            upstream=prefs.get('NAME'),
-            port=prefs.get('MSGPORT'),
-            listens={},
-            instance=False,
-            )
-
-        # Construct a message to send to child
-        # Specify the subjects for the child (twice)
-        value = {
-            'child': {
-                'parent': prefs.get('NAME'), 'subject': subject},
-            'task_type': 'PAFT_Child',
-            'subject': subject,
-            'reward': reward,
-        }
-
-        # send to the station object with a 'CHILD' key
-        self.node.send(to=prefs.get('NAME'), key='CHILD', value=value)        
-
-    def create_inter_pi_communication_node(self):
-        """Defines a Net_Node to communicate with the children
-        
-        This is a second Net_Node that is used to directly exchange information
-        with the children about pokes and sounds. Unlike the first Net_Node,
-        for this one the parent is the "router" / server and the children
-        are the "dealer" / clients .. ie many dealers, one router.
-        
-        Each child needs to create a corresponding Net_Node and connect to
-        this one. This function will block until that happens.
-        
-        The Net_Node defined here also specifies "listens" (ie triggers)
-        of functions to be called upon receiving specified messages
-        from the children, such as "HELLO" or "POKE".
-        
-        This Net_Node is saved as `self.node2`.
-        """
-        ## Create a second node to communicate with the child
-        # We (parent) are the "router"/server
-        # The children are the "dealer"/clients
-        # Many dealers, one router        
-        self.node2 = Net_Node(
-            id='parent_pi',
-            upstream='',
-            port=5000,
-            router_port=5001,
-            listens={
-                'HELLO': self.recv_hello,
-                'POKE': self.recv_poke,
-                },
-            instance=False,
-            )
-
-        # Wait until the child connects!
-        self.logger.debug("Waiting for child to connect")
-        while True:
-            stop_looping = True
-            
-            for child, is_conn in self.child_connected.items():
-                if not is_conn:
-                    stop_looping = False
-            
-            if stop_looping:
-                break
-        self.logger.debug(
-            "All children have connected: {}".format(self.child_connected))
-
-    def silence_all(self):
-        """Tell all children to play no sound and punish all pokes"""
-        for which_pi in ['rpi10', 'rpi11', 'rpi12']:
-            self.silence_pi(which_pi)
-
-    def silence_pi(self, which_pi):
-        """Silence `which_pi` by playing neither and punishing both"""
-        self.logger.debug('silencing {}'.format(which_pi))
-        self.node2.send(
-            to=which_pi,
-            key='PLAY',
-            value={
-                'left_on': False, 'right_on': False,
-                'left_punish': True, 'right_punish': True,
-                },
-            )              
-
-    def reward_one(self, which_pi, which_side):
-        """Tell one speaker to play and silence all others"""
-        
-        ## Tell `which_pi` to reward `which_side` (and not the other)
-        # Construct kwargs
-        if which_side == 'left':
-            kwargs = {
-                'left_on': True, 'right_on': False,
-                'left_punish': False, 'right_punish': True
-                }
-        elif which_side == 'right':
-            kwargs = {
-                'left_on': False, 'right_on': True,
-                'left_punish': True, 'right_punish': False
-                }
-        else:
-            raise ValueError("unexpected which_side: {}".format(which_side))        
-        
-        # Send the message
-        self.node2.send(to=which_pi, key='PLAY', value=kwargs)
-        
-        
-        ## Tell all other children to reward neither
-        for other_pi in ['rpi10', 'rpi11', 'rpi12']:
-            if other_pi == which_pi:
-                continue
-            
-            self.silence_pi(other_pi)      
-
     def play(self):
-        ## Wait a little before doing anything
+        # Wait a little before doing anything
         self.logger.debug('entering play state')
         time.sleep(3)
         
-        
-        ## Send
-        for rewarded_pi in ['rpi10', 'rpi11', 'rpi12']:
-            for which_side in ['left', 'right']:
-                self.logger.debug('rewarding {} {}'.format(rewarded_pi, which_side))
-                
-                # Reward one (and silence all others) for 5 s
-                self.reward_one(which_pi=rewarded_pi, which_side=which_side)
-                time.sleep(5)
-            
-                # Silence all of them for 5 s
-                self.silence_all()
-                time.sleep(5)
-
-
-        ## Continue to the next stage (which is this one again)
+        # Continue to the next stage
         self.stage_block.set()
 
+    def wait(self):
+        # Wait a little before doing anything
+        self.logger.debug('entering wait state')
+        time.sleep(3)
+        
+        # Continue to the next stage
+        self.stage_block.set()        
+
     def init_hardware(self):
-        """
-        Use the HARDWARE dict that specifies what we need to run the task
-        alongside the HARDWARE subdict in :mod:`prefs` to tell us how
-        they're plugged in to the pi
-
-        Instantiate the hardware, assign it :meth:`.Task.handle_trigger`
-        as a callback if it is a trigger.
-        
-        Sets the following:
-            self.hardware
-            self.pin_id
-        """
-        # We use the HARDWARE dict that specifies what we need to run the task
-        # alongside the HARDWARE subdict in the prefs structure to tell us 
-        # how they're plugged in to the pi
+        """Placeholder"""
         self.hardware = {}
-
-    def recv_hello(self, value):
-        self.logger.debug(
-            "received HELLO from child with value {}".format(value))
-        
-        # Set this flag
-        self.child_connected[value['from']] = True
-    
-    def recv_poke(self, value):
-        self.logger.debug(
-            "received POKE from child with value {}".format(value))
 
     def end(self):
         """
         When shutting down, release all hardware objects and turn LEDs off.
         """
         self.logger.debug('inside self.end')
-        
-        # Tell the child to end the task
-        self.node.send(to=prefs.get('NAME'), key='CHILD', value={'KEY': 'STOP'})
-        
-        # I think maybe this needs time to happen
-        time.sleep(2)
-
-        # This sock.close seems to be necessary to be able to communicate again
-        self.node.sock.close()
-        self.node.release()
-        
-        # This router.close() prevents ZMQError on the next start
-        self.node2.router.close()
-        self.node2.release()
