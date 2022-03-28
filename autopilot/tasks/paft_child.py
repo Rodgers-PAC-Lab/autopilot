@@ -310,22 +310,11 @@ class PAFT_Child(children.Child):
     
     def play(self):
         """A single stage"""
-        ## Add sounds to queues
         # Add stimulus sounds to queue 1 as needed
         self.append_sound_to_queue1_as_needed()
-        
-
-        ## Start it playing
-        # The play event is cleared if it ever runs out of sound, which
-        # ideally doesn't happen
-        #~ autopilot.stim.sound.jackclient.PLAY.set()
-
-
-        ## Sleep so we don't go crazy
-        time.sleep(0.2)
 
         # Continue to the next stage (which is this one again)
-        self.stage_block.set()
+        self.stage_block.clear()
 
     def empty_queue1(self, tosize=0):
         """Empty queue1"""
