@@ -326,19 +326,27 @@ class PAFT_Child(children.Child):
         # Continue to the next stage (which is this one again)
         self.stage_block.set()
 
-    def empty_queue1(self):
+    def empty_queue1(self, tosize=100):
         """Empty queue1"""
-        with autopilot.stim.sound.jackclient.Q_LOCK:
             while True:
-                try:
-                    data = autopilot.stim.sound.jackclient.QUEUE.get_nowait()
-                except queue.Empty:
+                with autopilot.stim.sound.jackclient.Q_LOCK:
+                    try:
+                        data = autopilot.stim.sound.jackclient.QUEUE.get_nowait()
+                    except queue.Empty:
+                        break
+                
+                # Stop if we're at or below the target size
+                qsize = autopilot.stim.sound.jackclient.QUEUE.qsize()
+                if qsize < tosize:
                     break
+        
+        qsize = autopilot.stim.sound.jackclient.QUEUE.qsize()
+        self.logger.debug('empty_queue1: new size {}'.format(qsize))
 
     def empty_queue2(self):
         """Empty queue2"""
-        with autopilot.stim.sound.jackclient.Q2_LOCK:
-            while True:
+        while True:
+            with autopilot.stim.sound.jackclient.Q2_LOCK:
                 try:
                     data = autopilot.stim.sound.jackclient.QUEUE2.get_nowait()
                 except queue.Empty:
