@@ -310,9 +310,8 @@ class PAFT_Child(children.Child):
     
     def play(self):
         """A single stage"""
-        while True:
-            # Add stimulus sounds to queue 1 as needed
-            self.append_sound_to_queue1_as_needed()
+        # Add stimulus sounds to queue 1 as needed
+        self.append_sound_to_queue1_as_needed()
 
         # Continue to the next stage (which is this one again)
         self.stage_block.set()
@@ -351,8 +350,10 @@ class PAFT_Child(children.Child):
     def append_sound_to_queue1_as_needed(self):
         # Get the size of QUEUE1 now
         qsize = autopilot.stim.sound.jackclient.QUEUE.qsize()
-        self.logger.debug(
-            'append_sound_to_queue1_as_needed: qsize before = {}'.format(qsize))
+        if qsize == 0:
+            self.logger.debug('warning: queue1 was empty')
+        #~ self.logger.debug(
+            #~ 'append_sound_to_queue1_as_needed: qsize before = {}'.format(qsize))
 
         # Add frames until target size reached
         while qsize < self.target_qsize:
@@ -367,10 +368,10 @@ class PAFT_Child(children.Child):
             # Update qsize
             qsize = autopilot.stim.sound.jackclient.QUEUE.qsize()
         
-        # Get the size of QUEUE1 now
-        qsize = autopilot.stim.sound.jackclient.QUEUE.qsize()
-        self.logger.debug(
-            'append_sound_to_queue1_as_needed: qsize after = {}'.format(qsize))        
+        #~ # Get the size of QUEUE1 now
+        #~ qsize = autopilot.stim.sound.jackclient.QUEUE.qsize()
+        #~ self.logger.debug(
+            #~ 'append_sound_to_queue1_as_needed: qsize after = {}'.format(qsize))        
 
     def append_error_sound_to_queue2(self, which):
         """Dump frames from error sound into queue2
