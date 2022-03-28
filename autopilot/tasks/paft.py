@@ -406,7 +406,7 @@ class PAFT(Task):
 
     def silence_all(self):
         """Tell all children to play no sound and punish all pokes"""
-        for which_pi in ['rpi10', 'rpi11', 'rpi2']:
+        for which_pi in ['rpi10', 'rpi11', 'rpi12']:
             self.silence_pi(which_pi)
 
     def silence_pi(self, which_pi):
@@ -444,7 +444,7 @@ class PAFT(Task):
         
         
         ## Tell all other children to reward neither
-        for other_pi in ['rpi10', 'rpi11', 'rpi2']:
+        for other_pi in ['rpi10', 'rpi11', 'rpi12']:
             if other_pi == which_pi:
                 continue
             
