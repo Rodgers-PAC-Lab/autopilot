@@ -313,7 +313,14 @@ class PAFT_Child(children.Child):
         # Add stimulus sounds to queue 1 as needed
         self.append_sound_to_queue1_as_needed()
 
+        # Can't iterate through this method too fast, or the debug messages
+        # at the state changes overwhelm everything
+        time.sleep(.2)
+
         # Continue to the next stage (which is this one again)
+        # If it is cleared, then nothing happens until the next message
+        # from the Parent (not sure why)
+        # If we never end this function, then it won't respond to END
         self.stage_block.set()
 
     def empty_queue1(self, tosize=0):
