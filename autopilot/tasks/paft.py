@@ -440,15 +440,15 @@ class PAFT(Task):
             raise ValueError("unexpected which_side: {}".format(which_side))        
         
         # Send the message
-        self.node2.send(to=rewarded_pi, key='PLAY', value=kwargs)
+        self.node2.send(to=which_pi, key='PLAY', value=kwargs)
         
         
         ## Tell all other children to reward neither
-        for which_pi in ['rpi10', 'rpi11', 'rpi2']:
-            if which_pi == rewarded_pi:
+        for other_pi in ['rpi10', 'rpi11', 'rpi2']:
+            if other_pi == which_pi:
                 continue
             
-            self.silence_pi(which_pi)      
+            self.silence_pi(other_pi)      
 
     def play(self):
         ## Wait a little before doing anything
