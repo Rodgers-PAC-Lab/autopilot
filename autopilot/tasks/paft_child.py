@@ -335,6 +335,15 @@ class PAFT_Child(children.Child):
                 except queue.Empty:
                     break
 
+    def empty_queue2(self):
+        """Empty queue2"""
+        with autopilot.stim.sound.jackclient.Q2_LOCK:
+            while True:
+                try:
+                    data = autopilot.stim.sound.jackclient.QUEUE2.get_nowait()
+                except queue.Empty:
+                    break
+    
     def append_sound_to_queue1_as_needed(self):
         # Get the size of QUEUE1 now
         qsize = autopilot.stim.sound.jackclient.QUEUE.qsize()
@@ -372,6 +381,11 @@ class PAFT_Child(children.Child):
         qsize = autopilot.stim.sound.jackclient.QUEUE2.qsize()
         self.logger.debug('play_error_sound: qsize before = {}'.format(qsize))
 
+        # Empty queue2, because there's no reason to accumulate error sounds
+        # over time
+        self.empty_queue2()
+        self.logger.debug('play_error_sound: emptied queue2')
+        
         # Add sounds from the appropriate error sound to QUEUE2
         with autopilot.stim.sound.jackclient.Q2_LOCK:
             if which == 'left':
