@@ -285,15 +285,15 @@ class PAFT_Child(children.Child):
                 functools.partial(self.report_poke, poke),
                 ]       
             
-            # Trigger punish sounds
-            if left_punish:
-                self.triggers['L'].append(functools.partial(
-                    self.append_error_sound_to_queue2, 'left'))
-            elif right_punish:
-                self.triggers['R'].append(functools.partial(
-                    self.append_error_sound_to_queue2, 'right'))
-        
-            # TODO: also trigger rewards here
+        # Trigger punish sounds
+        if left_punish:
+            self.triggers['L'].append(functools.partial(
+                self.append_error_sound_to_queue2, 'left'))
+        elif right_punish:
+            self.triggers['R'].append(functools.partial(
+                self.append_error_sound_to_queue2, 'right'))
+    
+        # TODO: also trigger rewards here
 
     def log_poke(self, poke):
         """Write in the logger that the poke happened"""
