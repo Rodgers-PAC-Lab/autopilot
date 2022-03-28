@@ -457,7 +457,7 @@ class PAFT(Task):
         
         
         ## Send
-        for rewarded_pi in ['rpi10']:#, 'rpi11', 'rpi12']:
+        for rewarded_pi in ['rpi10', 'rpi11', 'rpi12']:
             for which_side in ['left', 'right']:
                 self.logger.debug('rewarding {} {}'.format(rewarded_pi, which_side))
                 
