@@ -361,6 +361,16 @@ class PAFT_Child(children.Child):
                     break
     
     def append_sound_to_queue1_as_needed(self):
+        """Dump frames from `self.sound_cycle` into queue
+
+        The queue is filled until it reaches `self.target_qsize`
+
+        This function should be called often enough that the queue is never
+        empty.
+        """        
+        # TODO: as a figure of merit, keep track of how empty the queue gets
+        # between calls. If it's getting too close to zero, then target_qsize
+        # needs to be increased.
         # Get the size of QUEUE1 now
         qsize = autopilot.stim.sound.jackclient.QUEUE.qsize()
         if qsize == 0:
