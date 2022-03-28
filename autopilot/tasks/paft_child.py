@@ -289,7 +289,8 @@ class PAFT_Child(children.Child):
         if left_punish:
             self.triggers['L'].append(functools.partial(
                 self.append_error_sound_to_queue2, 'left'))
-        elif right_punish:
+        
+        if right_punish:
             self.triggers['R'].append(functools.partial(
                 self.append_error_sound_to_queue2, 'right'))
     
