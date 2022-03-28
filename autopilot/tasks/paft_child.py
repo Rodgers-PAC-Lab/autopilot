@@ -326,9 +326,14 @@ class PAFT_Child(children.Child):
         # Continue to the next stage (which is this one again)
         self.stage_block.set()
 
-    def empty_queue1(self, tosize=100):
+    def empty_queue1(self, tosize=0):
         """Empty queue1"""
         while True:
+            # I think it's important to keep the lock for a short period
+            # (ie not throughout the emptying)
+            # in case the `process` function needs it to play sounds
+            # (though if this does happen, there will be an artefact because
+            # we just skipped over a bunch of frames)
             with autopilot.stim.sound.jackclient.Q_LOCK:
                 try:
                     data = autopilot.stim.sound.jackclient.QUEUE.get_nowait()
