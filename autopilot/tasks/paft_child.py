@@ -311,12 +311,17 @@ class PAFT_Child(children.Child):
     
     def play(self):
         """A single stage"""
-        # Add stimulus sounds to queue 1 as needed
-        self.append_sound_to_queue1_as_needed()
+        # Don't want to do a "while True" here, because we need to exit
+        # this method eventually, so that it can respond to END
+        # But also don't want to change stage too frequently or the debug
+        # messages are overwhelming
+        for n in range(10):
+            # Add stimulus sounds to queue 1 as needed
+            self.append_sound_to_queue1_as_needed()
 
-        # Can't iterate through this method too fast, or the debug messages
-        # at the state changes overwhelm everything
-        time.sleep(.2)
+            # Don't want to iterate too quickly, but rather add chunks
+            # in a controlled fashion every so often
+            time.sleep(.1)
 
         # Continue to the next stage (which is this one again)
         # If it is cleared, then nothing happens until the next message
