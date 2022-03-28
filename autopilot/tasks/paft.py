@@ -258,6 +258,8 @@ class PAFT(Task):
         time.sleep(3)
         
         # Continue to the next stage
+        # CLEAR means "wait for triggers"
+        # SET means "advance anyway"
         self.stage_block.set()
 
     def wait(self):
@@ -268,12 +270,20 @@ class PAFT(Task):
         # Continue to the next stage
         self.stage_block.set()        
 
-    def init_hardware(self):
-        """Placeholder"""
-        self.hardware = {}
+    def init_hardware(self, *args, **kwargs):
+        """Placeholder to init hardware
+        
+        This is here to remind me that init_hardware is implemented by the
+        base class `Task`. This function could be removed if there is
+        no hardware actually connected and/or defined in HARDWARE.
+        """
+        super(PAFT, self).init_hardware(*args, **kwargs)
 
     def end(self):
-        """
-        When shutting down, release all hardware objects and turn LEDs off.
+        """Called when the task is ended by the user.
+        
+        The base class `Task` (TODO start here)
         """
         self.logger.debug('inside self.end')
+        
+        super(PAFT, self).init_hardware(*args, **kwargs)
