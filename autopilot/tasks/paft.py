@@ -411,7 +411,7 @@ class PAFT(Task):
         
         
         ## Send
-        for rewarded_pi in ['rpi10', 'rpi11', 'rpi12']:
+        for rewarded_pi in ['rpi10']:#, 'rpi11', 'rpi12']:
             self.logger.debug('rewarding {}'.format(rewarded_pi))
             # Tell the rewarded one to reward left
             self.node2.send(
