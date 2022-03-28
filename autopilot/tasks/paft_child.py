@@ -70,9 +70,10 @@ class PAFT_Child(children.Child):
         # Define a cycle of those sounds
         self.set_sound_cycle()
 
-        # Each block/frame is about 5 ms, so this is about 5 s of data
+        # Each block/frame is about 5 ms
         # Longer is more buffer against unexpected delays
-        self.target_qsize = 1000
+        # Shorter is faster to empty and refill the queue
+        self.target_qsize = 200
 
         # Some counters to keep track of how many sounds we've played
         self.n_frames = 0
@@ -317,7 +318,7 @@ class PAFT_Child(children.Child):
         ## Start it playing
         # The play event is cleared if it ever runs out of sound, which
         # ideally doesn't happen
-        autopilot.stim.sound.jackclient.PLAY.set()
+        #~ autopilot.stim.sound.jackclient.PLAY.set()
 
 
         ## Sleep so we don't go crazy
