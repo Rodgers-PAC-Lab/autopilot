@@ -404,57 +404,71 @@ class PAFT(Task):
         self.logger.debug(
             "All children have connected: {}".format(self.child_connected))
 
+    def silence_all(self):
+        """Tell all children to play no sound and punish all pokes"""
+        for which_pi in ['rpi10', 'rpi11', 'rpi2']:
+            self.silence_pi(which_pi)
+
+    def silence_pi(self, which_pi):
+        """Silence `which_pi` by playing neither and punishing both"""
+        self.logger.debug('silencing {}'.format(which_pi))
+        self.node2.send(
+            to=which_pi,
+            key='PLAY',
+            value={
+                'left_on': False, 'right_on': False,
+                'left_punish': True, 'right_punish': True,
+                },
+            )              
+
+    def reward_one(self, which_pi, which_side):
+        """Tell one speaker to play and silence all others"""
+        
+        ## Tell `which_pi` to reward `which_side` (and not the other)
+        # Construct kwargs
+        if which_side == 'left':
+            kwargs = {
+                'left_on': True, 'right_on': False,
+                'left_punish': False, 'right_punish': True
+                }
+        elif which_side == 'right':
+            kwargs = {
+                'left_on': False, 'right_on': True,
+                'left_punish': True, 'right_punish': False
+                }
+        else:
+            raise ValueError("unexpected which_side: {}".format(which_side))        
+        
+        # Send the message
+        self.node2.send(to=rewarded_pi, key='PLAY', value=kwargs)
+        
+        
+        ## Tell all other children to reward neither
+        for which_pi in ['rpi10', 'rpi11', 'rpi2']:
+            if which_pi == rewarded_pi:
+                continue
+            
+            self.silence_pi(which_pi)      
+
     def play(self):
-        ## Sleep so we don't go crazy
+        ## Wait a little before doing anything
         self.logger.debug('entering play state')
         time.sleep(3)
         
         
         ## Send
         for rewarded_pi in ['rpi10']:#, 'rpi11', 'rpi12']:
-            self.logger.debug('rewarding {}'.format(rewarded_pi))
-            # Tell the rewarded one to reward left
-            self.node2.send(
-                to=rewarded_pi,
-                key='PLAY',
-                value={
-                    'left_on': True, 'right_on': False,
-                    'left_punish': False, 'right_punish': True,
-                    },
-                )
-            
-            # Tell all other children to reward neither
-            for other_pi in ['rpi10', 'rpi11', 'rpi2']:
-                if other_pi == rewarded_pi:
-                    continue
+            for which_side in ['left', 'right']:
+                self.logger.debug('rewarding {} {}'.format(rewarded_pi, which_side))
                 
-                self.logger.debug('silencing {}'.format(other_pi))
-                self.node2.send(
-                    to=other_pi,
-                    key='PLAY',
-                    value={
-                        'left_on': False, 'right_on': False,
-                        'left_punish': True, 'right_punish': True,
-                        },
-                    )
+                # Reward one (and silence all others) for 5 s
+                self.reward_one(which_pi=rewarded_pi, which_side=which_side)
+                time.sleep(5)
             
-            # Sleep
-            time.sleep(5)
+                # Silence all of them for 5 s
+                self.silence_all()
+                time.sleep(5)
 
-            # Tell all children to reward neither
-            for other_pi in ['rpi10', 'rpi11', 'rpi2']:
-                self.logger.debug('silencing {}'.format(other_pi))
-                self.node2.send(
-                    to=other_pi,
-                    key='PLAY',
-                    value={
-                        'left_on': False, 'right_on': False,
-                        'left_punish': True, 'right_punish': True,
-                        },
-                    )
-
-            # Sleep
-            time.sleep(5)
 
         ## Continue to the next stage (which is this one again)
         self.stage_block.set()
