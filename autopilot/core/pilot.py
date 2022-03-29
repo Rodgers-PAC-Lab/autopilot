@@ -734,6 +734,24 @@ class Pilot:
         Sends data back to the terminal between every stage.
 
         Waits for the task to clear `stage_block` between stages.
+        
+        Pseudocode:
+        * Initialize a `task_class` with `task_params`, and store as `self.task`
+        * Open a local HDF5 file
+        * Loop until break or error:
+            * Get the next task stage and call it
+            * If it returns data:
+                * Send that data to the terminal, which sends it to the
+                  Subject, so it's ultimately stored in Subject.data_thread
+                * Also store that data in the current row of the local HDF5 file
+                * If 'TRIAL_END' is in data, then append the row, so that
+                  future data will be stored in the next row
+            * Wait for the stage_block to clear
+            * Break if the running flag is not set
+        * Cleanup
+            * Append the current row
+            * Clear scripts
+            * Close the hdf5 file
         """
         # TODO: give a net node to the Task class and let the task run itself.
         # Run as a separate thread, just keeps calling next() and shoveling data
@@ -766,6 +784,7 @@ class Pilot:
 
                     # Store a local copy
                     # the task class has a class variable DATA that lets us know which data the row is expecting
+                    # I think this is no longer true, there is no DATA
                     if trial_data:
                         for k, v in data.items():
                             if k in self.task.TrialData.columns.keys():
@@ -804,6 +823,7 @@ class Pilot:
             gpio.clear_scripts()
             self.logger.debug('stopped task and cleared scripts')
 
+        # Shouldn't this be in `finally` in case there was an error?
         h5f.flush()
         h5f.close()
 
