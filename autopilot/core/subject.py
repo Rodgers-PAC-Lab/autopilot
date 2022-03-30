@@ -917,6 +917,9 @@ class Subject(object):
                         except KeyError:
                             # TODO: Logging here
                             self.logger.warning("Data dropped: key: {}, value: {}".format(k, v))
+                    else:
+                        self.logger.warning(
+                            "Data dropped because {} is not a column: key: {}, value: {}".format(k, k, v))
 
                 # TODO: Or if all the values have been filled, shouldn't need explicit TRIAL_END flags
                 if 'TRIAL_END' in data.keys():
