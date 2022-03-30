@@ -241,8 +241,6 @@ class PAFT(Task):
             ms to open solenoids
             This is passed from the "protocol" json
         """    
-        self.logger.debug('__init__: received current_trial {}'.format(current_trial))
-        
         
         ## These are things that would normally be done in superclass __init__
         # Set up a logger first, so we can debug if anything goes wrong
@@ -258,6 +256,10 @@ class PAFT(Task):
         # A dict of hardware triggers
         self.triggers = {}
         
+        # Announce
+        self.logger.debug(
+            '__init__: received current_trial {}'.format(current_trial))
+
     
         ## Define the stages
         # Stage list to iterate
