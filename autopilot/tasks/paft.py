@@ -124,16 +124,20 @@ class PAFT(Task):
     # The `TrialData` object is used by the `Subject` class when a task
     # is assigned to create the data storage table
     # I think that the `DATA` parameter is no longer necessary here
+    # A 'trial_num' is added somewhere, and maybe also a session_num and step num
     class TrialData(tables.IsDescription):
         # The trial within this session
-        trial = tables.Int32Col()
+        # Unambigously label this
+        paft_trial_in_session = tables.Int32Col()
         
-        # The rewarded port
+        # The chosens stimulus and response
         # Must specify the max length of the string, we use 64 to be safe
-        rewarded_port = tables.StringCol(64)
+        chosen_stimulus = tables.StringCol(64)
+        chosen_response = tables.StringCol(64)
         
-        # The timestamp
-        trial_start_timestamp = tables.StringCol(64)
+        # The timestamps
+        timestamp_trial_start = tables.StringCol(64)
+        timestamp_response = tables.StringCol(64)
 
     # Per https://docs.auto-pi-lot.com/en/latest/guide/task.html:
     # The HARDWARE dictionary maps a hardware type (eg. POKES) and 
@@ -252,31 +256,80 @@ class PAFT(Task):
     
         ## Define the stages
         # Stage list to iterate
-        stage_list = [self.play, self.wait]
+        stage_list = [
+            self.choose_stimulus, self.wait_for_response, self.end_of_trial]
         self.num_stages = len(stage_list)
         self.stages = itertools.cycle(stage_list)        
         
         
-        ## Init hardware -- this sets self.hardware and self.pin_id
+        ## Init hardware -- this sets self.hardware, self.pin_id, and
+        ## assigns self.handle_trigger to gpio callbacks
         self.init_hardware()
     
-    def play(self):
+    def choose_stimulus(self):
+        """A stage that chooses the stimulus"""
+        # Get timestamp
+        timestamp_trial_start = datetime.datetime.now()
+        
         # Wait a little before doing anything
-        self.logger.debug('entering play state')
+        self.logger.debug(
+            'choose_stimulus: entering stage at {}'.format(
+            timestamp_trial_start.isoformat()))
         time.sleep(3)
+        
+        # Choose stimulus randomly
+        chosen_stim = random.sample(['stim0', 'stim1', 'stim2'])
+        self.logger.debug('choose_stimulus: chose {}'.format(chosen_stim))
         
         # Continue to the next stage
         # CLEAR means "wait for triggers"
         # SET means "advance anyway"
         self.stage_block.set()
 
-    def wait(self):
+        # Return data about chosen_stim so it will be added to HDF5
+        return {
+            'chosen_stim': chosen_stim,
+            'timestamp_trial_start': timestamp_trial_start.isoformat(),
+            }
+
+    def wait_for_response(self):
+        """A stage that waits for a response"""
         # Wait a little before doing anything
-        self.logger.debug('entering wait state')
+        self.logger.debug('wait_for_response: entering stage')
         time.sleep(3)
         
+        # Choose response randomly
+        chosen_response = random.sample(['choice0', 'choice1'])
+    
+        # Get timestamp of response
+        timestamp_response = datetime.datetime.now()
+        self.logger.debug('wait_for_response: chose {} at {}'.format(
+            chosen_stim, timestamp_response.isoformat()))
+
         # Continue to the next stage
         self.stage_block.set()        
+        
+        # Return data about chosen_stim so it will be added to HDF5
+        return {
+            'chosen_response': chosen_response,
+            'timestamp_response': timestamp_response.isoformat(),
+            }        
+    
+    def end_of_trial(self):
+        """A stage that ends the trial"""
+        # Wait a little before doing anything
+        self.logger.debug('end_of_trial: entering stage')
+        time.sleep(3)
+        
+        # Cleanup logic could go here
+
+        # Continue to the next stage
+        self.stage_block.set()        
+        
+        # Return TRIAL_END so the Terminal knows the trial is over
+        return {
+            'TRIAL_END': True,
+            }
 
     def init_hardware(self, *args, **kwargs):
         """Placeholder to init hardware
