@@ -278,8 +278,8 @@ class PAFT(Task):
         time.sleep(3)
         
         # Choose stimulus randomly
-        chosen_stim = random.choice(['stim0', 'stim1', 'stim2'])
-        self.logger.debug('choose_stimulus: chose {}'.format(chosen_stim))
+        chosen_stimulus = random.choice(['stim0', 'stim1', 'stim2'])
+        self.logger.debug('choose_stimulus: chose {}'.format(chosen_stimulus))
         
         # Continue to the next stage
         # CLEAR means "wait for triggers"
@@ -288,7 +288,7 @@ class PAFT(Task):
 
         # Return data about chosen_stim so it will be added to HDF5
         return {
-            'chosen_stim': chosen_stim,
+            'chosen_stimulus': chosen_stimulus,
             'timestamp_trial_start': timestamp_trial_start.isoformat(),
             }
 
@@ -304,7 +304,7 @@ class PAFT(Task):
         # Get timestamp of response
         timestamp_response = datetime.datetime.now()
         self.logger.debug('wait_for_response: chose {} at {}'.format(
-            chosen_stim, timestamp_response.isoformat()))
+            chosen_response, timestamp_response.isoformat()))
 
         # Continue to the next stage
         self.stage_block.set()        
