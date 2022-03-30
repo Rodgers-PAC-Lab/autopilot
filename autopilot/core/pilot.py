@@ -752,6 +752,18 @@ class Pilot:
             * Append the current row
             * Clear scripts
             * Close the hdf5 file
+        
+        The logic behind stage progression:
+        * We always go through stages in the order specified by task.stages.
+            A stage never repeats (unless I guess it's included multiple times
+            in task.stages).
+        * The stage runs once, and then this function waits until the stage
+            block is set.
+        * The standard Task.handle_trigger function sets the stage block
+            after any GPIO event, and so any GPIO event triggers a stage
+            progression. Override this behavior in your task if not desired.
+        * Trial results are accumulated until a 'TRIAL_END' is sent. This 
+            doesn't necessarily relate to the stage progression. 
         """
         # TODO: give a net node to the Task class and let the task run itself.
         # Run as a separate thread, just keeps calling next() and shoveling data
