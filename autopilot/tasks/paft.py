@@ -388,11 +388,11 @@ class PAFT(Task):
         else:
             self.logger.debug(f"No trigger found for {pin}")
 
-    def end(self):
+    def end(self, *args, **kwargs):
         """Called when the task is ended by the user.
         
-        The base class `Task` (TODO start here)
+        The base class `Task` releases hardware objects here.
+        This is a placeholder to remind me of that.
         """
-        self.logger.debug('inside self.end')
-        
-        super(PAFT, self).init_hardware(*args, **kwargs)
+        self.logger.debug('end: entering function')
+        super(PAFT, self).end(*args, **kwargs)
