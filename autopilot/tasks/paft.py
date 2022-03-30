@@ -278,7 +278,7 @@ class PAFT(Task):
         time.sleep(3)
         
         # Choose stimulus randomly
-        chosen_stim = random.sample(['stim0', 'stim1', 'stim2'])
+        chosen_stim = random.choice(['stim0', 'stim1', 'stim2'])
         self.logger.debug('choose_stimulus: chose {}'.format(chosen_stim))
         
         # Continue to the next stage
@@ -299,7 +299,7 @@ class PAFT(Task):
         time.sleep(3)
         
         # Choose response randomly
-        chosen_response = random.sample(['choice0', 'choice1'])
+        chosen_response = random.choice(['choice0', 'choice1'])
     
         # Get timestamp of response
         timestamp_response = datetime.datetime.now()
