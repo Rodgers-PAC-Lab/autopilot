@@ -138,6 +138,9 @@ class PAFT(Task):
         chosen_stimulus = tables.StringCol(64)
         chosen_response = tables.StringCol(64)
         
+        # Test adding a new column
+        new_data = tables.StringCol(64)
+        
         # The timestamps
         timestamp_trial_start = tables.StringCol(64)
         timestamp_response = tables.StringCol(64)
@@ -221,6 +224,8 @@ class PAFT(Task):
             stage is over
         current_trial (int): 
             If not zero, initial number of `trial_counter`
+            This is set to be 1 greater than the last value of "trial_num"
+            in the HDF5 file by autopilot.core.subject.Subject.prepare_run
         step_name : string
             This is passed from the "protocol" json
             Currently it is always "PAFT"
@@ -294,6 +299,10 @@ class PAFT(Task):
         self.stage_block.set()
 
         # Return data about chosen_stim so it will be added to HDF5
+        # I think it's best to increment trial_num now, since this is the
+        # first return from this trial. Even if we don't increment trial_num,
+        # it will still make another row in the HDF5, but it might warn.
+        # (This hapepns in autopilot.core.subject.Subject.data_thread)
         return {
             'chosen_stimulus': chosen_stimulus,
             'timestamp_trial_start': timestamp_trial_start.isoformat(),
@@ -321,6 +330,7 @@ class PAFT(Task):
         return {
             'chosen_response': chosen_response,
             'timestamp_response': timestamp_response.isoformat(),
+            'new_data': timestamp_response.isoformat()[:4] + 'asdf',
             }        
     
     def end_of_trial(self):
