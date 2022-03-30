@@ -917,7 +917,13 @@ class Subject(object):
                         except KeyError:
                             # TODO: Logging here
                             self.logger.warning("Data dropped: key: {}, value: {}".format(k, v))
+                    elif k in ['TRIAL_END', 'pilot', 'subject']:
+                        # Silently pass, because these are not expected to be
+                        # in the table anyway
+                        pass
                     else:
+                        # Warn that we're dropping data. The HDF5 file needs
+                        # a new column appended.
                         self.logger.warning(
                             "Data dropped because {} is not a column: key: {}, value: {}".format(k, k, v))
 
