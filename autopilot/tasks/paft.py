@@ -124,11 +124,14 @@ class PAFT(Task):
     # The `TrialData` object is used by the `Subject` class when a task
     # is assigned to create the data storage table
     # I think that the `DATA` parameter is no longer necessary here
-    # A 'trial_num' is added somewhere, and maybe also a session_num and step num
+    # 'trial_num' and 'session_num' get added somewhere
     class TrialData(tables.IsDescription):
         # The trial within this session
         # Unambigously label this
         paft_trial_in_session = tables.Int32Col()
+        
+        # If this isn't specified here, it will be added anyway
+        trial_num = tables.Int32Col()
         
         # The chosens stimulus and response
         # Must specify the max length of the string, we use 64 to be safe
@@ -238,6 +241,8 @@ class PAFT(Task):
             ms to open solenoids
             This is passed from the "protocol" json
         """    
+        self.logger.debug('__init__: received current_trial {}'.format(current_trial))
+        
         
         ## These are things that would normally be done in superclass __init__
         # Set up a logger first, so we can debug if anything goes wrong
@@ -290,6 +295,7 @@ class PAFT(Task):
         return {
             'chosen_stimulus': chosen_stimulus,
             'timestamp_trial_start': timestamp_trial_start.isoformat(),
+            'trial_num': next(self.trial_counter),
             }
 
     def wait_for_response(self):
