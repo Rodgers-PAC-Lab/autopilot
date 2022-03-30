@@ -69,6 +69,14 @@ class PAFT(Task):
     Stage list:
     * waiting for the response
     * reporting the response
+    
+    To understand the stage progression logic, see:
+    * autopilot.core.pilot.Pilot.run_task - the main loop
+    * autopilot.tasks.task.Task.handle_trigger - set stage trigger
+    
+    To understand the data saving logic, see:
+    * autopilot.core.terminal.Terminal.l_data - what happens when data is sent
+    * autopilot.core.subject.Subject.data_thread - how data is saved
 
     Class attributes:
         PARAMS : collections.OrderedDict
@@ -278,6 +286,54 @@ class PAFT(Task):
         no hardware actually connected and/or defined in HARDWARE.
         """
         super(PAFT, self).init_hardware(*args, **kwargs)
+
+    def handle_trigger(self, pin, level=None, tick=None):
+        """Handle a GPIO trigger, overriding superclass.
+        
+        This overrides the behavior in the superclass `Task`, most importantly
+        by not changing the stage block or clearing the triggers. Therefore
+        this function changes the way tasks proceed through stages, and
+        should be included in any PAFT-like task to provide consistent
+        stage progression logic. 
+        
+        All GPIO triggers call this function because the `init_hardware`
+        function sets their callback to this function. (Possibly true only
+        for pins in self.HARDWARE?) 
+        
+        When they do call, they provide these arguments:
+            pin (int): BCM Pin number
+            level (bool): True, False high/low
+            tick (int): ticks since booting pigpio
+        
+        This function converts the BCM pin number to a board number using
+        BCM_TO_BOARD, and then to a letter using `self.pin_id`.
+        
+        That letter is used to look up the relevant triggers in
+        `self.triggers`, and calls each of them.
+        
+        `self.triggers` MUST be a list-like.
+        
+        This function does NOT clear the triggers or the stage block.
+        """
+        # Convert to BOARD_PIN
+        board_pin = BCM_TO_BOARD[pin]
+        
+        # Convert to letter, e.g., 'C'
+        pin_letter = self.pin_id[board_pin]
+
+        # Log
+        self.logger.debug(
+            'trigger bcm {}; board {}; letter {}; level {}; tick {}'.format(
+            pin, board_pin, pin_letter, level, tick))
+        
+        # TODO: acquire trigger_lock here?
+        # Call any triggers that exist
+        if pin_letter in self.triggers:
+            trigger_l = self.triggers[pin_letter]
+            for trigger in trigger_l:
+                trigger()
+        else:
+            self.logger.debug(f"No trigger found for {pin}")
 
     def end(self):
         """Called when the task is ended by the user.
