@@ -197,10 +197,18 @@ class PAFT(Task):
         The third version needs to:
         * Incorporate advancing through stages
         * Return data about each trial
+        * Test continuous data (pokes)
+        * Test plot data
         
         The fourth version needs to:
-        * Incorporate subject-specific training params
+        * Incorporate subject-specific training params (skip for now)
         
+        Then bring together into one version that
+        * Connects to children, each of which play sounds
+        * Chooses stim and tells them to play which sound
+        * Reports pokes as continuous data
+        * Reports trial outcome as trial data
+        * Plots        
         
         ---
         
