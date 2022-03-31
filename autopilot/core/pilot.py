@@ -835,9 +835,9 @@ class Pilot:
             gpio.clear_scripts()
             self.logger.debug('stopped task and cleared scripts')
 
-        # Shouldn't this be in `finally` in case there was an error?
-        h5f.flush()
-        h5f.close()
+            # Shouldn't this be in `finally` in case there was an error?
+            h5f.flush()
+            h5f.close()
 
 
 if __name__ == "__main__":
