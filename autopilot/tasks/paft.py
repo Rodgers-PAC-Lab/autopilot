@@ -349,8 +349,9 @@ class PAFT(Task):
 
         self.node.send(
             to='T',
-            key='CONTINUOUS',
+            key='DATA',
             value={
+                'continuous': True,
                 'poked_port': 'L',
                 'poked_pilot': 'rpi03',
                 },
