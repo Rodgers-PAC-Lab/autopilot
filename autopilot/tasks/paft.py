@@ -348,7 +348,7 @@ class PAFT(Task):
             chosen_response, timestamp_response.isoformat()))
 
         self.node.send(
-            to='T',
+            to='_T',
             key='DATA',
             value={
                 'continuous': True,
