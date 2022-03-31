@@ -61,14 +61,8 @@ TASK = 'PAFT'
 ## Define the Task
 class PAFT(Task):
     """The probabalistic auditory foraging task (PAFT).
-    
-    This task chooses a port at random, lights up the LED for that port,
-    plays sounds through the associated speaker, and then dispenses water 
-    once the subject pokes there.
 
-    Stage list:
-    * waiting for the response
-    * reporting the response
+    This passes through three stages and returns random data for each.
     
     To understand the stage progression logic, see:
     * autopilot.core.pilot.Pilot.run_task - the main loop
@@ -81,20 +75,15 @@ class PAFT(Task):
     Class attributes:
         PARAMS : collections.OrderedDict
             This defines the params we expect to receive from the terminal.
-        DATA : dict of dicts
-            This defines the kind of data we return to the terminal
         TrialData : subclass of tables.IsDescription
             This defines how to set up the hdf5 file for the Subject with
             the returned data
         HARDWARE : dict of dicts
             Defines 'POKES', 'PORTS', and 'LEDS'
-        CHILDREN : dict of dicts
-            Defines the child pis that we'll connect to
         PLOT : dict of dicts
             Defines how to plot the results
 
     Attributes:
-        target ('L', 'C', 'R'): The correct port
         trial_counter (:class:`itertools.count`): 
             Counts trials starting from current_trial specified as argument
         triggers (dict): 
@@ -123,12 +112,15 @@ class PAFT(Task):
     # Per https://docs.auto-pi-lot.com/en/latest/guide/task.html:
     # The `TrialData` object is used by the `Subject` class when a task
     # is assigned to create the data storage table
-    # I think that the `DATA` parameter is no longer necessary here
-    # 'trial_num' and 'session_num' get added somewhere
+    # 'trial_num' and 'session_num' get added by the `Subject` class
+    # 'session_num' is properly set by `Subject`, but 'trial_num' needs
+    # to be set properly here.
+    # If they are left unspecified on any given trial, they receive 
+    # a default value, such as 0 for Int32Col.
     class TrialData(tables.IsDescription):
         # The trial within this session
         # Unambigously label this
-        paft_trial_in_session = tables.Int32Col()
+        trial_in_session = tables.Int32Col()
         
         # If this isn't specified here, it will be added anyway
         trial_num = tables.Int32Col()
@@ -137,9 +129,6 @@ class PAFT(Task):
         # Must specify the max length of the string, we use 64 to be safe
         chosen_stimulus = tables.StringCol(64)
         chosen_response = tables.StringCol(64)
-        
-        # Test adding a new column
-        new_data = tables.StringCol(64)
         
         # The timestamps
         timestamp_trial_start = tables.StringCol(64)
@@ -259,12 +248,16 @@ class PAFT(Task):
         # Set up a logger first, so we can debug if anything goes wrong
         self.logger = init_logger(self)
 
-        # Use the provided threading.Event to handle stage progression
+        # This threading.Event is checked by Pilot.run_task before
+        # advancing through stages. Clear it to wait for triggers; set
+        # it to advance to the next stage.
         self.stage_block = stage_block
         
-        # This is used to count the trials, it is initialized by
-        # the Terminal to wherever we are in the Protocol graduation
-        self.trial_counter = itertools.count(int(current_trial))        
+        # This is used to count the trials for the "trial_num" HDF5 column
+        self.counter_trials_across_sessions = itertools.count(int(current_trial))        
+
+        # This is used to count the trials for the "trial_in_session" HDF5 column
+        self.counter_trials_in_session = itertools.count(0)
 
         # A dict of hardware triggers
         self.triggers = {}
@@ -276,6 +269,7 @@ class PAFT(Task):
     
         ## Define the stages
         # Stage list to iterate
+        # Iterate through these three stages forever
         stage_list = [
             self.choose_stimulus, self.wait_for_response, self.end_of_trial]
         self.num_stages = len(stage_list)
@@ -314,7 +308,8 @@ class PAFT(Task):
         return {
             'chosen_stimulus': chosen_stimulus,
             'timestamp_trial_start': timestamp_trial_start.isoformat(),
-            'trial_num': next(self.trial_counter),
+            'trial_num': next(self.counter_trials_across_sessions),
+            'trial_in_session': next(self.counter_trials_in_session),
             }
 
     def wait_for_response(self):
