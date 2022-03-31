@@ -348,6 +348,7 @@ class PAFT(Task):
             chosen_response, timestamp_response.isoformat()))
 
         self.node.send(
+            to='T',
             key='CONTINUOUS',
             value={
                 'poked_port': 'L',
