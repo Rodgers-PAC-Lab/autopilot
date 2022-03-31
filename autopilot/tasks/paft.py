@@ -292,14 +292,14 @@ class PAFT(Task):
         
         
         ## For reporting'
-        #~ # With instance=True, I get a threading error about current event loop
-        #~ self.node = Net_Node(
-            #~ id="T_{}".format(prefs.get('NAME')),
-            #~ upstream=prefs.get('NAME'),
-            #~ port=prefs.get('MSGPORT'),
-            #~ listens={},
-            #~ instance=False,
-            #~ )        
+        # With instance=True, I get a threading error about current event loop
+        self.node = Net_Node(
+            id="T_{}".format(prefs.get('NAME')),
+            upstream=prefs.get('NAME'),
+            port=prefs.get('MSGPORT'),
+            listens={},
+            instance=False,
+            )        
     
     def choose_stimulus(self):
         """A stage that chooses the stimulus"""
