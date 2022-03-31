@@ -87,6 +87,8 @@ class PaftTrialStructure(Task):
     # 'trial_num' and 'session_num' get added by the `Subject` class
     # 'session_num' is properly set by `Subject`, but 'trial_num' needs
     # to be set properly here.
+    # If they are left unspecified on any given trial, they receive 
+    # a default value, such as 0 for Int32Col.
     class TrialData(tables.IsDescription):
         # The trial within this session
         # Unambigously label this
@@ -192,7 +194,10 @@ class PaftTrialStructure(Task):
         self.stage_block = stage_block
         
         # This is used to count the trials for the "trial_num" HDF5 column
-        self.trial_counter = itertools.count(int(current_trial))        
+        self.counter_trials_across_sessions = itertools.count(int(current_trial))        
+
+        # This is used to count the trials for the "trial_in_session" HDF5 column
+        self.counter_trials_in_session = itertools.count(0)
 
         # A dict of hardware triggers
         self.triggers = {}
@@ -243,7 +248,8 @@ class PaftTrialStructure(Task):
         return {
             'chosen_stimulus': chosen_stimulus,
             'timestamp_trial_start': timestamp_trial_start.isoformat(),
-            'trial_num': next(self.trial_counter),
+            'trial_num': next(self.counter_trials_across_sessions),
+            'trial_in_session': next(self.counter_trials_in_session),
             }
 
     def wait_for_response(self):
