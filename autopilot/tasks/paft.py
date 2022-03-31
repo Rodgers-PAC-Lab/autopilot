@@ -138,10 +138,11 @@ class PAFT(Task):
     # https://docs.auto-pi-lot.com/en/latest/guide/task.html
     # autopilot.core.subject.Subject.data_thread would like one of the
     # keys to be "timestamp"
+    # Actually, no I think that is extracted automatically from the 
+    # networked message, and should not be defined here
     class ContinuousData(tables.IsDescription):
         poked_pilot = tables.StringCol(64)
         poked_port = tables.StringCol(64)
-        timestamp = tables.StringCol(64)
 
     # Per https://docs.auto-pi-lot.com/en/latest/guide/task.html:
     # The HARDWARE dictionary maps a hardware type (eg. POKES) and 
@@ -288,6 +289,17 @@ class PAFT(Task):
         ## Init hardware -- this sets self.hardware, self.pin_id, and
         ## assigns self.handle_trigger to gpio callbacks
         self.init_hardware()
+        
+        
+        ## For reporting'
+        #~ # With instance=True, I get a threading error about current event loop
+        #~ self.node = Net_Node(
+            #~ id="T_{}".format(prefs.get('NAME')),
+            #~ upstream=prefs.get('NAME'),
+            #~ port=prefs.get('MSGPORT'),
+            #~ listens={},
+            #~ instance=False,
+            #~ )        
     
     def choose_stimulus(self):
         """A stage that chooses the stimulus"""
@@ -335,17 +347,25 @@ class PAFT(Task):
         self.logger.debug('wait_for_response: chose {} at {}'.format(
             chosen_response, timestamp_response.isoformat()))
 
+        self.node.send(
+            KEY='CONTINUOUS',
+            VALUE={
+                'poked_port': 'L',
+                'poked_pilot': 'rpi03',
+                },
+            )
+
         # Continue to the next stage
         self.stage_block.set()        
         
         # Return data about chosen_stim so it will be added to HDF5
         return {
-            'continuous': True,
-            'timestamp': timestamp_response.isoformat(),
-            'poked_port': 'L',
-            'poked_pilot': 'rpi03',
-            #~ 'chosen_response': chosen_response,
-            #~ 'timestamp_response': timestamp_response.isoformat(),
+            #~ 'continuous': True,
+            #~ 'timestamp': timestamp_response.isoformat(),
+            #~ 'poked_port': 'L',
+            #~ 'poked_pilot': 'rpi03',
+            'chosen_response': chosen_response,
+            'timestamp_response': timestamp_response.isoformat(),
             #~ 'new_data': timestamp_response.isoformat()[:4] + 'asdf',
             }        
     
