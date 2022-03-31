@@ -355,6 +355,7 @@ class PAFT(Task):
             key='DATA',
             value={
                 'subject': self.subject,
+                'pilot': prefs.get('NAME'),
                 'continuous': True,
                 'poked_port': 'L',
                 'poked_pilot': 'rpi03',
