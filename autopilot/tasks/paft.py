@@ -134,6 +134,15 @@ class PAFT(Task):
         timestamp_trial_start = tables.StringCol(64)
         timestamp_response = tables.StringCol(64)
 
+    # Definie continuous data
+    # https://docs.auto-pi-lot.com/en/latest/guide/task.html
+    # autopilot.core.subject.Subject.data_thread would like one of the
+    # keys to be "timestamp"
+    class ContinuousData(tables.IsDescription):
+        poked_pilot = tables.StringCol(64)
+        poked_port = tables.StringCol(64)
+        timestamp = tables.StringCol(64)
+
     # Per https://docs.auto-pi-lot.com/en/latest/guide/task.html:
     # The HARDWARE dictionary maps a hardware type (eg. POKES) and 
     # identifier (eg. 'L') to a Hardware object. The task uses the hardware 
@@ -331,9 +340,13 @@ class PAFT(Task):
         
         # Return data about chosen_stim so it will be added to HDF5
         return {
-            'chosen_response': chosen_response,
-            'timestamp_response': timestamp_response.isoformat(),
-            'new_data': timestamp_response.isoformat()[:4] + 'asdf',
+            'continuous': True,
+            'timestamp': timestamp_response.isoformat(),
+            'poked_port': 'L',
+            'poked_pilot': 'rpi03',
+            #~ 'chosen_response': chosen_response,
+            #~ 'timestamp_response': timestamp_response.isoformat(),
+            #~ 'new_data': timestamp_response.isoformat()[:4] + 'asdf',
             }        
     
     def end_of_trial(self):
