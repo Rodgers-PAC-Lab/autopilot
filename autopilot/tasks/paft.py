@@ -263,6 +263,9 @@ class PAFT(Task):
         # it to advance to the next stage.
         self.stage_block = stage_block
         
+        # This is needed for sending Node messages
+        self.subject = subject
+        
         # This is used to count the trials for the "trial_num" HDF5 column
         self.counter_trials_across_sessions = itertools.count(int(current_trial))        
 
@@ -351,6 +354,7 @@ class PAFT(Task):
             to='_T',
             key='DATA',
             value={
+                'subject': self.subject,
                 'continuous': True,
                 'poked_port': 'L',
                 'poked_pilot': 'rpi03',
