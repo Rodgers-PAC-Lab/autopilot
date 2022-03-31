@@ -350,6 +350,8 @@ class PAFT(Task):
         self.logger.debug('wait_for_response: chose {} at {}'.format(
             chosen_response, timestamp_response.isoformat()))
 
+        # subject and pilot are needed to avoid exceptions
+        # timestamp is needed to add the atom
         self.node.send(
             to='_T',
             key='DATA',
@@ -359,6 +361,7 @@ class PAFT(Task):
                 'continuous': True,
                 'poked_port': 'L',
                 'poked_pilot': 'rpi03',
+                'timestamp': datetime.datetime.now().isoformat(),
                 },
             )
 
