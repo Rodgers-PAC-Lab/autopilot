@@ -143,6 +143,7 @@ class PAFT(Task):
     class ContinuousData(tables.IsDescription):
         poked_pilot = tables.StringCol(64)
         poked_port = tables.StringCol(64)
+        poked_int = tables.Int32Col()
 
     # Per https://docs.auto-pi-lot.com/en/latest/guide/task.html:
     # The HARDWARE dictionary maps a hardware type (eg. POKES) and 
@@ -350,8 +351,12 @@ class PAFT(Task):
         self.logger.debug('wait_for_response: chose {} at {}'.format(
             chosen_response, timestamp_response.isoformat()))
 
-        # subject and pilot are needed to avoid exceptions
-        # timestamp is needed to add the atom
+        # Directly report continuous data to terminal (aka _T)
+        # Otherwise it can be encoded in the returned data, but that is only
+        # once per stage
+        # subject is needed by core.terminal.Terminal.l_data
+        # pilot is needed by networking.station.Terminal_Station.l_data
+        # timestamp and continuous are needed by subject.Subject.data_thread
         self.node.send(
             to='_T',
             key='DATA',
@@ -361,6 +366,7 @@ class PAFT(Task):
                 'continuous': True,
                 'poked_port': 'L',
                 'poked_pilot': 'rpi03',
+                'poked_int': 3,
                 'timestamp': datetime.datetime.now().isoformat(),
                 },
             )
@@ -369,14 +375,10 @@ class PAFT(Task):
         self.stage_block.set()        
         
         # Return data about chosen_stim so it will be added to HDF5
+        # Could also return continuous data here
         return {
-            #~ 'continuous': True,
-            #~ 'timestamp': timestamp_response.isoformat(),
-            #~ 'poked_port': 'L',
-            #~ 'poked_pilot': 'rpi03',
             'chosen_response': chosen_response,
             'timestamp_response': timestamp_response.isoformat(),
-            #~ 'new_data': timestamp_response.isoformat()[:4] + 'asdf',
             }        
     
     def end_of_trial(self):
