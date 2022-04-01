@@ -170,8 +170,12 @@ class PAFT(Task):
     # This is used by the terminal to plot the results of each trial
     PLOT = {
         'data': {
-            'target': 'point'
-        }
+            'target'   : 'point',
+            'response' : 'segment',
+            'correct'  : 'rollmean'
+        },
+        'chance_bar'  : True, # Draw a red bar at 50%
+        'roll_window' : 50 # number of trials to roll window over
     }
     
     
