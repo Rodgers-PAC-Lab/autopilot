@@ -122,7 +122,7 @@ class Plot_Widget(QtWidgets.QWidget):
         for p in self.pilots:
             plot = Plot(pilot=p, parent=self)
             self.plot_layout.addWidget(plot)
-            self.plot_layout.addWidget(HLine())
+            #~ self.plot_layout.addWidget(HLine())
             self.plots[p] = plot
 
 
@@ -183,9 +183,9 @@ class Plot(QtWidgets.QWidget):
             pilot (str): The name of our pilot
             x_width (int): How many trials in the past should we plot?
         """
-        #super(Plot, self).__init__(QtOpenGL.QGLFormat(QtOpenGL.QGL.SampleBuffers), parent)
         super(Plot, self).__init__()
-
+        
+        # Init logger
         self.logger = init_logger(self)
         self.logger.debug('inside __init__')
 
@@ -196,27 +196,20 @@ class Plot(QtWidgets.QWidget):
         self.session_trials = 0
         self.info = {}
         self.plot = None
-        self.xrange = None
-        self.plot_params = {}
-        self.data = {} # Keep a dict of the data we are keeping track of, will be instantiated on start
-        self.plots = {}
         self.state = "IDLE"
-        self.continuous = False
-        self.last_time = 0
-        self.video = None
-        self.videos = []
-
         self.invoker = get_invoker()
+        self.x_width = x_width
 
         # The name of our pilot, used to listen for events
         self.pilot = pilot
 
-        # Set initial x-value, will update when data starts coming in
-        self.x_width = x_width
-        self.last_trial = self.x_width
-
         # Inits the basic widget settings
         self.init_plots()
+
+        # For storing data that we receive
+        self.chosen_stimulus_l = []
+        self.chosen_response_l = []
+        self.poked_port_l = []
 
         ## Station
         # Start the listener, subscribes to terminal_networking that will broadcast data
@@ -262,61 +255,34 @@ class Plot(QtWidgets.QWidget):
             'Step'    : QtWidgets.QLabel()
         }
         for k, v in self.info.items():
-
             self.infobox.addRow(k, v)
-
-        #self.infobox.setS
-
-
         self.layout.addLayout(self.infobox, 2)
 
         # The plot that we own :)
         self.plot = pg.PlotWidget()
         self.plot.setContentsMargins(0,0,0,0)
-
         self.layout.addWidget(self.plot, 8)
 
-        self.xrange = range(self.last_trial - self.x_width + 1, self.last_trial + 1)
+        # Set xlim
+        self.xrange = range(0, self.x_width)
         self.plot.setXRange(self.xrange[0], self.xrange[-1])
-
-        self.plot.getPlotItem().hideAxis('left')
-        self.plot.setBackground(None)
-        self.plot.getPlotItem().getAxis('bottom').setPen({'color':'k'})
-        self.plot.getPlotItem().getAxis('bottom').setTickFont('FreeMono')
-        self.plot.setXRange(self.xrange[0], self.xrange[1])
-        self.plot.enableAutoRange(y=True)
-        # self.plot
-        # self.plot.setYRange(0, 1)
+       
+        # Add a plot for the trial_circles
+        self.trial_circles = pg.PlotDataItem(
+            x=np.arange(300), y=np.arange(300) / 300, 
+            connect='all', symbol='o')
+        self.plot.addItem(self.trial_circles)
 
     @gui_event
     def l_start(self, value):
-        """
-        Starting a task, initialize task-specific plot objects described in the
-        :attr:`.Task.PLOT` attribute.
 
-        Matches the data field name (keys of :attr:`.Task.PLOT` ) to the plot object
-        that represents it, eg, to make the standard nafc plot::
-
-            {'target'   : 'point',
-             'response' : 'segment',
-             'correct'  : 'rollmean'}
-
-        Args:
-            value (dict): The same parameter dictionary sent by :meth:`.Terminal.toggle_start`, including
-
-                * current_trial
-                * step
-                * session
-                * step_name
-                * task_type
-        """
         self.logger.debug('inside l_start')
+
         if self.state in ("RUNNING", "INITIALIZING"):
             self.logger.debug('returning from l_start, already running')
             return
 
         self.state = "INITIALIZING"
-
 
         # set infobox stuff
         self.n_trials = count()
@@ -326,67 +292,7 @@ class Plot(QtWidgets.QWidget):
         self.info['Step'].setText(str(value['step']))
         self.info['Session'].setText(str(value['session']))
         self.info['Protocol'].setText(value['step_name'])
-
-        # We're sent a task dict, we extract the plot params and send them to the plot object
-        self.plot_params = autopilot.get_task(value['task_type']).PLOT
-
-        # if we got no plot params, that's fine, just set as running and return
-        if not self.plot_params:
-            self.logger.warning(f"No plot params for task {value['task_type']}")
-            self.state = "RUNNING"
-            return
-
-        if 'continuous' in self.plot_params.keys():
-            if self.plot_params['continuous']:
-                self.continuous = True
-            else:
-                self.continuous = False
-        else:
-            self.continuous = False
-
-        self.continuous = False
-
-
-
-        # TODO: Make this more general, make cases for each non-'data' key
-        try:
-            if self.plot_params['chance_bar']:
-                if self.plot_params['chance_level']:
-                    try:
-                        chance_level = float(self.plot_params['chance_level'])
-                    except ValueError:
-                        chance_level = 0.5
-                        # TODO: Log this.
-
-                    self.plot.getPlotItem().addLine(y=chance_level, pen=(255, 0, 0))
-
-                else:
-                    self.plot.getPlotItem().addLine(y=0.5, pen=(255, 0, 0))
-        except KeyError:
-            # No big deal, chance bar wasn't set
-            pass
-
-        # Make plot items for each data type
-        for data, plot in self.plot_params.get('data', {}).items():
-            # TODO: Better way of doing params for plots, redo when params are refactored
-            if plot == 'rollmean' and 'roll_window' in self.plot_params.keys():
-                self.plots[data] = Roll_Mean(winsize=self.plot_params['roll_window'])
-                self.plot.addItem(self.plots[data])
-                self.data[data] = np.zeros((0,2), dtype=np.float)
-            else:
-                self.plots[data] = PLOT_LIST[plot](continuous=self.continuous)
-                self.plot.addItem(self.plots[data])
-                self.data[data] = np.zeros((0,2), dtype=np.float)
-
-        if 'video' in self.plot_params.keys():
-            self.videos = self.plot_params['video']
-            self.video = Video(self.plot_params['video'])
-            #self.video.start()
-
-
         self.state = 'RUNNING'
-
-
 
     @gui_event
     def l_data(self, value):
@@ -404,6 +310,15 @@ class Plot(QtWidgets.QWidget):
         if self.state == "IDLE":
             self.logger.debug('returning from l_data, now idle')
             return
+        
+        # Store the data received
+        if 'chosen_stimulus' in value.keys():
+            self.chosen_stimulus_l.append(value['chosen_stimulus'])
+        if 'chosen_response' in value.keys():
+            self.chosen_stimulus_l.append(value['chosen_response'])
+        if 'poked_port' in value.keys():
+            assert 'timestamp' in value.keys()
+            self.poked_port_l.append((value['poked_port'], value['timestamp']))
             
         # If we received a trial_num, then update the N_trials counter
         # and set the XRange
@@ -423,13 +338,14 @@ class Plot(QtWidgets.QWidget):
             self.plot.setXRange(self.xrange[0], self.xrange[-1])
         
         
-        # TODO: get data here
         
         # Plot
-        self.data['target'] = np.transpose(
-            [list(self.xrange), ['R'] * len(self.xrange)])
-        self.plots['target'].update(self.data['target'])
-
+        xvals = np.arange(self.last_trial - 15, self.last_trial - 5)
+        self.trial_circles.setData(
+            x=xvals,
+            y=[0.5] * len(xvals),
+            )
+        self.plot.getPlotItem().addLine(x=self.last_trial-5, pen=(255, 0, 0))
 
     @gui_event
     def l_stop(self, value):
@@ -504,7 +420,7 @@ class Point(pg.PlotDataItem):
         pen (:class:`QtWidgets.QPen`)
     """
 
-    def __init__(self, color=(0.1,0.3,0.5), size=5, **kwargs):
+    def __init__(self, color=(255,0,0), size=5, **kwargs):
         """
         Args:
             color (tuple): RGB color of points
@@ -542,8 +458,8 @@ class Point(pg.PlotDataItem):
         
         print(self.scatter)
         self.scatter.setData(
-            x=np.array([0., 1.,2.,3.]), y=np.array([0., 1., 2., 3.]), 
-            size=12, symbol='o', color='black')#, brush=self.brush, pen=self.pen)
+            x=np.array([0., 10.,20.,30.]), y=np.array([0., 1., 2., 3.]), 
+            size=12, symbol='o', brush=self.brush, pen=self.pen)
 
 class Line(pg.PlotDataItem):
     """
@@ -857,138 +773,6 @@ class Video(QtWidgets.QWidget):
 
     def release(self):
         self.quitting.set()
-
-#
-# class VideoCV(mp.Process):
-#     def __init__(self, videos, fps=30, parent=None):
-#         super(VideoCV, self).__init__()
-#         self.videos = videos
-#
-#         self.last_update = 0
-#         self.fps = fps
-#         self.ifps = 1.0/fps
-#
-#
-#         #self.q = Queue(maxsize=1)
-#         self.qs = {}
-#         for vid in self.videos:
-#             self.qs[vid] = mp.Queue(maxsize=1)
-#
-#         self.positions = {}
-#         n_rows = 0
-#         n_cols = 0
-#         for i, vid in enumerate(sorted(self.videos)):
-#             # 3 videos to a row
-#             row = np.floor(i/3.)*2
-#             col = i%3
-#             if row>n_rows:
-#                 n_rows = row
-#             if col>n_cols:
-#                 n_cols = col
-#             self.positions[vid] = (row, col)
-#
-#         self.n_rows = n_rows+1
-#         self.n_cols = n_cols+1
-#
-#
-#
-#         # computed as we receive images
-#         self.sizes = {}
-#         self.resize_factors = {}
-#
-#         self.quitting = mp.Event()
-#         self.quitting.clear()
-#
-#     def run(self):
-#
-#         win = cv2.namedWindow('vid', cv2.WINDOW_NORMAL)
-#         max_width = 0
-#         max_height = 0
-#
-#         img_array = None
-#         while not self.quitting.is_set():
-#             pdb.set_trace()
-#             for vid, q in self.qs.items():
-#                 try:
-#                     data = q.get_nowait()
-#                 except Empty:
-#                     continue
-#
-#                 if vid not in self.sizes.keys():
-#                     self.sizes[vid] = (data.shape[0], data.shape[1])
-#                     max_width, max_height = self.calc_resize()
-#                     img_array = np.zeros((max_height*self.n_rows, max_width*self.n_cols))
-#
-#                 data = cv2.resize(data, self.resize_factors[vid])
-#                 top = self.positions[vid][0] * max_height
-#                 left = self.positions[vid][1] * max_width
-#                 img_array[top:top+data.shape[0], left:left+data.shape[1]] = data
-#
-#             cv2.imshow('vid', img_array)
-#             cv2.waitKey(0)
-#
-#
-#
-#     def calc_resize(self):
-#         max_width = 0
-#         max_height = 0
-#         for vid, size in self.sizes:
-#             if size[1]>max_width:
-#                 # set both so we don't split
-#                 max_width = size[1]
-#                 max_height = size[0]
-#             elif size[0]>max_height:
-#                 max_width = size[1]
-#                 max_height=size[0]
-#
-#         for vid, size in self.sizes:
-#             self.resize_factors[vid] = (float(max_width)/size[0], float(max_height)/size[1])
-#
-#         return max_width, max_height
-#
-#
-#     def update_frame(self, video, data):
-#         #pdb.set_trace()
-#         # cur_time = time()
-#
-#         try:
-#             # if there's a waiting frame, it's old now so pull it.
-#             _ = self.qs[video].get_nowait()
-#         except Empty:
-#             pass
-#
-#         try:
-#             # put the new frame in there.
-#             self.qs[video].put_nowait(data)
-#         except Full:
-#             return
-#         except KeyError:
-#             return
-#         # if (cur_time-self.last_update)>self.ifps:
-#         #     try:
-#         #         self.vid_widgets[video].setImage(data)
-#         #         #self.vid_widgets[video].update()
-#         #     except KeyError:
-#         #         return
-#         #     self.last_update = cur_time
-#             #self.update()
-#             #self.app.processEvents()
-#
-#     def close(self):
-#         self.quitting.set()
-
-
-
-
-
-
-
-# class Highlight():
-#     # TODO Implement me
-#     def __init__(self):
-#         pass
-#
-#     pass
 
 
 class HLine(QtWidgets.QFrame):
