@@ -187,6 +187,7 @@ class Plot(QtWidgets.QWidget):
         super(Plot, self).__init__()
 
         self.logger = init_logger(self)
+        self.logger.debug('inside __init__')
 
         self.parent = parent
         self.layout = None
@@ -240,7 +241,7 @@ class Plot(QtWidgets.QWidget):
         """
         Make pre-task GUI objects and set basic visual parameters of `self.plot`
         """
-
+        self.logger.debug('inside init_plots')
         # This is called to make the basic plot window,
         # each task started should then send us params to populate afterwards
         #self.getPlotItem().hideAxis('bottom')
@@ -309,8 +310,9 @@ class Plot(QtWidgets.QWidget):
                 * step_name
                 * task_type
         """
-
+        self.logger.debug('inside l_start')
         if self.state in ("RUNNING", "INITIALIZING"):
+            self.logger.debug('returning from l_start, already running')
             return
 
         self.state = "INITIALIZING"
@@ -342,7 +344,7 @@ class Plot(QtWidgets.QWidget):
         else:
             self.continuous = False
 
-
+        self.continuous = False
 
 
 
@@ -395,43 +397,38 @@ class Plot(QtWidgets.QWidget):
         Args:
             value (dict): Value field of a data message sent during a task.
         """
+        self.logger.debug('inside l_data')
         if self.state == "INITIALIZING":
+            self.logger.debug('returning from l_data, still initializing')
             return
-
-        #pdb.set_trace()
+        if self.state == "IDLE":
+            self.logger.debug('returning from l_data, now idle')
+            return
+            
+        # If we received a trial_num, then update the N_trials counter
+        # and set the XRange
         if 'trial_num' in value.keys():
-            v = value.pop('trial_num')
-            if v >= self.last_trial:
-                self.session_trials = next(self.n_trials)
-            elif v < self.last_trial:
-                self.logger.exception('Shouldnt be going back in time!')
-            self.last_trial = v
-            # self.last_trial = v
-            self.info['N Trials'].setText("{}/{}".format(self.session_trials, v))
-            if not self.continuous:
-                self.xrange = range(v - self.x_width + 1, v + 1)
-                self.plot.setXRange(self.xrange[0], self.xrange[-1])
-
-
-        if 't' in value.keys():
-            self.last_time = value.pop('t')
-            if self.continuous:
-                self.plot.setXRange(self.last_time-self.x_width, self.last_time+1)
-
-
-        if self.continuous:
-            x_val = self.last_time
-        else:
-            x_val = self.last_trial
-
-        for k, v in value.items():
-            if k in self.data.keys():
-                self.data[k] = np.vstack((self.data[k], (x_val, v)))
-                # gui_event_fn(self.plots[k].update, *(self.data[k],))
-                self.plots[k].update(self.data[k])
-            elif k in self.videos:
-                self.video.update_frame(k, v)
-
+            # Store tis as last_trial
+            self.last_trial = value.pop('trial_num')
+            
+            # Set the textbox
+            self.info['N Trials'].setText("{}".format(self.last_trial))
+            
+            # Set self.xrange
+            self.xrange = range(
+                self.last_trial - self.x_width + 1, 
+                self.last_trial + 1)
+            
+            # Set the XRange on the plot
+            self.plot.setXRange(self.xrange[0], self.xrange[-1])
+        
+        
+        # TODO: get data here
+        
+        # Plot
+        self.data['target'] = np.transpose(
+            [list(self.xrange), ['R'] * len(self.xrange)])
+        self.plots['target'].update(self.data['target'])
 
 
     @gui_event
@@ -507,7 +504,7 @@ class Point(pg.PlotDataItem):
         pen (:class:`QtWidgets.QPen`)
     """
 
-    def __init__(self, color=(0,0,0), size=5, **kwargs):
+    def __init__(self, color=(0.1,0.3,0.5), size=5, **kwargs):
         """
         Args:
             color (tuple): RGB color of points
@@ -516,8 +513,8 @@ class Point(pg.PlotDataItem):
         super(Point, self).__init__()
 
         self.continuous = False
-        if 'continuous' in kwargs.keys():
-            self.continuous = kwargs['continuous']
+        #~ if 'continuous' in kwargs.keys():
+            #~ self.continuous = kwargs['continuous']
 
         self.brush = pg.mkBrush(color)
         self.pen   = pg.mkPen(color, width=size)
@@ -532,14 +529,21 @@ class Point(pg.PlotDataItem):
         """
         # data should come in as an n x 2 array,
         # 0th column - trial number (x), 1st - (y) value
-
         data[data=="R"] = 1
         data[data=="C"] = 0.5
         data[data=="L"] = 0
         data = data.astype(np.float)
+        print(data)
+        print(data[..., 0])
+        print(data[..., 1])
 
-        self.scatter.setData(x=data[...,0], y=data[...,1], size=self.size,
-                             brush=self.brush, symbol='o', pen=self.pen)
+        #~ self.scatter.setData(x=data[...,0], y=data[...,1], size=self.size,
+                             #~ brush=self.brush, symbol='o', pen=self.pen)
+        
+        print(self.scatter)
+        self.scatter.setData(
+            x=np.array([0., 1.,2.,3.]), y=np.array([0., 1., 2., 3.]), 
+            size=12, symbol='o', color='black')#, brush=self.brush, pen=self.pen)
 
 class Line(pg.PlotDataItem):
     """
