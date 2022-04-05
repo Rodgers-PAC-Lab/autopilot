@@ -297,7 +297,7 @@ class PAFT(Task):
 
 
         ## This is used to report fake pokes
-        known_pilot_ports = [
+        self.known_pilot_ports = [
             'rpi09_L',
             'rpi09_R',
             'rpi10_L',
@@ -307,7 +307,7 @@ class PAFT(Task):
             'rpi12_L',
             'rpi12_R',            
             ]
-        self.poked_port_cycle = itertools.cycle(known_pilot_ports)
+        self.poked_port_cycle = itertools.cycle(self.known_pilot_ports)
 
         
         ## For reporting data to the Terminal and plots
