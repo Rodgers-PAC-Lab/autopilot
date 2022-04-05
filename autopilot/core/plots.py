@@ -285,7 +285,7 @@ class Plot(QtWidgets.QWidget):
         self.octagon_port_plot_l = []
         for n_port in range(8):
             # Determine location
-            theta = n_port / 8 * 2 * np.pi
+            theta = np.pi / 2 - n_port / 8 * 2 * np.pi
             x_pos = np.cos(theta)
             y_pos = np.sin(theta)
             
@@ -295,13 +295,20 @@ class Plot(QtWidgets.QWidget):
                 pen=None, symbolBrush=(255, 0, 0), symbolPen=None, symbol='o',
                 )
             
+            # Text
+            txt = pg.TextItem(self.known_pilot_ports[n_port],
+                color='white', anchor=(0.5, 0.5))
+            txt.setPos(x_pos * .8, y_pos * .8)
+            txt.setAngle(np.mod(theta * 180 / np.pi, 180) - 90)
+            self.plot_octagon.addItem(txt)
+            
             # Store the handle
             self.octagon_port_plot_l.append(port_plot)
         
         # Set ranges
         self.plot_octagon.setRange(xRange=(-1, 1), yRange=(-1, 1))
-        self.plot_octagon.setFixedWidth(225)
-        self.plot_octagon.setFixedHeight(250)
+        self.plot_octagon.setFixedWidth(275)
+        self.plot_octagon.setFixedHeight(300)
         
         # Add to layout
         self.layout.addWidget(self.plot_octagon, 8)
@@ -313,15 +320,17 @@ class Plot(QtWidgets.QWidget):
         self.timecourse_plot.setContentsMargins(0,0,0,0)
         
         # Set xlim
-        self.timecourse_plot.setRange(xRange=[0, 3 * 60])
+        self.timecourse_plot.setRange(xRange=[0, 3 * 60], yRange=[0, 7])
+        self.timecourse_plot.getViewBox().invertY(True)
        
         # Add a vertical line indicating the current time
         # This will shift over throughout the session
         self.line_of_current_time = self.timecourse_plot.plot(
-            x=[0, 0], y=[-1, 8], pen='white')        
+            x=[0, 0], y=[-1, 8], pen='white')
 
         # Within self.timecourse_plot, add a trace for pokes made into
         # each port
+        ticks_l = []
         for n_row in range(len(self.known_pilot_ports)):
             # Create the plot handle
             poke_plot = self.timecourse_plot.plot(
@@ -336,6 +345,12 @@ class Plot(QtWidgets.QWidget):
             
             # Also use this list to store the times of the pokes
             self.known_pilot_ports_poke_data.append([])
+            
+            # Also keep track of yticks
+            ticks_l.append((n_row, self.known_pilot_ports[n_row]))
+
+        # Set ticks
+        self.timecourse_plot.getAxis('left').setTicks([ticks_l])
 
         # Add to layout
         self.layout.addWidget(self.timecourse_plot, 8)
@@ -363,6 +378,21 @@ class Plot(QtWidgets.QWidget):
         self.state = 'RUNNING'
         
         self.start_time = None
+        self.local_start_time = None
+
+        
+        self.update_timer = pg.QtCore.QTimer()
+        self.update_timer.timeout.connect(self.update_time_bar)
+        self.update_timer.start(50)        
+    
+    def update_time_bar(self):
+        # Use current time to approximately update timebar
+        if self.local_start_time is not None:
+            current_time = datetime.datetime.now()
+            approx_time_in_session = (
+                current_time - self.local_start_time).total_seconds()
+            self.line_of_current_time.setData(
+                x=[approx_time_in_session, approx_time_in_session], y=[-1, 9])
 
     @gui_event
     def l_data(self, value):
@@ -390,6 +420,9 @@ class Plot(QtWidgets.QWidget):
                 'setting start time to {}'.format(value['timestamp_trial_start']))
             self.start_time = datetime.datetime.fromisoformat(
                 value['timestamp_trial_start'])
+            
+            # Also store approx local start time
+            self.local_start_time = datetime.datetime.now()
 
         # Get the timestamp of this message
         if 'timestamp' in value:

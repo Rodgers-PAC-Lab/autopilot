@@ -36,6 +36,10 @@ plot_octagon.setRange(xRange=(-1, 1), yRange=(-1, 1))
 plot_octagon.setFixedWidth(225)
 plot_octagon.setFixedHeight(250)
 
+txt = pg.TextItem('asdf', color='white', anchor=(0.5, 0.5))
+txt.setPos(0, .25)
+plot_octagon.addItem(txt)
+
 ## Timecourse plot
 p3 = win.addPlot(title="Drawing with points")
 p3.setRange(xRange=[0, 25*60])
