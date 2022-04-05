@@ -125,14 +125,13 @@ class PAFT(Task):
         # If this isn't specified here, it will be added anyway
         trial_num = tables.Int32Col()
         
-        # The chosens stimulus and response
+        # The rewarded_port
         # Must specify the max length of the string, we use 64 to be safe
-        chosen_stimulus = tables.StringCol(64)
-        chosen_response = tables.StringCol(64)
+        rewarded_port = tables.StringCol(64)
         
         # The timestamps
         timestamp_trial_start = tables.StringCol(64)
-        timestamp_response = tables.StringCol(64)
+        timestamp_reward = tables.StringCol(64)
 
     # Definie continuous data
     # https://docs.auto-pi-lot.com/en/latest/guide/task.html
@@ -141,9 +140,7 @@ class PAFT(Task):
     # Actually, no I think that is extracted automatically from the 
     # networked message, and should not be defined here
     class ContinuousData(tables.IsDescription):
-        poked_pilot = tables.StringCol(64)
         poked_port = tables.StringCol(64)
-        poked_int = tables.Int32Col()
 
     # Per https://docs.auto-pi-lot.com/en/latest/guide/task.html:
     # The HARDWARE dictionary maps a hardware type (eg. POKES) and 
@@ -301,17 +298,17 @@ class PAFT(Task):
 
         ## This is used to report fake pokes
         known_pilot_ports = [
-            ('rpi09', 'L'),
-            ('rpi09', 'R'),
-            ('rpi10', 'L'),
-            ('rpi10', 'R'),
-            ('rpi11', 'L'),
-            ('rpi11', 'R'),
-            ('rpi12', 'L'),
-            ('rpi12', 'R'),
+            'rpi09_L',
+            'rpi09_R',
+            'rpi10_L',
+            'rpi10_R',            
+            'rpi11_L',
+            'rpi11_R',
+            'rpi12_L',
+            'rpi12_R',            
             ]
         self.poked_port_cycle = itertools.cycle(known_pilot_ports)
-        
+
         
         ## For reporting data to the Terminal and plots
         # With instance=True, I get a threading error about current event loop
@@ -335,8 +332,8 @@ class PAFT(Task):
         time.sleep(3)
         
         # Choose stimulus randomly
-        chosen_stimulus = random.choice(['stim0', 'stim1', 'stim2'])
-        self.logger.debug('choose_stimulus: chose {}'.format(chosen_stimulus))
+        rewarded_port = random.choice(self.known_pilot_ports)
+        self.logger.debug('choose_stimulus: chose {}'.format(rewarded_port))
         
         # Continue to the next stage
         # CLEAR means "wait for triggers"
@@ -349,7 +346,7 @@ class PAFT(Task):
         # it will still make another row in the HDF5, but it might warn.
         # (This hapepns in autopilot.core.subject.Subject.data_thread)
         return {
-            'chosen_stimulus': chosen_stimulus,
+            'rewarded_port': rewarded_port,
             'timestamp_trial_start': timestamp_trial_start.isoformat(),
             'trial_num': next(self.counter_trials_across_sessions),
             'trial_in_session': next(self.counter_trials_in_session),
@@ -361,21 +358,14 @@ class PAFT(Task):
         self.logger.debug('wait_for_response: entering stage')
         time.sleep(3)
         
-        # Choose response randomly
-        chosen_response = random.choice(['choice0', 'choice1'])
-    
-        # Get timestamp of response
-        timestamp_response = datetime.datetime.now()
-        self.logger.debug('wait_for_response: chose {} at {}'.format(
-            chosen_response, timestamp_response.isoformat()))
-
         # Directly report continuous data to terminal (aka _T)
         # Otherwise it can be encoded in the returned data, but that is only
         # once per stage
         # subject is needed by core.terminal.Terminal.l_data
         # pilot is needed by networking.station.Terminal_Station.l_data
         # timestamp and continuous are needed by subject.Subject.data_thread
-        poked_pilot, poked_port = next(self.poked_port_cycle)
+        timestamp_response = datetime.datetime.now()
+        poked_port = next(self.poked_port_cycle)
         self.node.send(
             to='_T',
             key='DATA',
@@ -384,7 +374,6 @@ class PAFT(Task):
                 'pilot': prefs.get('NAME'),
                 'continuous': True,
                 'poked_port': poked_port,
-                'poked_pilot': poked_pilot,
                 'timestamp': timestamp_response.isoformat(),
                 },
             )
@@ -396,7 +385,6 @@ class PAFT(Task):
                 'pilot': prefs.get('NAME'),
                 'continuous': True,
                 'poked_port': poked_port,
-                'poked_pilot': poked_pilot,
                 'timestamp': timestamp_response.isoformat(),
                 },
             )            
@@ -407,8 +395,7 @@ class PAFT(Task):
         # Return data about chosen_stim so it will be added to HDF5
         # Could also return continuous data here
         return {
-            'chosen_response': chosen_response,
-            'timestamp_response': timestamp_response.isoformat(),
+            'timestamp_reward': timestamp_response.isoformat(),
             }        
     
     def end_of_trial(self):

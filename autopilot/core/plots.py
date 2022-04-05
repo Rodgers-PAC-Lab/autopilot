@@ -190,22 +190,15 @@ class Plot(QtWidgets.QWidget):
         self.logger = init_logger(self)
         self.logger.debug('inside __init__')
 
+        # Init some variables
         self.parent = parent
-        self.layout = None
-        self.infobox = None
-        self.n_trials = None
         self.session_trials = 0
         self.info = {}
-        self.plot = None
         self.state = "IDLE"
         self.invoker = get_invoker()
-        self.x_width = x_width
 
         # The name of our pilot, used to listen for events
         self.pilot = pilot
-
-        # Inits the basic widget settings
-        self.init_plots()
 
         # For storing data that we receive
         self.chosen_stimulus_l = []
@@ -226,6 +219,10 @@ class Plot(QtWidgets.QWidget):
         self.known_pilot_ports_poke_plot = []
         
         
+        ## Init the plots and handles
+        self.init_plots()
+
+        
         ## Station
         # Start the listener, subscribes to terminal_networking that will broadcast data
         self.listens = {
@@ -237,28 +234,30 @@ class Plot(QtWidgets.QWidget):
             'STATE': self.l_state
         }
 
-        self.node = Net_Node(id='P_{}'.format(self.pilot),
-                             upstream="T",
-                             port=prefs.get('MSGPORT'),
-                             listens=self.listens,
-                             instance=True)
-
+        self.node = Net_Node(
+            id='P_{}'.format(self.pilot),
+            upstream="T",
+            port=prefs.get('MSGPORT'),
+            listens=self.listens,
+            instance=True)
 
     @gui_event
     def init_plots(self):
         """
-        Make pre-task GUI objects and set basic visual parameters of `self.plot`
+        Make pre-task GUI objects and set basic visual parameters of plot widgets
         """
+        # Announce
         self.logger.debug('inside init_plots')
-        # This is called to make the basic plot window,
-        # each task started should then send us params to populate afterwards
-        #self.getPlotItem().hideAxis('bottom')
-
+        
+        # This creates a horizontal box layout for all the plot widgets,
+        # such as the info box and the plot.
         self.layout = QtWidgets.QHBoxLayout()
         self.layout.setContentsMargins(2,2,2,2)
         self.setLayout(self.layout)
-
-        # A little infobox to keep track of running time, trials, etc.
+    
+        
+        ## Widget 1: Infobox
+        # Create the first widget: an infobox for n_trials, etc
         self.infobox = QtWidgets.QFormLayout()
         self.n_trials = count()
         self.session_trials = 0
@@ -269,26 +268,63 @@ class Plot(QtWidgets.QWidget):
             'Protocol': QtWidgets.QLabel(),
             'Step'    : QtWidgets.QLabel()
         }
+        
+        # Add rows to infobox
         for k, v in self.info.items():
             self.infobox.addRow(k, v)
+        
+        # Add to layout
         self.layout.addLayout(self.infobox, 2)
 
-        # The plot that we own :)
-        self.plot = pg.PlotWidget()
-        self.plot.setContentsMargins(0,0,0,0)
-        self.layout.addWidget(self.plot, 8)
+        
+        ## Widget 2: Octagon plot
+        # Create
+        self.octagon_plot = pg.PlotWidget()
 
+        # Within self.octagon_plot, add a circle representing each port
+        self.octagon_port_plot_l = []
+        for n_port in range(8):
+            # Determine location
+            theta = n_port / 8 * 2 * np.pi
+            x_pos = np.cos(theta)
+            y_pos = np.sin(theta)
+            
+            # Plot the circle
+            port_plot = plot_octagon.plot(
+                x=[x_pos], y=[y_pos],
+                pen=None, symbolBrush=(255, 0, 0), symbolPen=None, symbol='o',
+                )
+            
+            # Store the handle
+            self.octagon_port_plot_l.append(port_plot)
+        
+        # Set ranges
+        plot_octagon.setRange(xRange=(-1, 1), yRange=(-1, 1))
+        plot_octagon.setFixedWidth(225)
+        plot_octagon.setFixedHeight(250)
+        
+        # Add to layout
+        self.layout.addWidget(self.octagon_plot, 8)
+        
+        
+        ## Widget 3: Timecourse plot
+        ## Create
+        self.timecourse_plot = pg.PlotWidget()
+        self.timecourse_plot.setContentsMargins(0,0,0,0)
+        
         # Set xlim
-        self.plot.setRange(xRange=[0, 30 * 60])
+        self.timecourse_plot.setRange(xRange=[0, 30 * 60])
        
-        # Add the current time
-        self.line_of_current_time = self.plot.plot(
-            x=[0, 0], y=[-1, 8], pen='red')        
-       
-        # Add a plot for each port
+        # Add a vertical line indicating the current time
+        # This will shift over throughout the session
+        self.line_of_current_time = self.timecourse_plot.plot(
+            x=[0, 0], y=[-1, 8], pen='white')        
+
+        # Within self.timecourse_plot, add a trace for pokes made into
+        # each port
         for n_row in range(len(self.known_pilot_ports)):
             # Create the plot handle
-            poke_plot = self.plot.plot(
+            poke_plot = self.timecourse_plot.plot(
                 x=[0],
                 y=np.array([n_row]),
                 pen=None, symbolBrush=(255, 0, 0), 
@@ -300,6 +336,10 @@ class Plot(QtWidgets.QWidget):
             
             # Also use this list to store the times of the pokes
             self.known_pilot_ports_poke_data.append([])
+
+        # Add to layout
+        self.layout.addWidget(self.timecourse_plot, 8)
+
 
     @gui_event
     def l_start(self, value):
@@ -360,7 +400,24 @@ class Plot(QtWidgets.QWidget):
         
         # Store the data received
         if 'chosen_stimulus' in value.keys():
-            self.chosen_stimulus_l.append(value['chosen_stimulus'])
+            # Extract data
+            poked_pilot = value['rewarded_pilot']
+            poked_port = value['rewarded_port']
+            
+            #
+            self.chosen_stimulus_l.append('{}_{}'.format(
+            
+            # Turn the corresponding port white
+            try:
+                kpp_idx = self.known_pilot_ports.index((poked_pilot, poked_port))
+            except ValueError:
+                self.logger.debug(
+                    'unknown poke received: {} {}'.format(
+                    poked_pilot, poked_port))
+                kpp_idx = None
+            
+            port_plot_l[0].setSymbolBrush('w')
+            
         if 'chosen_response' in value.keys():
             self.chosen_stimulus_l.append(value['chosen_response'])
         
@@ -371,26 +428,25 @@ class Plot(QtWidgets.QWidget):
             poked_port = value['poked_port']
             
             # Find which pilot this is
-            #~ try:
-                #~ kpp_idx = self.known_pilot_ports.index((poked_pilot, poked_port))
-            #~ except ValueError:
-                #~ self.logger.debug(
-                    #~ 'unknown poke received: {} {}'.format(
-                    #~ poked_pilot, poked_port))
+            try:
+                kpp_idx = self.known_pilot_ports.index((poked_pilot, poked_port))
+            except ValueError:
+                self.logger.debug(
+                    'unknown poke received: {} {}'.format(
+                    poked_pilot, poked_port))
+                kpp_idx = None
             
-            
-            kpp_idx = self.known_pilot_ports.index((poked_pilot, poked_port))
-            
-            # Store the time
-            print("kpppd = {}; kpp_idx = {}".format(self.known_pilot_ports_poke_data, kpp_idx))
-            kpp_data = self.known_pilot_ports_poke_data[kpp_idx]
-            kpp_data.append(timestamp_sec)
-            
-            # Update the plot
-            self.known_pilot_ports_poke_plot[kpp_idx].setData(
-                x=kpp_data,
-                y=np.array([kpp_idx] * len(kpp_data)),
-                )
+            # Store the time and update the plot
+            if kpp_idx is not None:
+                # Store the time
+                kpp_data = self.known_pilot_ports_poke_data[kpp_idx]
+                kpp_data.append(timestamp_sec)
+                
+                # Update the plot
+                self.known_pilot_ports_poke_plot[kpp_idx].setData(
+                    x=kpp_data,
+                    y=np.array([kpp_idx] * len(kpp_data)),
+                    )
 
         # If we received a trial_num, then update the N_trials counter
         if 'trial_num' in value.keys():
@@ -411,7 +467,7 @@ class Plot(QtWidgets.QWidget):
         """
         self.data = {}
         self.plots = {}
-        self.plot.clear()
+        self.timecourse_plot.clear()
         try:
             if isinstance(value, str) or ('graduation' not in value.keys()):
                 self.info['Runtime'].stop_timer()
