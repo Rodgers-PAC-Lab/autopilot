@@ -279,9 +279,9 @@ class Plot(QtWidgets.QWidget):
         
         ## Widget 2: Octagon plot
         # Create
-        self.octagon_plot = pg.PlotWidget()
+        self.plot_octagon = pg.PlotWidget()
 
-        # Within self.octagon_plot, add a circle representing each port
+        # Within self.plot_octagon, add a circle representing each port
         self.octagon_port_plot_l = []
         for n_port in range(8):
             # Determine location
@@ -290,7 +290,7 @@ class Plot(QtWidgets.QWidget):
             y_pos = np.sin(theta)
             
             # Plot the circle
-            port_plot = plot_octagon.plot(
+            port_plot = self.plot_octagon.plot(
                 x=[x_pos], y=[y_pos],
                 pen=None, symbolBrush=(255, 0, 0), symbolPen=None, symbol='o',
                 )
@@ -299,12 +299,12 @@ class Plot(QtWidgets.QWidget):
             self.octagon_port_plot_l.append(port_plot)
         
         # Set ranges
-        plot_octagon.setRange(xRange=(-1, 1), yRange=(-1, 1))
-        plot_octagon.setFixedWidth(225)
-        plot_octagon.setFixedHeight(250)
+        self.plot_octagon.setRange(xRange=(-1, 1), yRange=(-1, 1))
+        self.plot_octagon.setFixedWidth(225)
+        self.plot_octagon.setFixedHeight(250)
         
         # Add to layout
-        self.layout.addWidget(self.octagon_plot, 8)
+        self.layout.addWidget(self.plot_octagon, 8)
         
         
         ## Widget 3: Timecourse plot
@@ -399,27 +399,23 @@ class Plot(QtWidgets.QWidget):
                 x=[timestamp_sec, timestamp_sec], y=[-1, 9])
         
         # Store the data received
-        if 'chosen_stimulus' in value.keys():
+        if 'rewarded_port' in value.keys():
             # Extract data
-            poked_pilot = value['rewarded_pilot']
             poked_port = value['rewarded_port']
-            
-            #
-            self.chosen_stimulus_l.append('{}_{}'.format(
             
             # Turn the corresponding port white
             try:
-                kpp_idx = self.known_pilot_ports.index((poked_pilot, poked_port))
+                kpp_idx = self.known_pilot_ports.index(poked_port)
             except ValueError:
                 self.logger.debug(
-                    'unknown poke received: {} {}'.format(
-                    poked_pilot, poked_port))
+                    'unknown poke received: {}'.format(poked_port))
                 kpp_idx = None
             
-            port_plot_l[0].setSymbolBrush('w')
+            port_plot_l[kpp_idx].setSymbolBrush('w')
             
-        if 'chosen_response' in value.keys():
-            self.chosen_stimulus_l.append(value['chosen_response'])
+        if 'timestamp_reward' in value.keys():
+            #self.timestamp_reward_l.append(value['timestamp_reward'])
+            pass
         
         # Store the time of the poke
         if 'poked_port' in value.keys():
