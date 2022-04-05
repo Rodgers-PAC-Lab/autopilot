@@ -301,6 +301,8 @@ class Plot(QtWidgets.QWidget):
         self.info['Session'].setText(str(value['session']))
         self.info['Protocol'].setText(value['step_name'])
         self.state = 'RUNNING'
+        
+        self.start_time = None
 
     @gui_event
     def l_data(self, value):
@@ -311,13 +313,19 @@ class Plot(QtWidgets.QWidget):
         Args:
             value (dict): Value field of a data message sent during a task.
         """
-        self.logger.debug('inside l_data')
+        self.logger.debug('Plot.l_data: received {}'.format(value))
         if self.state == "INITIALIZING":
             self.logger.debug('returning from l_data, still initializing')
             return
         if self.state == "IDLE":
             self.logger.debug('returning from l_data, now idle')
             return
+        
+        # Get the start time
+        if 'timestamp' in value and self.start_time is None:
+            self.logger.debug(
+                'setting start time to {}'.format(value['timestamp']))
+            self.start_time = value['timestamp']
         
         # Store the data received
         if 'chosen_stimulus' in value.keys():
@@ -342,13 +350,9 @@ class Plot(QtWidgets.QWidget):
             # Set the textbox
             self.info['N Trials'].setText("{}".format(self.last_trial))
         
-        # Plot
-        xvals = np.arange(self.last_trial - 15, self.last_trial - 5)
-        self.trial_circles.setData(
-            x=xvals,
-            y=[0.5] * len(xvals),
-            )
-        self.plot.getPlotItem().addLine(x=self.last_trial-5, pen=(255, 0, 0))
+        # Update time of current line
+        if 'timestamp' in value:
+            print (self.start_time, value['timestamp'])
 
     @gui_event
     def l_stop(self, value):
@@ -373,14 +377,6 @@ class Plot(QtWidgets.QWidget):
         self.info['Step'].setText('')
         self.info['Session'].setText('')
         self.info['Protocol'].setText('')
-
-        if self.video is not None:
-            self.video.release()
-            self.video.close()
-            del self.video
-            del self.videos
-            self.video = None
-            self.videos = []
 
         self.state = 'IDLE'
 

@@ -374,6 +374,19 @@ class PAFT(Task):
                 'timestamp': datetime.datetime.now().isoformat(),
                 },
             )
+        self.node.send(
+            to='P_rpi09',
+            key='DATA',
+            value={
+                'subject': self.subject,
+                'pilot': prefs.get('NAME'),
+                'continuous': True,
+                'poked_port': 'L',
+                'poked_pilot': 'rpi03',
+                'poked_int': 3,
+                'timestamp': datetime.datetime.now().isoformat(),
+                },
+            )            
 
         # Continue to the next stage
         self.stage_block.set()        
