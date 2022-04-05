@@ -385,7 +385,7 @@ class PAFT(Task):
                 'continuous': True,
                 'poked_port': poked_port,
                 'poked_pilot': poked_pilot,
-                'timestamp': timestamp_response,
+                'timestamp': timestamp_response.isoformat(),
                 },
             )
         self.node.send(
@@ -397,7 +397,7 @@ class PAFT(Task):
                 'continuous': True,
                 'poked_port': poked_port,
                 'poked_pilot': poked_pilot,
-                'timestamp': timestamp_response,
+                'timestamp': timestamp_response.isoformat(),
                 },
             )            
 
