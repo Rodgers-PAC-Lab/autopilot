@@ -204,14 +204,14 @@ class Plot(QtWidgets.QWidget):
         self.chosen_stimulus_l = []
         self.chosen_response_l = []
         self.known_pilot_ports = [
-            ('rpi09', 'L'),
-            ('rpi09', 'R'),
-            ('rpi10', 'L'),
-            ('rpi10', 'R'),
-            ('rpi11', 'L'),
-            ('rpi11', 'R'),
-            ('rpi12', 'L'),
-            ('rpi12', 'R'),
+            'rpi09_L',
+            'rpi09_R',
+            'rpi10_L',
+            'rpi10_R',            
+            'rpi11_L',
+            'rpi11_R',
+            'rpi12_L',
+            'rpi12_R', 
             ]
         
         # These are created in init_plots
@@ -313,7 +313,7 @@ class Plot(QtWidgets.QWidget):
         self.timecourse_plot.setContentsMargins(0,0,0,0)
         
         # Set xlim
-        self.timecourse_plot.setRange(xRange=[0, 30 * 60])
+        self.timecourse_plot.setRange(xRange=[0, 3 * 60])
        
         # Add a vertical line indicating the current time
         # This will shift over throughout the session
@@ -411,8 +411,13 @@ class Plot(QtWidgets.QWidget):
                     'unknown poke received: {}'.format(poked_port))
                 kpp_idx = None
             
-            self.octagon_port_plot_l[kpp_idx].setSymbolBrush('w')
-            
+            # Make all ports white, except rewarded port green
+            for opp_idx, opp in enumerate(self.octagon_port_plot_l):
+                if opp_idx == kpp_idx:
+                    opp.setSymbolBrush('g')
+                else:
+                    opp.setSymbolBrush('w')
+        
         if 'timestamp_reward' in value.keys():
             #self.timestamp_reward_l.append(value['timestamp_reward'])
             pass
@@ -420,16 +425,14 @@ class Plot(QtWidgets.QWidget):
         # Store the time of the poke
         if 'poked_port' in value.keys():
             # Extract data
-            poked_pilot = value['poked_pilot']
             poked_port = value['poked_port']
             
             # Find which pilot this is
             try:
-                kpp_idx = self.known_pilot_ports.index((poked_pilot, poked_port))
+                kpp_idx = self.known_pilot_ports.index(poked_port)
             except ValueError:
                 self.logger.debug(
-                    'unknown poke received: {} {}'.format(
-                    poked_pilot, poked_port))
+                    'unknown poke received: {}'.format(poked_port))
                 kpp_idx = None
             
             # Store the time and update the plot
@@ -443,6 +446,9 @@ class Plot(QtWidgets.QWidget):
                     x=kpp_data,
                     y=np.array([kpp_idx] * len(kpp_data)),
                     )
+                
+                # Turn the correspond poke circle green
+                self.octagon_port_plot_l[kpp_idx].setSymbolBrush('r')
 
         # If we received a trial_num, then update the N_trials counter
         if 'trial_num' in value.keys():
