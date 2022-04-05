@@ -286,7 +286,7 @@ class Plot(QtWidgets.QWidget):
             x=[0, 0], y=[-1, 8], pen='red')        
        
         # Add a plot for each port
-        for n_row in range(self.known_pilot_ports):
+        for n_row in range(len(self.known_pilot_ports)):
             # Create the plot handle
             poke_plot = self.plot.plot(
                 x=[0],
@@ -371,14 +371,18 @@ class Plot(QtWidgets.QWidget):
             poked_port = value['poked_port']
             
             # Find which pilot this is
-            try:
-                kpp_idx = self.known_pilot_ports.index((poked_pilot, poked_port))
-            except ValueError:
-                self.logger.debug(
-                    'unknown poke received: {} {}'.format(
-                    poked_pilot, poked_port))
+            #~ try:
+                #~ kpp_idx = self.known_pilot_ports.index((poked_pilot, poked_port))
+            #~ except ValueError:
+                #~ self.logger.debug(
+                    #~ 'unknown poke received: {} {}'.format(
+                    #~ poked_pilot, poked_port))
+            
+            
+            kpp_idx = self.known_pilot_ports.index((poked_pilot, poked_port))
             
             # Store the time
+            print("kpppd = {}; kpp_idx = {}".format(self.known_pilot_ports_poke_data, kpp_idx))
             kpp_data = self.known_pilot_ports_poke_data[kpp_idx]
             kpp_data.append(timestamp_sec)
             

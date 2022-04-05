@@ -310,7 +310,7 @@ class PAFT(Task):
             ('rpi12', 'L'),
             ('rpi12', 'R'),
             ]
-        poked_port_cycle = itertools.cycle(known_pilot_ports)
+        self.poked_port_cycle = itertools.cycle(known_pilot_ports)
         
         
         ## For reporting data to the Terminal and plots
@@ -375,7 +375,7 @@ class PAFT(Task):
         # subject is needed by core.terminal.Terminal.l_data
         # pilot is needed by networking.station.Terminal_Station.l_data
         # timestamp and continuous are needed by subject.Subject.data_thread
-        poked_pilot, poked_port = next(poked_port_cycle)
+        poked_pilot, poked_port = next(self.poked_port_cycle)
         self.node.send(
             to='_T',
             key='DATA',
