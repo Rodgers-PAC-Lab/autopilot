@@ -411,7 +411,7 @@ class Plot(QtWidgets.QWidget):
                     'unknown poke received: {}'.format(poked_port))
                 kpp_idx = None
             
-            port_plot_l[kpp_idx].setSymbolBrush('w')
+            self.octagon_port_plot_l[kpp_idx].setSymbolBrush('w')
             
         if 'timestamp_reward' in value.keys():
             #self.timestamp_reward_l.append(value['timestamp_reward'])
