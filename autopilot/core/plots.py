@@ -12,6 +12,7 @@ Note:
 """
 
 # Classes for plots
+import datetime
 import logging
 import os
 from collections import deque
@@ -209,8 +210,22 @@ class Plot(QtWidgets.QWidget):
         # For storing data that we receive
         self.chosen_stimulus_l = []
         self.chosen_response_l = []
-        self.poked_port_d = {}
-
+        self.known_pilot_ports = [
+            ('rpi09', 'L'),
+            ('rpi09', 'R'),
+            ('rpi10', 'L'),
+            ('rpi10', 'R'),
+            ('rpi11', 'L'),
+            ('rpi11', 'R'),
+            ('rpi12', 'L'),
+            ('rpi12', 'R'),
+            ]
+        
+        # These are created in init_plots
+        self.known_pilot_ports_poke_data = []
+        self.known_pilot_ports_poke_plot = []
+        
+        
         ## Station
         # Start the listener, subscribes to terminal_networking that will broadcast data
         self.listens = {
@@ -267,19 +282,24 @@ class Plot(QtWidgets.QWidget):
         self.plot.setRange(xRange=[0, 30 * 60])
        
         # Add the current time
-        line_of_current_time = self.plot.plot(
+        self.line_of_current_time = self.plot.plot(
             x=[0, 0], y=[-1, 8], pen='red')        
        
         # Add a plot for each port
-        self.plot_poked_port_l = []
-        for n_row in range(8):
+        for n_row in range(self.known_pilot_ports):
+            # Create the plot handle
             poke_plot = self.plot.plot(
                 x=[0],
                 y=np.array([n_row]),
                 pen=None, symbolBrush=(255, 0, 0), 
                 symbolPen=None, symbol='arrow_down',
                 )
-            self.plot_poked_port_l.append(poke_plot)        
+            
+            # Store
+            self.known_pilot_ports_poke_plot.append(poke_plot)
+            
+            # Also use this list to store the times of the pokes
+            self.known_pilot_ports_poke_data.append([])
 
     @gui_event
     def l_start(self, value):
@@ -313,7 +333,10 @@ class Plot(QtWidgets.QWidget):
         Args:
             value (dict): Value field of a data message sent during a task.
         """
+        # Announce
         self.logger.debug('Plot.l_data: received {}'.format(value))
+        
+        # Return if we're not ready to take data
         if self.state == "INITIALIZING":
             self.logger.debug('returning from l_data, still initializing')
             return
@@ -327,34 +350,52 @@ class Plot(QtWidgets.QWidget):
                 'setting start time to {}'.format(value['timestamp_trial_start']))
             self.start_time = datetime.datetime.fromisoformat(
                 value['timestamp_trial_start'])
+
+        # Get the timestamp of this message
+        if 'timestamp' in value:
+            timestamp_dt = datetime.datetime.fromisoformat(value['timestamp'])
+            timestamp_sec = (timestamp_dt - self.start_time).total_seconds()
+            self.line_of_current_time.setData(
+                x=[timestamp_sec, timestamp_sec], y=[-1, 9])
         
         # Store the data received
         if 'chosen_stimulus' in value.keys():
             self.chosen_stimulus_l.append(value['chosen_stimulus'])
         if 'chosen_response' in value.keys():
             self.chosen_stimulus_l.append(value['chosen_response'])
+        
+        # Store the time of the poke
         if 'poked_port' in value.keys():
-            assert 'timestamp' in value.keys()
-            # Create new entry if needed 
-            if value['poked_port'] not in self.poked_port_d:
-                self.poked_port_d[value['poked_port']] = []
+            # Extract data
+            poked_pilot = value['poked_pilot']
+            poked_port = value['poked_port']
             
-            # Add time of poke
-            self.poked_port_d[value['poked_port']].append(value['timestamp'])
+            # Find which pilot this is
+            try:
+                kpp_idx = self.known_pilot_ports.index((poked_pilot, poked_port))
+            except ValueError:
+                self.logger.debug(
+                    'unknown poke received: {} {}'.format(
+                    poked_pilot, poked_port))
+            
+            # Store the time
+            kpp_data = self.known_pilot_ports_poke_data[kpp_idx]
+            kpp_data.append(timestamp_sec)
+            
+            # Update the plot
+            self.known_pilot_ports_poke_plot[kpp_idx].setData(
+                x=kpp_data,
+                y=np.array([kpp_idx] * len(kpp_data)),
+                )
 
         # If we received a trial_num, then update the N_trials counter
-        # and set the XRange
         if 'trial_num' in value.keys():
-            # Store tis as last_trial
+            # Store this as last_trial
             self.last_trial = value.pop('trial_num')
             
             # Set the textbox
             self.info['N Trials'].setText("{}".format(self.last_trial))
         
-        # Update time of current line
-        if 'timestamp' in value:
-            timestamp_dt = datetime.datetime.from_timestamp(value['timestamp'])
-            print (self.start_time, timestamp_dt, (timestamp_dt - self.start_time).total_seconds())
 
     @gui_event
     def l_stop(self, value):

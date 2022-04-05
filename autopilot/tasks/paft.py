@@ -382,7 +382,7 @@ class PAFT(Task):
                 'pilot': prefs.get('NAME'),
                 'continuous': True,
                 'poked_port': 'L',
-                'poked_pilot': 'rpi03',
+                'poked_pilot': 'rpi10',
                 'poked_int': 3,
                 'timestamp': datetime.datetime.now().isoformat(),
                 },
