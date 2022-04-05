@@ -209,7 +209,7 @@ class Plot(QtWidgets.QWidget):
         # For storing data that we receive
         self.chosen_stimulus_l = []
         self.chosen_response_l = []
-        self.poked_port_l = []
+        self.poked_port_d = {}
 
         ## Station
         # Start the listener, subscribes to terminal_networking that will broadcast data
@@ -264,14 +264,22 @@ class Plot(QtWidgets.QWidget):
         self.layout.addWidget(self.plot, 8)
 
         # Set xlim
-        self.xrange = range(0, self.x_width)
-        self.plot.setXRange(self.xrange[0], self.xrange[-1])
+        self.plot.setRange(xRange=[0, 30 * 60])
        
-        # Add a plot for the trial_circles
-        self.trial_circles = pg.PlotDataItem(
-            x=np.arange(300), y=np.arange(300) / 300, 
-            connect='all', symbol='o')
-        self.plot.addItem(self.trial_circles)
+        # Add the current time
+        line_of_current_time = self.plot.plot(
+            x=[0, 0], y=[-1, 8], pen='red')        
+       
+        # Add a plot for each port
+        self.plot_poked_port_l = []
+        for n_row in range(8):
+            poke_plot = self.plot.plot(
+                x=[0],
+                y=np.array([n_row]),
+                pen=None, symbolBrush=(255, 0, 0), 
+                symbolPen=None, symbol='arrow_down',
+                )
+            self.plot_poked_port_l.append(poke_plot)        
 
     @gui_event
     def l_start(self, value):
@@ -318,8 +326,13 @@ class Plot(QtWidgets.QWidget):
             self.chosen_stimulus_l.append(value['chosen_response'])
         if 'poked_port' in value.keys():
             assert 'timestamp' in value.keys()
-            self.poked_port_l.append((value['poked_port'], value['timestamp']))
+            # Create new entry if needed 
+            if value['poked_port'] not in self.poked_port_d:
+                self.poked_port_d[value['poked_port']] = []
             
+            # Add time of poke
+            self.poked_port_d[value['poked_port']].append(value['timestamp'])
+
         # If we received a trial_num, then update the N_trials counter
         # and set the XRange
         if 'trial_num' in value.keys():
@@ -328,16 +341,6 @@ class Plot(QtWidgets.QWidget):
             
             # Set the textbox
             self.info['N Trials'].setText("{}".format(self.last_trial))
-            
-            # Set self.xrange
-            self.xrange = range(
-                self.last_trial - self.x_width + 1, 
-                self.last_trial + 1)
-            
-            # Set the XRange on the plot
-            self.plot.setXRange(self.xrange[0], self.xrange[-1])
-        
-        
         
         # Plot
         xvals = np.arange(self.last_trial - 15, self.last_trial - 5)
