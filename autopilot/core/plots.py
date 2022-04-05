@@ -321,11 +321,12 @@ class Plot(QtWidgets.QWidget):
             self.logger.debug('returning from l_data, now idle')
             return
         
-        # Get the start time
-        if 'timestamp' in value and self.start_time is None:
+        # Use the start time of the first trial
+        if 'timestamp_trial_start' in value and self.start_time is None:
             self.logger.debug(
-                'setting start time to {}'.format(value['timestamp']))
-            self.start_time = value['timestamp']
+                'setting start time to {}'.format(value['timestamp_trial_start']))
+            self.start_time = datetime.datetime.fromisoformat(
+                value['timestamp_trial_start'])
         
         # Store the data received
         if 'chosen_stimulus' in value.keys():
@@ -352,7 +353,8 @@ class Plot(QtWidgets.QWidget):
         
         # Update time of current line
         if 'timestamp' in value:
-            print (self.start_time, value['timestamp'])
+            timestamp_dt = datetime.datetime.from_timestamp(value['timestamp'])
+            print (self.start_time, timestamp_dt, (timestamp_dt - self.start_time).total_seconds())
 
     @gui_event
     def l_stop(self, value):

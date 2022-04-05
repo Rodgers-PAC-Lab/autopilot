@@ -299,7 +299,7 @@ class PAFT(Task):
         self.init_hardware()
         
         
-        ## For reporting'
+        ## For reporting data to the Terminal and plots
         # With instance=True, I get a threading error about current event loop
         self.node = Net_Node(
             id="T_{}".format(prefs.get('NAME')),
