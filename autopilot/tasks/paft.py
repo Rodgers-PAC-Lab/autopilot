@@ -297,6 +297,20 @@ class PAFT(Task):
         ## Init hardware -- this sets self.hardware, self.pin_id, and
         ## assigns self.handle_trigger to gpio callbacks
         self.init_hardware()
+
+
+        ## This is used to report fake pokes
+        known_pilot_ports = [
+            ('rpi09', 'L'),
+            ('rpi09', 'R'),
+            ('rpi10', 'L'),
+            ('rpi10', 'R'),
+            ('rpi11', 'L'),
+            ('rpi11', 'R'),
+            ('rpi12', 'L'),
+            ('rpi12', 'R'),
+            ]
+        poked_port_cycle = itertools.cycle(known_pilot_ports)
         
         
         ## For reporting data to the Terminal and plots
@@ -361,6 +375,7 @@ class PAFT(Task):
         # subject is needed by core.terminal.Terminal.l_data
         # pilot is needed by networking.station.Terminal_Station.l_data
         # timestamp and continuous are needed by subject.Subject.data_thread
+        poked_pilot, poked_port = next(poked_port_cycle)
         self.node.send(
             to='_T',
             key='DATA',
@@ -368,10 +383,9 @@ class PAFT(Task):
                 'subject': self.subject,
                 'pilot': prefs.get('NAME'),
                 'continuous': True,
-                'poked_port': 'L',
-                'poked_pilot': 'rpi10',
-                'poked_int': 3,
-                'timestamp': datetime.datetime.now().isoformat(),
+                'poked_port': poked_port,
+                'poked_pilot': poked_pilot,
+                'timestamp': timestamp_response,
                 },
             )
         self.node.send(
@@ -381,10 +395,9 @@ class PAFT(Task):
                 'subject': self.subject,
                 'pilot': prefs.get('NAME'),
                 'continuous': True,
-                'poked_port': 'L',
-                'poked_pilot': 'rpi10',
-                'poked_int': 3,
-                'timestamp': datetime.datetime.now().isoformat(),
+                'poked_port': poked_port,
+                'poked_pilot': poked_pilot,
+                'timestamp': timestamp_response,
                 },
             )            
 
