@@ -478,4 +478,10 @@ class PAFT(Task):
         This is a placeholder to remind me of that.
         """
         self.logger.debug('end: entering function')
+        
+        # This sock.close seems to be necessary to be able to communicate again
+        self.node.sock.close()
+        self.node.release()
+        
         super(PAFT, self).end(*args, **kwargs)
+

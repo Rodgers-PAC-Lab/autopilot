@@ -452,7 +452,7 @@ class Plot(QtWidgets.QWidget):
 
         """
         # Clear the plots
-        self.octagon_plot.clear()
+        self.plot_octagon.clear()
         self.timecourse_plot.clear()
         
         # Stop the timer
@@ -463,6 +463,11 @@ class Plot(QtWidgets.QWidget):
         # Otherwise the next session will be using the same ones
         self.known_pilot_ports_poke_plot = []
         self.known_pilot_ports_poke_data = []
+
+        # Close the socket
+        # This sock.close seems to be necessary to be able to communicate again
+        self.node.sock.close()
+        self.node.release()        
 
         self.state = 'IDLE'
 
