@@ -282,7 +282,7 @@ class ex_PaftPlot(Task):
         base class `Task`. This function could be removed if there is
         no hardware actually connected and/or defined in HARDWARE.
         """
-        super(exPaftPlot, self).init_hardware(*args, **kwargs)
+        super(ex_PaftPlot, self).init_hardware(*args, **kwargs)
 
     def handle_trigger(self, pin, level=None, tick=None):
         """Handle a GPIO trigger, overriding superclass.
@@ -344,5 +344,5 @@ class ex_PaftPlot(Task):
         self.node.sock.close()
         self.node.release()
         
-        super(exPaftPlot, self).end(*args, **kwargs)
+        super(ex_PaftPlot, self).end(*args, **kwargs)
 
