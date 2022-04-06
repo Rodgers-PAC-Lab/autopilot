@@ -463,11 +463,12 @@ class Plot(QtWidgets.QWidget):
         # Otherwise the next session will be using the same ones
         self.known_pilot_ports_poke_plot = []
         self.known_pilot_ports_poke_data = []
-
-        # Close the socket
-        # This sock.close seems to be necessary to be able to communicate again
-        self.node.sock.close()
-        self.node.release()        
+        
+        # Reinit the plots to create new traces and things
+        self.init_plots()
+        
+        # Don't close the Net_Node socket now or we can't receive again
+        # Although find a way to close it when the user closes the Terminal
 
         self.state = 'IDLE'
 
