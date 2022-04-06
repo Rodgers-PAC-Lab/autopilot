@@ -1,48 +1,20 @@
-"""
-Classes to plot data in the GUI.
-
-.. todo::
-
-    Add all possible plot objects and options in list.
-
-Note:
-    Plot objects need to be added to :data:`~.plots.PLOT_LIST` in order to be reachable.
-
-
-"""
+"""Classes to plot data in the GUI."""
 
 # Classes for plots
 import datetime
 import logging
 import os
-from collections import deque
 import numpy as np
 import PySide2 # have to import to tell pyqtgraph to use it
-import pandas as pd
 from PySide2 import QtCore
 from PySide2 import QtWidgets
 import pyqtgraph as pg
-from time import time, sleep
-from itertools import count
 from functools import wraps
-from threading import Event, Thread
-from queue import Queue, Empty, Full
-#import cv2
-pg.setConfigOptions(antialias=True, imageAxisOrder='row-major')
-
-# from pyqtgraph.widgets.RawImageWidget import RawImageWidget, RawImageGLWidget
-
 import autopilot
-from autopilot import prefs
-from autopilot.core import styles
-from ..utils.invoker import InvokeEvent, Invoker, get_invoker
-from autopilot.networking import Net_Node
-from autopilot.core.loggers import init_logger
+from ..utils.invoker import InvokeEvent, get_invoker
 
-
-############
-# Plot list at the bottom!
-###########
+# pg config
+pg.setConfigOptions(antialias=True, imageAxisOrder='row-major')
 
 def gui_event(fn):
     """
@@ -81,7 +53,7 @@ class Plot_Widget(QtWidgets.QWidget):
         # type: () -> None
         QtWidgets.QWidget.__init__(self)
 
-        self.logger = init_logger(self)
+        self.logger = autopilot.core.loggers.init_logger(self)
 
 
         # We should get passed a list of pilots to keep ourselves in order after initing
@@ -128,11 +100,19 @@ class Plot_Widget(QtWidgets.QWidget):
 
 
 class Plot(QtWidgets.QWidget):
-    """
-    Widget that hosts a :class:`pyqtgraph.PlotWidget` and manages
-    graphical objects for one pilot depending on the task.
+    """Displays data for a single Pilot, within the overall Terminal.
+    
+    This version has been heavily customized and only works for PAFT
+    tasks. TODO: allow different tasks to define their own Plot.
+    
+    This object inherits from QWidget. It lives inside a QVBoxLayout
+    rendering the other Pilots. This is handled by the class Plot_Widget.
+    
+    This object contains other Widgets, corresponding to (for example)
+    an infobox and one or more graphs.
 
-    **listens**
+    This object contains a Net_Node that listens for messages. The
+    following messages are accepted:
 
     +-------------+------------------------+-------------------------+
     | Key         | Method                 | Description             |
@@ -143,66 +123,43 @@ class Plot(QtWidgets.QWidget):
     +-------------+------------------------+-------------------------+
     | **'STOP'**  | :meth:`~.Plot.l_stop`  | stop the task           |
     +-------------+------------------------+-------------------------+
-    | **'PARAM'** | :meth:`~.Plot.l_param` | change some parameter   |
+    | **'STATE'** | :meth:`~.Plot.l_state` | TBD                     |
     +-------------+------------------------+-------------------------+
-
-    **Plot Parameters**
-
-    The plot is built from the ``PLOT={data:plot_element}`` mappings described in the :class:`~autopilot.tasks.task.Task` class.
-    Additional parameters can be specified in the ``PLOT`` dictionary. Currently:
-
-    * **continuous** (bool): whether the data should be plotted against the trial number (False or NA) or against time (True)
-    * **chance_bar** (bool): Whether to draw a red horizontal line at chance level (default: 0.5)
-    * **chance_level** (float): The position in the y-axis at which the ``chance_bar`` should be drawn
-    * **roll_window** (int): The number of trials :class:`~.Roll_Mean` take the average over.
-
-    Attributes:
-        pilot (str): The name of our pilot, used to set the identity of our socket, specifically::
-
-            'P_{pilot}'
-
-        infobox (:class:`QtWidgets.QFormLayout`): Box to plot basic task information like trial number, etc.
-        info (dict): Widgets in infobox:
-
-            * 'N Trials': :class:`QtWidgets.QLabel`,
-            * 'Runtime' : :class:`.Timer`,
-            * 'Session' : :class:`QtWidgets.QLabel`,
-            * 'Protocol': :class:`QtWidgets.QLabel`,
-            * 'Step'    : :class:`QtWidgets.QLabel`
-
-        plot (:class:`pyqtgraph.PlotWidget`): The widget where we draw our plots
-        plot_params (dict): A dictionary of plot parameters we receive from the Task class
-        data (dict): A dictionary of the data we've received
-        plots (dict): The collection of plots we instantiate based on `plot_params`
-        node (:class:`.Net_Node`): Our local net node where we listen for data.
-        state (str): state of the pilot, used to keep plot synchronized.
     """
 
-    def __init__(self, pilot, x_width=50, parent=None):
+    def __init__(self, pilot, parent=None):
+        """Initialize a new Plot for a single pilot.
+        
+        Arguments:
+            pilot (str): The name of the corresponding pilot.
+                Our Net_Node will be named P_{}.format(pilot).
+                Messages to this Net_Node will be handled by this object.
+            
+            parent (:class: `Plot_Widget`):
+                The `Plot_Widget` in which we live.
+                I don't think this is used by anything.
         """
-        Args:
-            pilot (str): The name of our pilot
-            x_width (int): How many trials in the past should we plot?
-        """
+        # Superclass init (Qt stuff)
         super(Plot, self).__init__()
         
         # Init logger
-        self.logger = init_logger(self)
-        self.logger.debug('inside __init__')
+        self.logger = autopilot.core.loggers.init_logger(self)
 
-        # Init some variables
+        # Capture these arguments
         self.parent = parent
-        self.session_trials = 0
-        self.info = {}
+        self.pilot = pilot
+        
+        # Keep track of our `state`. This can be IDLE, INITIALIZING, or RUNNING
+        # Used to disregard messages when we're not able to handle them yet.
         self.state = "IDLE"
+        
+        # Qt magic?
         self.invoker = get_invoker()
 
-        # The name of our pilot, used to listen for events
-        self.pilot = pilot
-
-        # For storing data that we receive
-        self.chosen_stimulus_l = []
-        self.chosen_response_l = []
+        
+        ## Task specific stuff
+        # These are the possible ports to display
+        # TODO: receive these from the Pilot? Or how to handle multiple boxes?
         self.known_pilot_ports = [
             'rpi09_L',
             'rpi09_R',
@@ -213,9 +170,13 @@ class Plot(QtWidgets.QWidget):
             'rpi12_L',
             'rpi12_R', 
             ]
-        
-        # These are created in init_plots
+            
+        # These are used to store data we receive over time
+        self.chosen_stimulus_l = []
+        self.chosen_response_l = []
         self.known_pilot_ports_poke_data = []
+        
+        # These are used to store handles to different graph traces
         self.known_pilot_ports_poke_plot = []
         
         
@@ -224,33 +185,38 @@ class Plot(QtWidgets.QWidget):
 
         
         ## Station
-        # Start the listener, subscribes to terminal_networking that will broadcast data
+        # Define listens to be called on each message
         self.listens = {
-            'START' : self.l_start, # Receiving a new task
-            'DATA' : self.l_data, # Receiving a new datapoint
+            'START' : self.l_start,
+            'DATA' : self.l_data,
             'CONTINUOUS': self.l_data,
             'STOP' : self.l_stop,
-            'PARAM': self.l_param, # changing some param
+            #'PARAM': self.l_param,
             'STATE': self.l_state
         }
-
-        self.node = Net_Node(
+        
+        # Start the Net_Node
+        self.node = autopilot.networking.Net_Node(
             id='P_{}'.format(self.pilot),
             upstream="T",
-            port=prefs.get('MSGPORT'),
+            port=autopilot.prefs.get('MSGPORT'),
             listens=self.listens,
             instance=True)
 
     @gui_event
     def init_plots(self):
-        """
-        Make pre-task GUI objects and set basic visual parameters of plot widgets
-        """
-        # Announce
-        self.logger.debug('inside init_plots')
+        """Initalize our contained Widgets and graphs.
         
-        # This creates a horizontal box layout for all the plot widgets,
-        # such as the info box and the plot.
+        This creates the following Widgets in an QHBoxLayout:
+            infobox (QFormLayout) :
+                Lists text results, such as n_trials
+            plot_octagon (pg.PlotWidget) :
+                Plot of the current status of the octagon
+                A separate circle displays each port
+            plot_timecourse (pg.PlotWidget) :
+                Plot of the pokes over time
+        """
+        ## Ceates a horizontal box layout for all the sub-widgets
         self.layout = QtWidgets.QHBoxLayout()
         self.layout.setContentsMargins(2,2,2,2)
         self.setLayout(self.layout)
@@ -259,18 +225,14 @@ class Plot(QtWidgets.QWidget):
         ## Widget 1: Infobox
         # Create the first widget: an infobox for n_trials, etc
         self.infobox = QtWidgets.QFormLayout()
-        self.n_trials = count()
-        self.session_trials = 0
-        self.info = {
+        self.infobox_items = {
             'N Trials': QtWidgets.QLabel(),
             'Runtime' : Timer(),
-            'Session' : QtWidgets.QLabel(),
-            'Protocol': QtWidgets.QLabel(),
-            'Step'    : QtWidgets.QLabel()
+            'Last poke': QtWidgets.QLabel(),
         }
         
         # Add rows to infobox
-        for k, v in self.info.items():
+        for k, v in self.infobox_items.items():
             self.infobox.addRow(k, v)
         
         # Add to layout
@@ -295,15 +257,15 @@ class Plot(QtWidgets.QWidget):
                 pen=None, symbolBrush=(255, 0, 0), symbolPen=None, symbol='o',
                 )
             
-            # Text
+            # Store the handle to the plot
+            self.octagon_port_plot_l.append(port_plot)
+            
+            # Text label for each port
             txt = pg.TextItem(self.known_pilot_ports[n_port],
                 color='white', anchor=(0.5, 0.5))
             txt.setPos(x_pos * .8, y_pos * .8)
             txt.setAngle(np.mod(theta * 180 / np.pi, 180) - 90)
             self.plot_octagon.addItem(txt)
-            
-            # Store the handle
-            self.octagon_port_plot_l.append(port_plot)
         
         # Set ranges
         self.plot_octagon.setRange(xRange=(-1, 1), yRange=(-1, 1))
@@ -355,38 +317,34 @@ class Plot(QtWidgets.QWidget):
         # Add to layout
         self.layout.addWidget(self.timecourse_plot, 8)
 
-
     @gui_event
     def l_start(self, value):
-
-        self.logger.debug('inside l_start')
-
+        """Start a new session"""
+        # If we're already running, log a warning, something didn't shut down
         if self.state in ("RUNNING", "INITIALIZING"):
-            self.logger.debug('returning from l_start, already running')
+            self.logger.debug(
+                'Plot was told to start but the state is '
+                'already {}'.format(self.state))
             return
 
-        self.state = "INITIALIZING"
-
         # set infobox stuff
-        self.n_trials = count()
-        self.session_trials = 0
-        self.info['N Trials'].setText(str(value['current_trial']))
         self.info['Runtime'].start_timer()
-        self.info['Step'].setText(str(value['step']))
-        self.info['Session'].setText(str(value['session']))
-        self.info['Protocol'].setText(value['step_name'])
+
+        # Set state
         self.state = 'RUNNING'
         
+        # Set time
         self.start_time = None
         self.local_start_time = None
-
         
+        # Update every so often
         self.update_timer = pg.QtCore.QTimer()
         self.update_timer.timeout.connect(self.update_time_bar)
         self.update_timer.start(50)        
     
+    @gui_event
     def update_time_bar(self):
-        # Use current time to approximately update timebar
+        """Use current time to approximately update timebar"""
         if self.local_start_time is not None:
             current_time = datetime.datetime.now()
             approx_time_in_session = (
@@ -396,28 +354,23 @@ class Plot(QtWidgets.QWidget):
 
     @gui_event
     def l_data(self, value):
-        """
-        Receive some data, if we were told to plot it, stash the data
-        and update the assigned plot.
+        """Receive data from a running task.
 
         Args:
             value (dict): Value field of a data message sent during a task.
         """
-        # Announce
-        self.logger.debug('Plot.l_data: received {}'.format(value))
-        
         # Return if we're not ready to take data
-        if self.state == "INITIALIZING":
-            self.logger.debug('returning from l_data, still initializing')
-            return
-        if self.state == "IDLE":
-            self.logger.debug('returning from l_data, now idle')
+        if self.state in ["INITIALIZING", "IDLE"]:
+            self.logger.debug(
+                'l_data returning because state is {}'.format(self.state))
             return
         
-        # Use the start time of the first trial
+        # Use the start time of the first trial to define `self.start_time`
+        # This is time zero on the graph
         if 'timestamp_trial_start' in value and self.start_time is None:
             self.logger.debug(
-                'setting start time to {}'.format(value['timestamp_trial_start']))
+                'setting start time '
+                'to {}'.format(value['timestamp_trial_start']))
             self.start_time = datetime.datetime.fromisoformat(
                 value['timestamp_trial_start'])
             
@@ -428,15 +381,18 @@ class Plot(QtWidgets.QWidget):
         if 'timestamp' in value:
             timestamp_dt = datetime.datetime.fromisoformat(value['timestamp'])
             timestamp_sec = (timestamp_dt - self.start_time).total_seconds()
+            
+            # Update the current time line
             self.line_of_current_time.setData(
                 x=[timestamp_sec, timestamp_sec], y=[-1, 9])
         
-        # Store the data received
+        # A new "rewarded_port" was just chosen. Mark it green.
+        # This means it is the beginning of a new trial.
         if 'rewarded_port' in value.keys():
             # Extract data
             poked_port = value['rewarded_port']
             
-            # Turn the corresponding port white
+            # Find the matching kpp_idx
             try:
                 kpp_idx = self.known_pilot_ports.index(poked_port)
             except ValueError:
@@ -451,11 +407,13 @@ class Plot(QtWidgets.QWidget):
                 else:
                     opp.setSymbolBrush('w')
         
+        # This would be used to store the timestamps of rewards
         if 'timestamp_reward' in value.keys():
             #self.timestamp_reward_l.append(value['timestamp_reward'])
             pass
         
-        # Store the time of the poke
+        # A port was just poked
+        # Log this, mark the port red, plot the poke time
         if 'poked_port' in value.keys():
             # Extract data
             poked_port = value['poked_port']
@@ -480,53 +438,28 @@ class Plot(QtWidgets.QWidget):
                     y=np.array([kpp_idx] * len(kpp_data)),
                     )
                 
-                # Turn the correspond poke circle green
+                # Turn the correspond poke circle red
                 self.octagon_port_plot_l[kpp_idx].setSymbolBrush('r')
 
-        # If we received a trial_num, then update the N_trials counter
-        if 'trial_num' in value.keys():
-            # Store this as last_trial
-            self.last_trial = value.pop('trial_num')
-            
+        # If we received a trial_in_session, then update the N_trials counter
+        if 'trial_in_session' in value.keys():
             # Set the textbox
-            self.info['N Trials'].setText("{}".format(self.last_trial))
-        
+            self.infobox_items['N Trials'].setText("{}".format(
+                value['trial_in_session'])
 
     @gui_event
     def l_stop(self, value):
-        """
-        Clean up the plot objects.
+        """Set all contained objects back to defaults before the next session
 
-        Args:
-            value (dict): if "graduation" is a key, don't stop the timer.
         """
-        self.data = {}
-        self.plots = {}
+        # Clear the plots
+        self.octagon_plot.clear()
         self.timecourse_plot.clear()
-        try:
-            if isinstance(value, str) or ('graduation' not in value.keys()):
-                self.info['Runtime'].stop_timer()
-        except:
-            self.info['Runtime'].stop_timer()
-
-
-
-        self.info['N Trials'].setText('')
-        self.info['Step'].setText('')
-        self.info['Session'].setText('')
-        self.info['Protocol'].setText('')
+        
+        # Stop the timer
+        self.infobox_items['Runtime'].stop_timer()
 
         self.state = 'IDLE'
-
-    def l_param(self, value):
-        """
-        Warning:
-            Not implemented
-
-        Args:
-            value:
-        """
-        pass
 
     def l_state(self, value):
         """
@@ -535,501 +468,8 @@ class Plot(QtWidgets.QWidget):
 
         Args:
             value (:attr:`.Pilot.state`): the state of our pilot
-
         """
-
         if (value in ('STOPPING', 'IDLE')) and self.state == 'RUNNING':
             #self.l_stop({})
             pass
 
-
-
-
-
-###################################
-# Curve subclasses
-class Point(pg.PlotDataItem):
-    """
-    A simple point.
-
-    Attributes:
-        brush (:class:`QtWidgets.QBrush`)
-        pen (:class:`QtWidgets.QPen`)
-    """
-
-    def __init__(self, color=(255,0,0), size=5, **kwargs):
-        """
-        Args:
-            color (tuple): RGB color of points
-            size (int): width in px.
-        """
-        super(Point, self).__init__()
-
-        self.continuous = False
-        #~ if 'continuous' in kwargs.keys():
-            #~ self.continuous = kwargs['continuous']
-
-        self.brush = pg.mkBrush(color)
-        self.pen   = pg.mkPen(color, width=size)
-        self.size  = size
-
-    def update(self, data):
-        """
-        Args:
-            data (:class:`numpy.ndarray`): an x_width x 2 array where
-                column 0 is trial number and column 1 is the value,
-                where value can be "L", "C", "R" or a float.
-        """
-        # data should come in as an n x 2 array,
-        # 0th column - trial number (x), 1st - (y) value
-        data[data=="R"] = 1
-        data[data=="C"] = 0.5
-        data[data=="L"] = 0
-        data = data.astype(np.float)
-        print(data)
-        print(data[..., 0])
-        print(data[..., 1])
-
-        #~ self.scatter.setData(x=data[...,0], y=data[...,1], size=self.size,
-                             #~ brush=self.brush, symbol='o', pen=self.pen)
-        
-        print(self.scatter)
-        self.scatter.setData(
-            x=np.array([0., 10.,20.,30.]), y=np.array([0., 1., 2., 3.]), 
-            size=12, symbol='o', brush=self.brush, pen=self.pen)
-
-class Line(pg.PlotDataItem):
-    """
-    A simple line
-    """
-
-    def __init__(self, color=(0,0,0), size=1, **kwargs):
-        super(Line, self).__init__(**kwargs)
-
-        self.brush = pg.mkBrush(color)
-        self.pen = pg.mkPen(color, width=size)
-        self.size = size
-
-    def update(self, data):
-        data[data=="R"] = 1
-        data[data=="L"] = 0
-        data[data=="C"] = 0.5
-        data = data.astype(np.float)
-
-        self.curve.setData(data[...,0], data[...,1])
-
-
-
-class Segment(pg.PlotDataItem):
-    """
-    A line segment that draws from 0.5 to some endpoint.
-    """
-    def __init__(self, **kwargs):
-        # type: () -> None
-        super(Segment, self).__init__(**kwargs)
-
-    def update(self, data):
-        """
-        data is doubled and then every other value is set to 0.5,
-        then :meth:`~pyqtgraph.PlotDataItem.curve.setData` is used with
-        `connect='pairs'` to make line segments.
-
-        Args:
-            data (:class:`numpy.ndarray`): an x_width x 2 array where
-                column 0 is trial number and column 1 is the value,
-                where value can be "L", "C", "R" or a float.
-        """
-        # data should come in as an n x 2 array,
-        # 0th column - trial number (x), 1st - (y) value
-        data[data=="R"] = 1
-        data[data=="L"] = 0
-        data[data=="C"] = 0.5
-        data = data.astype(np.float)
-
-        xs = np.repeat(data[...,0],2)
-        ys = np.repeat(data[...,1],2)
-        ys[::2] = 0.5
-
-        self.curve.setData(xs, ys, connect='pairs', pen='k')
-
-
-class Roll_Mean(pg.PlotDataItem):
-    """
-    Shaded area underneath a rolling average.
-
-    Typically used as a rolling mean of corrects, so area above and below 0.5 is drawn.
-    """
-    def __init__(self, winsize=10, **kwargs):
-        # type: (int) -> None
-        """
-        Args:
-            winsize (int): number of trials in the past to take a rolling mean of
-        """
-        super(Roll_Mean, self).__init__()
-
-        self.winsize = winsize
-
-        self.setFillLevel(0.5)
-
-        self.series = pd.Series()
-
-        self.brush = pg.mkBrush((0,0,0,100))
-        self.setBrush(self.brush)
-
-    def update(self, data):
-        """
-        Args:
-            data (:class:`numpy.ndarray`): an x_width x 2 array where
-                column 0 is trial number and column 1 is the value.
-        """
-        # data should come in as an n x 2 array,
-        # 0th column - trial number (x), 1st - (y) value
-        data = data.astype(np.float)
-
-        self.series = pd.Series(data[...,1])
-        ys = self.series.rolling(self.winsize, min_periods=0).mean().to_numpy()
-
-        #print(ys)
-
-        self.curve.setData(data[...,0], ys, fillLevel=0.5)
-
-class Shaded(pg.PlotDataItem):
-    """
-    Shaded area for a continuous plot
-    """
-
-    def __init__(self, **kwargs):
-        super(Shaded, self).__init__()
-
-        #self.dur = float(dur) # duration of time to display points in seconds
-        self.setFillLevel(0)
-        self.series = pd.Series()
-
-        self.getBoundingParents()
-
-
-        self.brush = pg.mkBrush((0,0,0,100))
-        self.setBrush(self.brush)
-
-        self.max_num = 0
-
-
-    def update(self, data):
-        """
-        Args:
-            data (:class:`numpy.ndarray`): an x_width x 2 array where
-                column 0 is time and column 1 is the value.
-        """
-        # data should come in as an n x 2 array,
-        # 0th column - trial number (x), 1st - (y) value
-        data = data.astype(np.float)
-
-        self.max_num = float(np.abs(np.max(data[:,1])))
-
-        if self.max_num > 1.0:
-            data[:,1] = (data[:,1]/(self.max_num*2.0))+0.5
-        #print(ys)
-
-        self.curve.setData(data[...,0], data[...,1], fillLevel=0)
-
-
-
-
-class Timer(QtWidgets.QLabel):
-    """
-    A simple timer that counts... time...
-
-    Uses a :class:`QtCore.QTimer` connected to :meth:`.Timer.update_time` .
-    """
-    def __init__(self):
-        # type: () -> None
-        super(Timer, self).__init__()
-
-        self.timer = QtCore.QTimer()
-        self.timer.timeout.connect(self.update_time)
-
-        self.start_time = None
-
-    def start_timer(self, update_interval=1000):
-        """
-        Args:
-            update_interval (float): How often (in ms) the timer should be updated.
-        """
-        self.start_time = time()
-        self.timer.start(update_interval)
-
-    def stop_timer(self):
-        """
-        you can read the sign ya punk
-        """
-        self.timer.stop()
-        self.setText("")
-
-    def update_time(self):
-        """
-        Called every (update_interval) milliseconds to set the text of the timer.
-
-        """
-        secs_elapsed = int(np.floor(time()-self.start_time))
-        self.setText("{:02d}:{:02d}:{:02d}".format(int(secs_elapsed/3600), int((secs_elapsed/60))%60, secs_elapsed%60))
-
-
-class Video(QtWidgets.QWidget):
-    def __init__(self, videos, fps=None):
-        """
-        Display Video data as it is collected.
-
-        Uses the :class:`ImageItem_TimedUpdate` class to do timed frame updates.
-
-        Args:
-            videos (list, tuple): Names of video streams that will be displayed
-            fps (int): if None, draw according to ``prefs.get('DRAWFPS')``. Otherwise frequency of widget update
-
-        Attributes:
-            videos (list, tuple): Names of video streams that will be displayed
-            fps (int): if None, draw according to ``prefs.get('DRAWFPS')``. Otherwise frequency of widget update
-            ifps (int): 1/fps, duration of frame in s
-            qs (dict): Dictionary of :class:`~queue.Queue`s in which frames will be dumped
-            quitting (:class:`threading.Event`): Signal to quit drawing
-            update_thread (:class:`threading.Thread`): Thread with target=:meth:`~.Video._update_frame`
-            layout (:class:`PySide2.QtWidgets.QGridLayout`): Widget layout
-            vid_widgets (dict): dict containing widgets for each of the individual video streams.
-        """
-        super(Video, self).__init__()
-
-        self.videos = videos
-
-        if fps is None:
-            if prefs.get( 'DRAWFPS'):
-                self.fps = prefs.get('DRAWFPS')
-            else:
-                self.fps = 10
-        else:
-            self.fps = fps
-
-        self.ifps = 1.0/self.fps
-
-        self.layout = None
-        self.vid_widgets = {}
-
-
-        #self.q = Queue(maxsize=1)
-        self.qs = {}
-        self.quitting = Event()
-        self.quitting.clear()
-
-
-        self.init_gui()
-
-        self.update_thread = Thread(target=self._update_frame)
-        self.update_thread.setDaemon(True)
-        self.update_thread.start()
-
-    def init_gui(self):
-        self.layout = QtWidgets.QGridLayout()
-        self.vid_widgets = {}
-
-
-        for i, vid in enumerate(self.videos):
-            vid_label = QtWidgets.QLabel(vid)
-
-            # https://github.com/pyqtgraph/pyqtgraph/blob/3d3d0a24590a59097b6906d34b7a43d54305368d/examples/VideoSpeedTest.py#L51
-            graphicsView= pg.GraphicsView(self)
-            vb = pg.ViewBox()
-            graphicsView.setCentralItem(vb)
-            vb.setAspectLocked()
-            #img = pg.ImageItem()
-            img = ImageItem_TimedUpdate()
-            vb.addItem(img)
-
-            self.vid_widgets[vid] = (graphicsView, vb, img)
-
-            # 3 videos in a row
-            row = np.floor(i/3.)*2
-            col = i%3
-
-            self.layout.addWidget(vid_label, row,col, 1,1)
-            self.layout.addWidget(self.vid_widgets[vid][0],row+1,col,5,1)
-
-            # make queue for vid
-            self.qs[vid] = deque(maxlen=1)
-
-
-
-        self.setLayout(self.layout)
-        self.resize(600,700)
-        self.show()
-
-    def _update_frame(self):
-        """
-        Pulls frames from :attr:`.Video.qs` and feeds them to the video widgets.
-
-        Internal method, run in thread.
-        """
-        last_time = 0
-        this_time = 0
-        while not self.quitting.is_set():
-
-            for vid, q in self.qs.items():
-                data = None
-                try:
-                    data = q.popleft()
-                    self.vid_widgets[vid][2].setImage(data)
-
-                except IndexError:
-                    pass
-                except KeyError:
-                    pass
-
-            this_time = time()
-            sleep(max(self.ifps-(this_time-last_time), 0))
-            last_time = this_time
-
-
-
-
-
-    def update_frame(self, video, data):
-        """
-        Put a frame for a video stream into its queue.
-
-        If there is a waiting frame, pull it from the queue first -- it's old now.
-
-        Args:
-            video (str): name of video stream
-            data (:class:`numpy.ndarray`): video frame
-        """
-        #pdb.set_trace()
-        # cur_time = time()
-
-        try:
-            # put the new frame in there.
-            self.qs[video].append(data)
-        except KeyError:
-            return
-
-    def release(self):
-        self.quitting.set()
-
-
-class HLine(QtWidgets.QFrame):
-    """
-    A Horizontal line.
-    """
-    def __init__(self):
-        # type: () -> None
-        super(HLine, self).__init__()
-        self.setFrameShape(QtWidgets.QFrame.HLine)
-        self.setFrameShadow(QtWidgets.QFrame.Sunken)
-
-VIDEO_TIMER = None
-
-class ImageItem_TimedUpdate(pg.ImageItem):
-    """
-    Reclass of :class:`pyqtgraph.ImageItem` to update with a fixed fps.
-
-    Rather than calling :meth:`~pyqtgraph.ImageItem.update` every time a frame is updated,
-    call it according to the timer.
-
-    fps is set according to ``prefs.get('DRAWFPS')``, if not available, draw at 10fps
-
-    Attributes:
-        timer (:class:`~PySide2.QtCore.QTimer`): Timer held in ``globals()`` that synchronizes frame updates across
-            image items
-
-
-    """
-
-    def __init__(self, *args, **kwargs):
-        super(ImageItem_TimedUpdate, self).__init__(*args, **kwargs)
-
-        if globals()['VIDEO_TIMER'] is None:
-            globals()['VIDEO_TIMER'] = QtCore.QTimer()
-
-
-        self.timer = globals()['VIDEO_TIMER']
-        self.timer.stop()
-        self.timer.timeout.connect(self.update_img)
-        if prefs.get( 'DRAWFPS'):
-            self.fps = prefs.get('DRAWFPS')
-        else:
-            self.fps = 10.
-        self.timer.start(1./self.fps)
-
-
-
-
-    def setImage(self, image=None, autoLevels=None, **kargs):
-        #profile = debug.Profiler()
-
-        gotNewData = False
-        if image is None:
-            if self.image is None:
-                return
-        else:
-            gotNewData = True
-            shapeChanged = (self.image is None or image.shape != self.image.shape)
-            image = image.view(np.ndarray)
-            if self.image is None or image.dtype != self.image.dtype:
-                self._effectiveLut = None
-            self.image = image
-            if self.image.shape[0] > 2 ** 15 - 1 or self.image.shape[1] > 2 ** 15 - 1:
-                if 'autoDownsample' not in kargs:
-                    kargs['autoDownsample'] = True
-            if shapeChanged:
-                self.prepareGeometryChange()
-                self.informViewBoundsChanged()
-
-        #profile()
-
-        if autoLevels is None:
-            if 'levels' in kargs:
-                autoLevels = False
-            else:
-                autoLevels = True
-        if autoLevels:
-            img = self.image
-            while img.size > 2 ** 16:
-                img = img[::2, ::2]
-            mn, mx = np.nanmin(img), np.nanmax(img)
-            # mn and mx can still be NaN if the data is all-NaN
-            if mn == mx or np.isnan(mn) or np.isnan(mx):
-                mn = 0
-                mx = 255
-            kargs['levels'] = [mn, mx]
-
-
-        self.setOpts(update=False, **kargs)
-
-        self.qimage = None
-
-        if gotNewData:
-            self.sigImageChanged.emit()
-
-    def update_img(self):
-        """
-        Call :meth:`~ImageItem_TimedUpdate.update`
-        """
-        self.update()
-
-    def __del__(self):
-        super(ImageItem_TimedUpdate,self).__del__()
-        self.timer.stop()
-
-
-
-
-PLOT_LIST = {
-    'point':Point,
-    'segment':Segment,
-    'rollmean':Roll_Mean,
-    'shaded':Shaded,
-    'line': Line
-    # 'highlight':Highlight
-}
-"""
-A dictionary connecting plot keys to objects.
-
-TODO:
-    Just reference the plot objects.
-"""
