@@ -2,6 +2,7 @@
 
 # Classes for plots
 import datetime
+import time
 import logging
 import os
 import numpy as np
@@ -172,8 +173,6 @@ class Plot(QtWidgets.QWidget):
             ]
             
         # These are used to store data we receive over time
-        self.chosen_stimulus_l = []
-        self.chosen_response_l = []
         self.known_pilot_ports_poke_data = []
         
         # These are used to store handles to different graph traces
@@ -328,7 +327,7 @@ class Plot(QtWidgets.QWidget):
             return
 
         # set infobox stuff
-        self.info['Runtime'].start_timer()
+        self.infobox_items['Runtime'].start_timer()
 
         # Set state
         self.state = 'RUNNING'
@@ -444,8 +443,8 @@ class Plot(QtWidgets.QWidget):
         # If we received a trial_in_session, then update the N_trials counter
         if 'trial_in_session' in value.keys():
             # Set the textbox
-            self.infobox_items['N Trials'].setText("{}".format(
-                value['trial_in_session'])
+            self.infobox_items['N Trials'].setText(
+                str(value['trial_in_session']))
 
     @gui_event
     def l_stop(self, value):
@@ -458,6 +457,12 @@ class Plot(QtWidgets.QWidget):
         
         # Stop the timer
         self.infobox_items['Runtime'].stop_timer()
+        self.update_timer.stop()
+        
+        # Clear the data
+        # Otherwise the next session will be using the same ones
+        self.known_pilot_ports_poke_plot = []
+        self.known_pilot_ports_poke_data = []
 
         self.state = 'IDLE'
 
@@ -473,3 +478,184 @@ class Plot(QtWidgets.QWidget):
             #self.l_stop({})
             pass
 
+class Timer(QtWidgets.QLabel):
+    """
+    A simple timer that counts... time...
+
+    Uses a :class:`QtCore.QTimer` connected to :meth:`.Timer.update_time` .
+    """
+    def __init__(self):
+        # type: () -> None
+        super(Timer, self).__init__()
+
+        self.timer = QtCore.QTimer()
+        self.timer.timeout.connect(self.update_time)
+
+        self.start_time = None
+
+    def start_timer(self, update_interval=1000):
+        """
+        Args:
+            update_interval (float): How often (in ms) the timer should be updated.
+        """
+        self.start_time = time.time()
+        self.timer.start(update_interval)
+
+    def stop_timer(self):
+        """
+        you can read the sign ya punk
+        """
+        self.timer.stop()
+        self.setText("")
+
+    def update_time(self):
+        """
+        Called every (update_interval) milliseconds to set the text of the timer.
+
+        """
+        secs_elapsed = int(np.floor(time.time()-self.start_time))
+        self.setText("{:02d}:{:02d}:{:02d}".format(
+            int(secs_elapsed/3600), int((secs_elapsed/60))%60, secs_elapsed%60))
+
+class Video(QtWidgets.QWidget):
+    def __init__(self, videos, fps=None):
+        """
+        Display Video data as it is collected.
+
+        Uses the :class:`ImageItem_TimedUpdate` class to do timed frame updates.
+
+        Args:
+            videos (list, tuple): Names of video streams that will be displayed
+            fps (int): if None, draw according to ``prefs.get('DRAWFPS')``. Otherwise frequency of widget update
+
+        Attributes:
+            videos (list, tuple): Names of video streams that will be displayed
+            fps (int): if None, draw according to ``prefs.get('DRAWFPS')``. Otherwise frequency of widget update
+            ifps (int): 1/fps, duration of frame in s
+            qs (dict): Dictionary of :class:`~queue.Queue`s in which frames will be dumped
+            quitting (:class:`threading.Event`): Signal to quit drawing
+            update_thread (:class:`threading.Thread`): Thread with target=:meth:`~.Video._update_frame`
+            layout (:class:`PySide2.QtWidgets.QGridLayout`): Widget layout
+            vid_widgets (dict): dict containing widgets for each of the individual video streams.
+        """
+        super(Video, self).__init__()
+
+        self.videos = videos
+
+        if fps is None:
+            if prefs.get( 'DRAWFPS'):
+                self.fps = prefs.get('DRAWFPS')
+            else:
+                self.fps = 10
+        else:
+            self.fps = fps
+
+        self.ifps = 1.0/self.fps
+
+        self.layout = None
+        self.vid_widgets = {}
+
+
+        #self.q = Queue(maxsize=1)
+        self.qs = {}
+        self.quitting = Event()
+        self.quitting.clear()
+
+
+        self.init_gui()
+
+        self.update_thread = Thread(target=self._update_frame)
+        self.update_thread.setDaemon(True)
+        self.update_thread.start()
+
+    def init_gui(self):
+        self.layout = QtWidgets.QGridLayout()
+        self.vid_widgets = {}
+
+
+        for i, vid in enumerate(self.videos):
+            vid_label = QtWidgets.QLabel(vid)
+
+            # https://github.com/pyqtgraph/pyqtgraph/blob/3d3d0a24590a59097b6906d34b7a43d54305368d/examples/VideoSpeedTest.py#L51
+            graphicsView= pg.GraphicsView(self)
+            vb = pg.ViewBox()
+            graphicsView.setCentralItem(vb)
+            vb.setAspectLocked()
+            #img = pg.ImageItem()
+            img = ImageItem_TimedUpdate()
+            vb.addItem(img)
+
+            self.vid_widgets[vid] = (graphicsView, vb, img)
+
+            # 3 videos in a row
+            row = np.floor(i/3.)*2
+            col = i%3
+
+            self.layout.addWidget(vid_label, row,col, 1,1)
+            self.layout.addWidget(self.vid_widgets[vid][0],row+1,col,5,1)
+
+            # make queue for vid
+            self.qs[vid] = Queue(maxsize=1)
+
+
+
+        self.setLayout(self.layout)
+        self.resize(600,700)
+        self.show()
+
+    def _update_frame(self):
+        """
+        Pulls frames from :attr:`.Video.qs` and feeds them to the video widgets.
+
+        Internal method, run in thread.
+        """
+        last_time = 0
+        this_time = 0
+        while not self.quitting.is_set():
+
+            for vid, q in self.qs.items():
+                data = None
+                try:
+                    data = q.get_nowait()
+                    self.vid_widgets[vid][2].setImage(data)
+
+                except Empty:
+                    pass
+                except KeyError:
+                    pass
+
+            this_time = time()
+            sleep(max(self.ifps-(this_time-last_time), 0))
+            last_time = this_time
+
+    def update_frame(self, video, data):
+        """
+        Put a frame for a video stream into its queue.
+
+        If there is a waiting frame, pull it from the queue first -- it's old now.
+
+        Args:
+            video (str): name of video stream
+            data (:class:`numpy.ndarray`): video frame
+        """
+        #pdb.set_trace()
+        # cur_time = time()
+
+        try:
+            # if there's a waiting frame, it's old now so pull it.
+            _ = self.qs[video].get_nowait()
+        except Empty:
+            pass
+
+        try:
+            # put the new frame in there.
+            self.qs[video].put_nowait(data)
+        except Full:
+            return
+        except KeyError:
+            return
+
+    def release(self):
+        self.quitting.set()
+
+    
