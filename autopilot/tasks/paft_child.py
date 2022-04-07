@@ -205,7 +205,7 @@ class PAFT_Child(children.Child):
                     for frame in self.left_stim.chunks:
                         self.sound_block.append(frame) 
                 elif bdrow.side == 'right':
-                    for frame in self.left_stim.chunks:
+                    for frame in self.right_stim.chunks:
                         self.sound_block.append(frame)     
                 else:
                     raise ValueError("unrecognized side: {}".format(bdrow.side))
