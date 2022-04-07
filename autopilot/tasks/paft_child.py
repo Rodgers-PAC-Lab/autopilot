@@ -4,6 +4,7 @@ import functools
 import datetime
 import itertools
 import queue
+import pandas
 import numpy as np
 import autopilot
 from autopilot import prefs
@@ -108,8 +109,17 @@ class PAFT_Child(children.Child):
         if not self.right_error_sound.chunks:
             self.right_error_sound.chunk()
     
-    def set_sound_cycle(self, left_on=False, right_on=False):
-        """Define self.sound_cycle, to go through sounds"""
+    def set_sound_cycle(self, params):
+        """Define self.sound_cycle, to go through sounds
+        
+        params : dict
+            This comes from a message on the net node.
+            Possible keys:
+                left_on
+                right_on
+                left_mean_interval
+                right_mean_interval
+        """
         # This is just a left sound, gap, then right sound, then gap
         # And use a cycle to repeat forever
         # But this could be made more complex
@@ -123,21 +133,78 @@ class PAFT_Child(children.Child):
                     np.zeros(autopilot.stim.sound.jackclient.BLOCKSIZE, 
                     dtype='float32'))
 
-        # If left_on, append left sound and gap
+        # Extract params or use defaults
+        left_on = params.get('left_on', False)
+        right_on = params.get('right_on', False)
+        left_mean_interval = params.get('left_mean_interval', .25)
+        right_mean_interval = params.get('right_mean_interval', .25)
+        left_var_interval = params.get('left_var_interval', .001)
+        right_var_interval = params.get('right_var_interval', .001)
+
+        # Generate intervals for left and right
+        # TODO: Floor?
         if left_on:
-            for frame in self.left_stim.chunks:
-                self.sound_block.append(frame)
-            append_gap()
+            gamma_shape = (left_mean_interval ** 2) / left_var_interval
+            gamma_scale = left_var_interval / left_mean_interval
+            left_intervals = np.random.gamma(gamma_shape, gamma_scale, 100)
+        else:
+            left_intervals = np.array([])
         
-        # If right_on, append right sound and gap
         if right_on:
-            for frame in self.right_stim.chunks:
-                self.sound_block.append(frame)
-            append_gap()
+            gamma_shape = (right_mean_interval ** 2) / right_var_interval
+            gamma_scale = right_var_interval / right_mean_interval
+            right_intervals = np.random.gamma(gamma_shape, gamma_scale, 100)        
+        else:
+            right_intervals = np.array([])
         
-        # If nothing else, append gap (so it's not empty)
-        if len(self.sound_block) == 0:
-            append_gap()
+        # Sort them together
+        left_df = pandas.DataFrame.from_dict({
+            'time': np.cumsum(left_intervals),
+            'side': ['left'] * len(left_intervals),
+            })
+        right_df = pandas.DataFrame.from_dict({
+            'time': np.cumsum(right_intervals),
+            'side': ['right'] * len(right_intervals),
+            })
+        both_df = pandas.concat([left_df, right_df], axis=0).sort_values('time')
+
+        # Calculate the gap between sounds
+        # The last diff is null, will be dropped below
+        both_df['gap'] = both_df['time'].diff().shift(-1)
+
+        # Keep only those below the sound cycle length
+        both_df = both_df.loc[both_df['time'] < 10].copy()
+        assert not both_df.isnull().any().any() 
+
+        # Calculate gap size in chunks
+        both_df['gap_chunks'] = (both_df['gap'] *
+            autopilot.stim.sound.jackclient.FS / 
+            autopilot.stim.sound.jackclient.BLOCKSIZE)
+        both['gap_chunks'] = both['gap_chunks'].round().astype(np.int)
+        
+        self.logger.debug("generated both_df: {}".format(both_df))
+        
+        # Make sure there is something left
+        # If not, generate more intervals above
+        if len(both_df) < 2:
+            raise ValueError("both_df is too short")
+        
+        # Now iterate through the rows, adding the sound and the gap
+        # TODO: the gap should be shorter by the duration of the sound,
+        # and simultaneous sounds should be possible
+        for bdrow in both_df.itertuples():
+            # Append the sound
+            if bdrow.side == 'left':
+                for frame in self.left_stim.chunks:
+                    self.sound_block.append(frame) 
+            elif bdrow.side == 'right':
+                for frame in self.left_stim.chunks:
+                    self.sound_block.append(frame)     
+            else:
+                raise ValueError("unrecognized side: {}".format(bdrow.side))
+            
+            # Append the gap
+            append_gap(bdrow.gap_chunks)
         
         # Cycle so it can repeat forever
         self.sound_cycle = itertools.cycle(self.sound_block)        
@@ -438,19 +505,15 @@ class PAFT_Child(children.Child):
         self.logger.debug("recv_play with value: {}".format(value))
         
         # Extract which pokes are punished
-        left_punish = value['left_punish']
-        right_punish = value['right_punish']
+        left_punish = value.pop('left_punish')
+        right_punish = value.pop('right_punish')
         
-        # Use this to set triggers
+        # Use left_punish and right_punish to set triggers
         self.set_poke_triggers(
             left_punish=left_punish, right_punish=right_punish)
         
-        # Extract which speakers are active
-        left_on = value['left_on']
-        right_on = value['right_on']
-        
-        # Use this to update the sound cycle
-        self.set_sound_cycle(left_on=left_on, right_on=right_on)
+        # Use the remaining params to update the sound cycle
+        self.set_sound_cycle(value)
         
         # Empty queue1 and refill
         self.empty_queue1()
