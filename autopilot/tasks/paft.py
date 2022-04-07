@@ -498,29 +498,29 @@ class PAFT(Task):
         # pilot is needed by networking.station.Terminal_Station.l_data
         # timestamp and continuous are needed by subject.Subject.data_thread
         timestamp_response = datetime.datetime.now()
-        poked_port = next(self.poked_port_cycle)
-        self.node.send(
-            to='_T',
-            key='DATA',
-            value={
-                'subject': self.subject,
-                'pilot': prefs.get('NAME'),
-                'continuous': True,
-                'poked_port': poked_port,
-                'timestamp': timestamp_response.isoformat(),
-                },
-            )
-        self.node.send(
-            to='P_rpi09',
-            key='DATA',
-            value={
-                'subject': self.subject,
-                'pilot': prefs.get('NAME'),
-                'continuous': True,
-                'poked_port': poked_port,
-                'timestamp': timestamp_response.isoformat(),
-                },
-            )            
+        #~ poked_port = next(self.poked_port_cycle)
+        #~ self.node.send(
+            #~ to='_T',
+            #~ key='DATA',
+            #~ value={
+                #~ 'subject': self.subject,
+                #~ 'pilot': prefs.get('NAME'),
+                #~ 'continuous': True,
+                #~ 'poked_port': poked_port,
+                #~ 'timestamp': timestamp_response.isoformat(),
+                #~ },
+            #~ )
+        #~ self.node.send(
+            #~ to='P_rpi09',
+            #~ key='DATA',
+            #~ value={
+                #~ 'subject': self.subject,
+                #~ 'pilot': prefs.get('NAME'),
+                #~ 'continuous': True,
+                #~ 'poked_port': poked_port,
+                #~ 'timestamp': timestamp_response.isoformat(),
+                #~ },
+            #~ )            
 
         # Continue to the next stage
         self.stage_block.set()        
