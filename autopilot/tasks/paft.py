@@ -525,7 +525,7 @@ class PAFT(Task):
         # Tell those to play
         self.logger.debug('using {}'.format(port_params))
         self.send_acoustic_params(port_params)
-        time.sleep(5)
+        time.sleep(15)
     
         # Silence all of them for 5 s
         self.silence_all()
@@ -553,7 +553,7 @@ class PAFT(Task):
         """A stage that waits for a response"""
         # Wait a little before doing anything
         self.logger.debug('wait_for_response: entering stage')
-        time.sleep(3)
+        time.sleep(1)
         
         # Directly report continuous data to terminal (aka _T)
         # Otherwise it can be encoded in the returned data, but that is only
@@ -599,7 +599,7 @@ class PAFT(Task):
         """A stage that ends the trial"""
         # Wait a little before doing anything
         self.logger.debug('end_of_trial: entering stage')
-        time.sleep(3)
+        time.sleep(1)
         
         # Cleanup logic could go here
 
