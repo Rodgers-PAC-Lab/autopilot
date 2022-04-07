@@ -65,12 +65,6 @@ class PAFT_Child(children.Child):
 
 
         ## Initialize sounds
-        # Define the sounds that will be used in the cycle
-        self.initalize_sounds()
-        
-        # Define a cycle of those sounds
-        self.set_sound_cycle()
-
         # Each block/frame is about 5 ms
         # Longer is more buffer against unexpected delays
         # Shorter is faster to empty and refill the queue
@@ -79,6 +73,13 @@ class PAFT_Child(children.Child):
         # Some counters to keep track of how many sounds we've played
         self.n_frames = 0
         self.n_error_counter = 0        
+
+        # Define the sounds that will be used in the cycle
+        self.initalize_sounds()
+        
+        # Define a cycle of those sounds
+        # This can only be done after target_qsize is set and sounds initialized
+        self.set_sound_cycle(params={'left_on': False, 'right_on': False})
 
     def initalize_sounds(self):
         """Defines sounds that will be played during the task"""
