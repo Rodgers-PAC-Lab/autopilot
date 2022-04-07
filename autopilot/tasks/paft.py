@@ -418,12 +418,12 @@ class PAFT(Task):
         
         ## Tell `which_pi` to reward `which_side` (and not the other)
         # Construct kwargs
-        if which_side == 'left':
+        if which_side in ['left', 'L']:
             kwargs = {
                 'left_on': True, 'right_on': False,
                 'left_punish': False, 'right_punish': True
                 }
-        elif which_side == 'right':
+        elif which_side in ['right', 'R']:
             kwargs = {
                 'left_on': False, 'right_on': True,
                 'left_punish': True, 'right_punish': False
