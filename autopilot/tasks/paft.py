@@ -168,6 +168,9 @@ class PAFT(Task):
     
     # This defines the child rpis to connect to
     children_names = prefs.get('childid')
+    if children_names is None:
+        # This happens on terminal
+        children_names = []
     CHILDREN = {}
     for child in children_names:
         CHILDREN[child] = {'task_type': "PAFT_Child"}
@@ -390,7 +393,7 @@ class PAFT(Task):
             if stop_looping:
                 break
         self.logger.debug(
-            "All children have connected: {}".format(self.child_connected))
+            "All children have connected: {}".format(self.child_connected)
             )        
 
     def silence_all(self):
