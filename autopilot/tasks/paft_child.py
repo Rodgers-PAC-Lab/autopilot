@@ -184,27 +184,33 @@ class PAFT_Child(children.Child):
         
         self.logger.debug("generated both_df: {}".format(both_df))
         
-        # Make sure there is something left
-        # If not, generate more intervals above
-        if len(both_df) < 2:
-            raise ValueError("both_df is too short")
         
-        # Now iterate through the rows, adding the sound and the gap
-        # TODO: the gap should be shorter by the duration of the sound,
-        # and simultaneous sounds should be possible
-        for bdrow in both_df.itertuples():
-            # Append the sound
-            if bdrow.side == 'left':
-                for frame in self.left_stim.chunks:
-                    self.sound_block.append(frame) 
-            elif bdrow.side == 'right':
-                for frame in self.left_stim.chunks:
-                    self.sound_block.append(frame)     
-            else:
-                raise ValueError("unrecognized side: {}".format(bdrow.side))
-            
-            # Append the gap
-            append_gap(bdrow.gap_chunks)
+        # Depends on how long both_df is
+        if len(both_df) == 0:
+            # If no sound, then just put gaps
+            append_gap(100)
+        elif len(both_df) < 5:
+            # If a very small number of sounds, probably something is wrong
+            # Possibly need to generate more intervals above, or do for
+            # a longer cycle length
+            raise ValueError("both_df is too short")
+        else:
+            # Iterate through the rows, adding the sound and the gap
+            # TODO: the gap should be shorter by the duration of the sound,
+            # and simultaneous sounds should be possible
+            for bdrow in both_df.itertuples():
+                # Append the sound
+                if bdrow.side == 'left':
+                    for frame in self.left_stim.chunks:
+                        self.sound_block.append(frame) 
+                elif bdrow.side == 'right':
+                    for frame in self.left_stim.chunks:
+                        self.sound_block.append(frame)     
+                else:
+                    raise ValueError("unrecognized side: {}".format(bdrow.side))
+                
+                # Append the gap
+                append_gap(bdrow.gap_chunks)
         
         # Cycle so it can repeat forever
         self.sound_cycle = itertools.cycle(self.sound_block)        
