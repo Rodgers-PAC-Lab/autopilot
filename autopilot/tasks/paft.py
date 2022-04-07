@@ -525,17 +525,15 @@ class PAFT(Task):
         # Tell those to play
         self.logger.debug('using {}'.format(port_params))
         self.send_acoustic_params(port_params)
-        time.sleep(15)
     
-        # Silence all of them for 5 s
-        self.silence_all()
-        time.sleep(5)        
-        
-        
+
         ## Continue to the next stage
         # CLEAR means "wait for triggers"
         # SET means "advance anyway"
         self.stage_block.set()
+        
+        # Store this for the next stage
+        self.rewarded_port = rewarded_port
 
         # Return data about chosen_stim so it will be added to HDF5
         # I think it's best to increment trial_num now, since this is the
@@ -553,53 +551,20 @@ class PAFT(Task):
         """A stage that waits for a response"""
         # Wait a little before doing anything
         self.logger.debug('wait_for_response: entering stage')
-        time.sleep(1)
-        
-        # Directly report continuous data to terminal (aka _T)
-        # Otherwise it can be encoded in the returned data, but that is only
-        # once per stage
-        # subject is needed by core.terminal.Terminal.l_data
-        # pilot is needed by networking.station.Terminal_Station.l_data
-        # timestamp and continuous are needed by subject.Subject.data_thread
-        timestamp_response = datetime.datetime.now()
-        #~ poked_port = next(self.poked_port_cycle)
-        #~ self.node.send(
-            #~ to='_T',
-            #~ key='DATA',
-            #~ value={
-                #~ 'subject': self.subject,
-                #~ 'pilot': prefs.get('NAME'),
-                #~ 'continuous': True,
-                #~ 'poked_port': poked_port,
-                #~ 'timestamp': timestamp_response.isoformat(),
-                #~ },
-            #~ )
-        #~ self.node.send(
-            #~ to='P_rpi09',
-            #~ key='DATA',
-            #~ value={
-                #~ 'subject': self.subject,
-                #~ 'pilot': prefs.get('NAME'),
-                #~ 'continuous': True,
-                #~ 'poked_port': poked_port,
-                #~ 'timestamp': timestamp_response.isoformat(),
-                #~ },
-            #~ )            
 
-        # Continue to the next stage
-        self.stage_block.set()        
+        # Do not continue until the stage_block is set, e.g. by a poke
+        self.stage_block.clear()        
         
-        # Return data about chosen_stim so it will be added to HDF5
-        # Could also return continuous data here
-        return {
-            'timestamp_reward': timestamp_response.isoformat(),
-            }        
+        # This is tested in recv_poke before advancing
+        self.advance_on_port = self.rewarded_port
     
     def end_of_trial(self):
         """A stage that ends the trial"""
-        # Wait a little before doing anything
         self.logger.debug('end_of_trial: entering stage')
-        time.sleep(1)
+
+        # Silence all of them for 5 s ITI
+        self.silence_all()
+        time.sleep(5)        
         
         # Cleanup logic could go here
 
@@ -676,8 +641,56 @@ class PAFT(Task):
         self.child_connected[value['from']] = True
     
     def recv_poke(self, value):
+        # TODO: get the timestamp directly from the child rpi instead of 
+        # inferring it here
+        poke_timestamp = datetime.datetime.now()
+
+        # Announce
         self.logger.debug(
-            "received POKE from child with value {}".format(value))
+            "[{}] received POKE from child with value {}".format(
+            poke_timestamp.isoformat(), value))
+
+        # Form poked_port
+        poked_port = '{}_{}'.format(value['from'], value['poke'])
+        
+        # Directly report continuous data to terminal (aka _T)
+        # Otherwise it can be encoded in the returned data, but that is only
+        # once per stage
+        # subject is needed by core.terminal.Terminal.l_data
+        # pilot is needed by networking.station.Terminal_Station.l_data
+        # timestamp and continuous are needed by subject.Subject.data_thread
+        self.node.send(
+            to='_T',
+            key='DATA',
+            value={
+                'subject': self.subject,
+                'pilot': prefs.get('NAME'),
+                'continuous': True,
+                'poked_port': poked_port,
+                'timestamp': poke_timestamp.isoformat(),
+                },
+            )
+
+        # Also send to plot
+        self.node.send(
+            to='P_rpi09',
+            key='DATA',
+            value={
+                'subject': self.subject,
+                'pilot': prefs.get('NAME'),
+                'continuous': True,
+                'poked_port': poked_port,
+                'timestamp': poke_timestamp.isoformat(),
+                },
+            )  
+        
+        # If the poked port was the rewarded port, then set the stage_block
+        if poked_port == self.advance_on_port:
+            # Null this flag so we can't somehow advance twice
+            self.advance_on_port = None
+            
+            # Advance
+            self.stage_block.set()
 
     def end(self, *args, **kwargs):
         """Called when the task is ended by the user.
