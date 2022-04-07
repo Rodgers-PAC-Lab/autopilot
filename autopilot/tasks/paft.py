@@ -80,6 +80,8 @@ class PAFT(Task):
             the returned data
         HARDWARE : dict of dicts
             Defines 'POKES', 'PORTS', and 'LEDS'
+        CHILDREN : dict of dicts
+            Defines the child pis that we'll connect to
         PLOT : dict of dicts
             Defines how to plot the results
 
@@ -133,7 +135,7 @@ class PAFT(Task):
         timestamp_trial_start = tables.StringCol(64)
         timestamp_reward = tables.StringCol(64)
 
-    # Definie continuous data
+    # Define continuous data
     # https://docs.auto-pi-lot.com/en/latest/guide/task.html
     # autopilot.core.subject.Subject.data_thread would like one of the
     # keys to be "timestamp"
@@ -164,17 +166,12 @@ class PAFT(Task):
         }
     }
     
-    # This is used by the terminal to plot the results of each trial
-    PLOT = {
-        'data': {
-            'target'   : 'point',
-            'response' : 'segment',
-            'correct'  : 'rollmean'
-        },
-        'chance_bar'  : True, # Draw a red bar at 50%
-        'roll_window' : 50 # number of trials to roll window over
-    }
-    
+    # This defines the child rpis to connect to
+    children_names = prefs.get('childid')
+    CHILDREN = {}
+    for child in children_names:
+        CHILDREN[child] = {'task_type': "PAFT_Child"}
+
     
     ## Define the class methods
     def __init__(self, stage_block, current_trial, step_name, task_type, 
@@ -277,10 +274,13 @@ class PAFT(Task):
         # A dict of hardware triggers
         self.triggers = {}
         
-        # Announce
-        self.logger.debug(
-            '__init__: received current_trial {}'.format(current_trial))
-
+        
+        ## Define the possible ports
+        self.known_pilot_ports = []
+        for child in prefs.get('CHILDID'):
+            self.known_pilot_ports.append('{}_{}'.format(child, 'L'))
+            self.known_pilot_ports.append('{}_{}'.format(child, 'R'))
+        
     
         ## Define the stages
         # Stage list to iterate
@@ -296,21 +296,33 @@ class PAFT(Task):
         self.init_hardware()
 
 
-        ## This is used to report fake pokes
-        self.known_pilot_ports = [
-            'rpi09_L',
-            'rpi09_R',
-            'rpi10_L',
-            'rpi10_R',            
-            'rpi11_L',
-            'rpi11_R',
-            'rpi12_L',
-            'rpi12_R',            
-            ]
-        self.poked_port_cycle = itertools.cycle(self.known_pilot_ports)
-
+        ## Connect to children
+        # This dict keeps track of which self.CHILDREN have connected
+        self.child_connected = {}
+        for child in self.CHILDREN.keys():
+            self.child_connected[child] = False
         
-        ## For reporting data to the Terminal and plots
+        # Tell each child to start the task
+        self.initiate_task_on_children(subject, reward)
+        
+        # Create a Net_Node for communicating with the children, and
+        # wait until all children have connected
+        self.create_inter_pi_communication_node()
+
+    def initiate_task_on_children(self, subject, reward):
+        """Defines a Net_Node and uses it to tell each child to start
+        
+        This Net_Node is saved as `self.node`. A 'CHILD' message is sent,
+        I think to the Pilot_Node, which is handled by
+        networking.station.Pilot_Node.l_child .
+        
+        That code broadcasts the 'START' message to each of the children
+        specified in CHILDID in prefs.json, telling them to start the
+        'PAFT_Child' task. That 'START' message also includes task 
+        parameters specified here, such as subject name and reward value.
+        
+        The same `self.node` is used later to end the session on the children.
+        """
         # With instance=True, I get a threading error about current event loop
         self.node = Net_Node(
             id="T_{}".format(prefs.get('NAME')),
@@ -318,22 +330,140 @@ class PAFT(Task):
             port=prefs.get('MSGPORT'),
             listens={},
             instance=False,
+            )
+
+        # Construct a message to send to child
+        # Specify the subjects for the child (twice)
+        value = {
+            'child': {
+                'parent': prefs.get('NAME'), 'subject': subject},
+            'task_type': 'PAFT_Child',
+            'subject': subject,
+            'reward': reward,
+        }
+
+        # send to the station object with a 'CHILD' key
+        self.node.send(to=prefs.get('NAME'), key='CHILD', value=value)        
+
+    def create_inter_pi_communication_node(self):
+        """Defines a Net_Node to communicate with the children
+        
+        This is a second Net_Node that is used to directly exchange information
+        with the children about pokes and sounds. Unlike the first Net_Node,
+        for this one the parent is the "router" / server and the children
+        are the "dealer" / clients .. ie many dealers, one router.
+        
+        Each child needs to create a corresponding Net_Node and connect to
+        this one. This function will block until that happens.
+        
+        The Net_Node defined here also specifies "listens" (ie triggers)
+        of functions to be called upon receiving specified messages
+        from the children, such as "HELLO" or "POKE".
+        
+        This Net_Node is saved as `self.node2`.
+        """
+        ## Create a second node to communicate with the child
+        # We (parent) are the "router"/server
+        # The children are the "dealer"/clients
+        # Many dealers, one router        
+        self.node2 = Net_Node(
+            id='parent_pi',
+            upstream='',
+            port=5000,
+            router_port=5001,
+            listens={
+                'HELLO': self.recv_hello,
+                'POKE': self.recv_poke,
+                },
+            instance=False,
+            )
+
+        # Wait until the child connects!
+        self.logger.debug("Waiting for child to connect")
+        while True:
+            stop_looping = True
+            
+            for child, is_conn in self.child_connected.items():
+                if not is_conn:
+                    stop_looping = False
+            
+            if stop_looping:
+                break
+        self.logger.debug(
+            "All children have connected: {}".format(self.child_connected))
             )        
+
+    def silence_all(self):
+        """Tell all children to play no sound and punish all pokes"""
+        for which_pi in ['rpi10', 'rpi11', 'rpi12']:
+            self.silence_pi(which_pi)
+
+    def silence_pi(self, which_pi):
+        """Silence `which_pi` by playing neither and punishing both"""
+        self.logger.debug('silencing {}'.format(which_pi))
+        self.node2.send(
+            to=which_pi,
+            key='PLAY',
+            value={
+                'left_on': False, 'right_on': False,
+                'left_punish': True, 'right_punish': True,
+                },
+            )              
+
+    def reward_one(self, which_pi, which_side):
+        """Tell one speaker to play and silence all others"""
+        
+        ## Tell `which_pi` to reward `which_side` (and not the other)
+        # Construct kwargs
+        if which_side == 'left':
+            kwargs = {
+                'left_on': True, 'right_on': False,
+                'left_punish': False, 'right_punish': True
+                }
+        elif which_side == 'right':
+            kwargs = {
+                'left_on': False, 'right_on': True,
+                'left_punish': True, 'right_punish': False
+                }
+        else:
+            raise ValueError("unexpected which_side: {}".format(which_side))        
+        
+        # Send the message
+        self.node2.send(to=which_pi, key='PLAY', value=kwargs)
+        
+        
+        ## Tell all other children to reward neither
+        for other_pi in ['rpi10', 'rpi11', 'rpi12']:
+            if other_pi == which_pi:
+                continue
+            
+            self.silence_pi(other_pi)      
     
     def choose_stimulus(self):
         """A stage that chooses the stimulus"""
         # Get timestamp
         timestamp_trial_start = datetime.datetime.now()
         
-        # Wait a little before doing anything
+        # Announce
         self.logger.debug(
             'choose_stimulus: entering stage at {}'.format(
             timestamp_trial_start.isoformat()))
-        time.sleep(3)
         
         # Choose stimulus randomly
         rewarded_port = random.choice(self.known_pilot_ports)
         self.logger.debug('choose_stimulus: chose {}'.format(rewarded_port))
+        
+        # Tell those to play
+        rewarded_pi, which_side = rewarded_port.split('_')
+        self.logger.debug('rewarding {} {}'.format(rewarded_pi, which_side))
+        
+        # Reward one (and silence all others) for 5 s
+        self.reward_one(which_pi=rewarded_pi, which_side=which_side)
+        time.sleep(5)
+    
+        # Silence all of them for 5 s
+        self.silence_all()
+        time.sleep(5)        
         
         # Continue to the next stage
         # CLEAR means "wait for triggers"
@@ -344,7 +474,7 @@ class PAFT(Task):
         # I think it's best to increment trial_num now, since this is the
         # first return from this trial. Even if we don't increment trial_num,
         # it will still make another row in the HDF5, but it might warn.
-        # (This hapepns in autopilot.core.subject.Subject.data_thread)
+        # (This happens in autopilot.core.subject.Subject.data_thread)
         return {
             'rewarded_port': rewarded_port,
             'timestamp_trial_start': timestamp_trial_start.isoformat(),
@@ -479,9 +609,17 @@ class PAFT(Task):
         """
         self.logger.debug('end: entering function')
         
+        # Tell the child to end the task
+        self.node.send(to=prefs.get('NAME'), key='CHILD', value={'KEY': 'STOP'})
+
         # This sock.close seems to be necessary to be able to communicate again
         self.node.sock.close()
         self.node.release()
-        
+
+        # This router.close() prevents ZMQError on the next start
+        self.node2.router.close()
+        self.node2.release() 
+
+        # Let the superclass end handle releasing hardware
         super(PAFT, self).end(*args, **kwargs)
 
