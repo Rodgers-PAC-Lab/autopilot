@@ -441,6 +441,35 @@ class PAFT(Task):
                 continue
             
             self.silence_pi(other_pi)      
+
+    def send_acoustic_params(self, port_params):
+        """Take a DataFrame of acoustic_params by pi and send them
+        
+           pilot side  reward  sound_on  mean_interval  var_interval
+        0  rpi10    L   False      True           0.50          0.01
+        1  rpi10    R    True      True           0.25          0.01
+        2  rpi11    L   False      True           0.50          0.01
+        3  rpi11    R   False     False           0.75          0.01
+        4  rpi12    L   False     False           1.00          0.01
+        5  rpi12    R   False     False           0.75          0.01
+        """
+        # Iterate over pilots
+        for which_pi, sub_df in port_params.groupby('pilot'):
+            # Extract kwargs for this pilot
+            sub_df = sub_df.set_index('side')
+            kwargs = {
+                'left_on': sub_df.loc['L', 'sound_on'],
+                'left_mean_interval': sub_df.loc['L', 'mean_interval'],
+                'left_var_interval': sub_df.loc['L', 'var_interval'],
+                'left_punish': ~sub_df.loc['L', 'reward'],
+                'right_on': sub_df.loc['R', 'sound_on'],
+                'right_mean_interval': sub_df.loc['R', 'mean_interval'],
+                'right_var_interval': sub_df.loc['R', 'var_interval'],
+                'right_punish': ~sub_df.loc['R', 'reward'],         
+                }
+
+            # Send the message
+            self.node2.send(to=which_pi, key='PLAY', value=kwargs)
     
     def choose_stimulus(self):
         """A stage that chooses the stimulus"""
@@ -456,19 +485,54 @@ class PAFT(Task):
         rewarded_port = random.choice(self.known_pilot_ports)
         self.logger.debug('choose_stimulus: chose {}'.format(rewarded_port))
         
-        # Tell those to play
-        rewarded_pi, which_side = rewarded_port.split('_')
-        self.logger.debug('rewarding {} {}'.format(rewarded_pi, which_side))
         
-        # Reward one (and silence all others) for 5 s
-        self.reward_one(which_pi=rewarded_pi, which_side=which_side)
+        ## Set acoustic params accordingly
+        # Generate port_params DataFrame
+        port_params = pandas.Series(
+            self.known_pilot_ports, name='port').to_frame()
+        
+        # Extract pilot and side
+        port_params['pilot'] = port_params['port'].apply(
+            lambda s: s.split('_')[0])
+        port_params['side'] = port_params['port'].apply(
+            lambda s: s.split('_')[1])
+
+        # Find the rewarded row
+        rewarded_idx = port_params.index[
+            np.where(port_params['port'] == rewarded_port)[0][0]]
+        
+        # Only reward that one
+        port_params['reward'] = False
+        port_params.loc[rewarded_idx, 'reward'] = True
+
+        # This is the distance from each port to the rewarded port
+        half_dist = len(port_params) // 2
+        port_params['absdist'] = np.abs(np.mod(
+            port_params.index - rewarded_idx + half_dist, 
+            len(port_params)) - half_dist)
+        
+        # Only have sound on for some
+        port_params.loc[:, 'sound_on'] = port_params['absdist'] <= 1
+        
+        # Choose mean_interval
+        port_params.loc[:, 'mean_interval'] = .25 + port_params['absdist'] * .25
+        
+        # Choose var_interval
+        port_params.loc[:, 'var_interval'] = .01
+        
+        
+        ## Send the play and silence messages
+        # Tell those to play
+        self.logger.debug('using {}'.format(port_params))
+        self.send_acoustic_params(port_params)
         time.sleep(5)
     
         # Silence all of them for 5 s
         self.silence_all()
         time.sleep(5)        
         
-        # Continue to the next stage
+        
+        ## Continue to the next stage
         # CLEAR means "wait for triggers"
         # SET means "advance anyway"
         self.stage_block.set()
