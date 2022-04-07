@@ -180,7 +180,7 @@ class PAFT_Child(children.Child):
         both_df['gap_chunks'] = (both_df['gap'] *
             autopilot.stim.sound.jackclient.FS / 
             autopilot.stim.sound.jackclient.BLOCKSIZE)
-        both['gap_chunks'] = both['gap_chunks'].round().astype(np.int)
+        both_df['gap_chunks'] = both_df['gap_chunks'].round().astype(np.int)
         
         self.logger.debug("generated both_df: {}".format(both_df))
         
