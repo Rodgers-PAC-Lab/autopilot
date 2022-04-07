@@ -604,6 +604,17 @@ class PAFT(Task):
         else:
             self.logger.debug(f"No trigger found for {pin}")
 
+    def recv_hello(self, value):
+        self.logger.debug(
+            "received HELLO from child with value {}".format(value))
+        
+        # Set this flag
+        self.child_connected[value['from']] = True
+    
+    def recv_poke(self, value):
+        self.logger.debug(
+            "received POKE from child with value {}".format(value))
+
     def end(self, *args, **kwargs):
         """Called when the task is ended by the user.
         
