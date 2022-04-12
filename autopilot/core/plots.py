@@ -246,7 +246,7 @@ class Plot(QtWidgets.QWidget):
         self.octagon_port_plot_l = []
         for n_port in range(8):
             # Determine location
-            theta = np.pi / 2 - n_port / 8 * 2 * np.pi
+            theta = np.pi / 2 - n_port / 8 * 2 * np.pi + np.pi / 4
             x_pos = np.cos(theta)
             y_pos = np.sin(theta)
             

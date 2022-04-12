@@ -280,7 +280,7 @@ class PAFT(Task):
         
         ## Define the possible ports
         self.known_pilot_ports = []
-        for child in prefs.get('CHILDID'):
+        for child in self.children_names:
             self.known_pilot_ports.append('{}_{}'.format(child, 'L'))
             self.known_pilot_ports.append('{}_{}'.format(child, 'R'))
         
@@ -398,7 +398,7 @@ class PAFT(Task):
 
     def silence_all(self):
         """Tell all children to play no sound and punish all pokes"""
-        for which_pi in ['rpi10', 'rpi11', 'rpi12']:
+        for which_pi in self.children_names:
             self.silence_pi(which_pi)
 
     def silence_pi(self, which_pi):
@@ -436,7 +436,7 @@ class PAFT(Task):
         
         
         ## Tell all other children to reward neither
-        for other_pi in ['rpi10', 'rpi11', 'rpi12']:
+        for other_pi in self.children_names:
             if other_pi == which_pi:
                 continue
             
@@ -673,7 +673,7 @@ class PAFT(Task):
 
         # Also send to plot
         self.node.send(
-            to='P_rpi09',
+            to='P_{}'.format(prefs.get('NAME')),
             key='DATA',
             value={
                 'subject': self.subject,
