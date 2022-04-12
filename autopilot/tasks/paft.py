@@ -280,8 +280,7 @@ class PAFT(Task):
         
         ## Define the possible ports
         self.known_pilot_ports = []
-        self.logger.debug('self.children_names: {}'.format(self.children_names))
-        for child in self.children_names:
+        for child in prefs.get('CHILDID'):
             self.known_pilot_ports.append('{}_{}'.format(child, 'L'))
             self.known_pilot_ports.append('{}_{}'.format(child, 'R'))
         
@@ -399,7 +398,7 @@ class PAFT(Task):
 
     def silence_all(self):
         """Tell all children to play no sound and punish all pokes"""
-        for which_pi in self.children_names:
+        for which_pi in prefs.get('childid'):
             self.silence_pi(which_pi)
 
     def silence_pi(self, which_pi):
@@ -437,7 +436,7 @@ class PAFT(Task):
         
         
         ## Tell all other children to reward neither
-        for other_pi in self.children_names:
+        for other_pi in prefs.get('childid'):
             if other_pi == which_pi:
                 continue
             
