@@ -167,7 +167,7 @@ class PAFT(Task):
     }
     
     # This defines the child rpis to connect to
-    children_names = prefs.get('childid')
+    children_names = prefs.get('CHILDID')
     if children_names is None:
         # This happens on terminal
         children_names = []
@@ -398,7 +398,7 @@ class PAFT(Task):
 
     def silence_all(self):
         """Tell all children to play no sound and punish all pokes"""
-        for which_pi in prefs.get('childid'):
+        for which_pi in prefs.get('CHILDID'):
             self.silence_pi(which_pi)
 
     def silence_pi(self, which_pi):
@@ -436,7 +436,7 @@ class PAFT(Task):
         
         
         ## Tell all other children to reward neither
-        for other_pi in prefs.get('childid'):
+        for other_pi in prefs.get('CHILDID'):
             if other_pi == which_pi:
                 continue
             
