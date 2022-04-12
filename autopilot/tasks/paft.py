@@ -280,6 +280,7 @@ class PAFT(Task):
         
         ## Define the possible ports
         self.known_pilot_ports = []
+        self.logger.debug('self.children_names: {}'.format(self.children_names))
         for child in self.children_names:
             self.known_pilot_ports.append('{}_{}'.format(child, 'L'))
             self.known_pilot_ports.append('{}_{}'.format(child, 'R'))
