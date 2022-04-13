@@ -470,7 +470,7 @@ class PAFT(Task):
                 'right_mean_interval': sub_df.loc['R', 'mean_interval'],
                 'right_var_interval': sub_df.loc['R', 'var_interval'],
                 'right_punish': ~sub_df.loc['R', 'reward'],         
-                'right_reward': ~sub_df.loc['R', 'reward'],
+                'right_reward': sub_df.loc['R', 'reward'],
                 }
 
             # Send the message
