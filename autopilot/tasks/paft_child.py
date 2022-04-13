@@ -59,6 +59,13 @@ class PAFT_Child(children.Child):
         self.stages = itertools.cycle([self.play])
         self.stage_block = stage_block
         
+        # This is used to ensure only one reward per trial
+        # It is set to False as soon as the "port open" trigger is added
+        # And it is set to True as soon as the port is opened
+        # The port will not open if the flag is True
+        # As written, this wouldn't allow rewarding multiple ports
+        self.reward_already_dispensed_on_this_trial = True
+        
         
         ## Initialize sounds
         # Each block/frame is about 5 ms
@@ -368,7 +375,8 @@ class PAFT_Child(children.Child):
                 self.append_error_sound_to_queue2, 'left'))
         else:
             # Reward left
-            self.triggers['L'].append(self.hardware['PORTS']['L'].open)
+            self.reward_already_dispensed_on_this_trial = False
+            self.triggers['L'].append(self.reward_left_once)
         
         if right_punish:
             # Punish right
@@ -376,7 +384,8 @@ class PAFT_Child(children.Child):
                 self.append_error_sound_to_queue2, 'right'))
         else:
             # Reward right
-            self.triggers['R'].append(self.hardware['PORTS']['R'].open)    
+            self.reward_already_dispensed_on_this_trial = False
+            self.triggers['R'].append(self.reward_right_once)
 
     def log_poke(self, poke):
         """Write in the logger that the poke happened"""
@@ -390,6 +399,26 @@ class PAFT_Child(children.Child):
         self.node2.send(
             'parent_pi', 'POKE', {'from': self.name, 'poke': poke},
             )
+    
+    def reward_left_once(self):
+        """Reward left port. Set flag so we don't reward again till next trial
+        
+        """
+        if not self.reward_already_dispensed_on_this_trial:
+            self.reward_already_dispensed_on_this_trial = True
+            self.logger.debug('[{}] rewarding left port'.format(
+                datetime.datetime.now().isoformat()))
+            self.hardware['PORTS']['L'].open()
+    
+    def reward_right_once(self):
+        """Reward right port. Set flag so we don't reward again till next trial
+        
+        """
+        if not self.reward_already_dispensed_on_this_trial:
+            self.reward_already_dispensed_on_this_trial = True
+            self.logger.debug('[{}] rewarding right port'.format(
+                datetime.datetime.now().isoformat()))
+            self.hardware['PORTS']['R'].open()
     
     def play(self):
         """A single stage"""
