@@ -269,6 +269,7 @@ class PAFT(Task):
         self.subject = subject
         
         # This is used to count the trials for the "trial_num" HDF5 column
+        print("CURRENT_TRIAL: {}".format(current_trial))
         self.counter_trials_across_sessions = itertools.count(int(current_trial))        
 
         # This is used to count the trials for the "trial_in_session" HDF5 column
