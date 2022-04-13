@@ -361,16 +361,22 @@ class PAFT_Child(children.Child):
                 functools.partial(self.report_poke, poke),
                 ]       
             
-        # Trigger punish sounds
+        # For now, punish XOR reward every port
         if left_punish:
+            # Punish left
             self.triggers['L'].append(functools.partial(
                 self.append_error_sound_to_queue2, 'left'))
+        else:
+            # Reward left
+            self.triggers['L'].append(self.hardware['PORTS']['L'].open)
         
         if right_punish:
+            # Punish right
             self.triggers['R'].append(functools.partial(
                 self.append_error_sound_to_queue2, 'right'))
-    
-        # TODO: also trigger rewards here
+        else:
+            # Reward right
+            self.triggers['R'].append(self.hardware['PORTS']['R'].open)    
 
     def log_poke(self, poke):
         """Write in the logger that the poke happened"""
