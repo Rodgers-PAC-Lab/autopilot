@@ -281,7 +281,7 @@ class Plot(QtWidgets.QWidget):
         self.timecourse_plot.setContentsMargins(0,0,0,0)
         
         # Set xlim
-        self.timecourse_plot.setRange(xRange=[0, 3 * 60], yRange=[0, 7])
+        self.timecourse_plot.setRange(xRange=[0, 10 * 60], yRange=[0, 7])
         self.timecourse_plot.getViewBox().invertY(True)
        
         # Add a vertical line indicating the current time
