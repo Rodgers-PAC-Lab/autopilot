@@ -235,6 +235,7 @@ class PAFT(Task):
             If not zero, initial number of `trial_counter`
             This is set to be 1 greater than the last value of "trial_num"
             in the HDF5 file by autopilot.core.subject.Subject.prepare_run
+            Or sometimes this is just zero, for some reason
         step_name : string
             This is passed from the "protocol" json
             Currently it is always "PAFT"
@@ -269,7 +270,6 @@ class PAFT(Task):
         self.subject = subject
         
         # This is used to count the trials for the "trial_num" HDF5 column
-        print("CURRENT_TRIAL: {}".format(current_trial))
         self.counter_trials_across_sessions = itertools.count(int(current_trial))        
 
         # This is used to count the trials for the "trial_in_session" HDF5 column
