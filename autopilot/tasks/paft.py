@@ -410,6 +410,7 @@ class PAFT(Task):
             value={
                 'left_on': False, 'right_on': False,
                 'left_punish': left_punish, 'right_punish': right_punish,
+                'left_reward': False, 'right_reward': False,
                 },
             )              
 
@@ -421,12 +422,14 @@ class PAFT(Task):
         if which_side in ['left', 'L']:
             kwargs = {
                 'left_on': True, 'right_on': False,
-                'left_punish': False, 'right_punish': True
+                'left_punish': False, 'right_punish': True,
+                'left_reward': True, 'right_reward': False,
                 }
         elif which_side in ['right', 'R']:
             kwargs = {
                 'left_on': False, 'right_on': True,
-                'left_punish': True, 'right_punish': False
+                'left_punish': True, 'right_punish': False,
+                'left_reward': False, 'right_reward': True,
                 }
         else:
             raise ValueError("unexpected which_side: {}".format(which_side))        
@@ -462,10 +465,12 @@ class PAFT(Task):
                 'left_mean_interval': sub_df.loc['L', 'mean_interval'],
                 'left_var_interval': sub_df.loc['L', 'var_interval'],
                 'left_punish': ~sub_df.loc['L', 'reward'],
+                'left_reward': sub_df.loc['L', 'reward'],
                 'right_on': sub_df.loc['R', 'sound_on'],
                 'right_mean_interval': sub_df.loc['R', 'mean_interval'],
                 'right_var_interval': sub_df.loc['R', 'var_interval'],
                 'right_punish': ~sub_df.loc['R', 'reward'],         
+                'right_reward': ~sub_df.loc['R', 'reward'],
                 }
 
             # Send the message

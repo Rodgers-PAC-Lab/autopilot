@@ -51,7 +51,8 @@ class PAFT_Child(children.Child):
         ## Hardware
         self.triggers = {}
         self.init_hardware()
-        self.set_poke_triggers()
+        self.set_poke_triggers(left_punish=False, right_punish=False,
+            left_reward=False, right_reward=False)
 
 
         ## Stages
@@ -354,7 +355,8 @@ class PAFT_Child(children.Child):
             for pin, obj in v.items():
                 obj.release()
 
-    def set_poke_triggers(self, left_punish=False, right_punish=False):
+    def set_poke_triggers(self, left_punish, right_punish, 
+        left_reward, right_reward):
         """"Set triggers for poke entry
         
         For each poke, sets these triggers:
@@ -368,12 +370,12 @@ class PAFT_Child(children.Child):
                 functools.partial(self.report_poke, poke),
                 ]       
             
-        # For now, punish XOR reward every port
         if left_punish:
             # Punish left
             self.triggers['L'].append(functools.partial(
                 self.append_error_sound_to_queue2, 'left'))
-        else:
+        
+        if left_reward:
             # Reward left
             self.reward_already_dispensed_on_this_trial = False
             self.triggers['L'].append(self.reward_left_once)
@@ -382,7 +384,8 @@ class PAFT_Child(children.Child):
             # Punish right
             self.triggers['R'].append(functools.partial(
                 self.append_error_sound_to_queue2, 'right'))
-        else:
+        
+        if right_reward:
             # Reward right
             self.reward_already_dispensed_on_this_trial = False
             self.triggers['R'].append(self.reward_right_once)
@@ -551,10 +554,13 @@ class PAFT_Child(children.Child):
         # Extract which pokes are punished
         left_punish = value.pop('left_punish')
         right_punish = value.pop('right_punish')
+        left_reward = value.pop('left_reward')
+        right_reward = value.pop('right_reward')        
         
         # Use left_punish and right_punish to set triggers
         self.set_poke_triggers(
-            left_punish=left_punish, right_punish=right_punish)
+            left_punish=left_punish, right_punish=right_punish,
+            left_reward=left_reward, right_reward=right_reward)
         
         # Use the remaining params to update the sound cycle
         self.set_sound_cycle(value)
