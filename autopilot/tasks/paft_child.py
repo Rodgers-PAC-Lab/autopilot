@@ -60,10 +60,6 @@ class PAFT_Child(children.Child):
         self.stage_block = stage_block
         
         
-        ## Set up NET_Node to communicate with Parent
-        self.create_inter_pi_communication_node()
-
-
         ## Initialize sounds
         # Each block/frame is about 5 ms
         # Longer is more buffer against unexpected delays
@@ -80,6 +76,12 @@ class PAFT_Child(children.Child):
         # Define a cycle of those sounds
         # This can only be done after target_qsize is set and sounds initialized
         self.set_sound_cycle(params={'left_on': False, 'right_on': False})
+
+
+        ## Set up NET_Node to communicate with Parent
+        # Do this after initializing the sounds, otherwise we won't be
+        # ready to play yet
+        self.create_inter_pi_communication_node()
 
     def initalize_sounds(self):
         """Defines sounds that will be played during the task"""
