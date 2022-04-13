@@ -396,12 +396,12 @@ class PAFT(Task):
             "All children have connected: {}".format(self.child_connected)
             )        
 
-    def silence_all(self):
+    def silence_all(self, left_punish, right_punish):
         """Tell all children to play no sound and punish all pokes"""
         for which_pi in prefs.get('CHILDID'):
-            self.silence_pi(which_pi)
+            self.silence_pi(which_pi, left_punish, right_punish)
 
-    def silence_pi(self, which_pi):
+    def silence_pi(self, which_pi, left_punish, right_punish):
         """Silence `which_pi` by playing neither and punishing both"""
         self.logger.debug('silencing {}'.format(which_pi))
         self.node2.send(
@@ -409,7 +409,7 @@ class PAFT(Task):
             key='PLAY',
             value={
                 'left_on': False, 'right_on': False,
-                'left_punish': True, 'right_punish': True,
+                'left_punish': left_punish, 'right_punish': right_punish,
                 },
             )              
 
@@ -440,7 +440,7 @@ class PAFT(Task):
             if other_pi == which_pi:
                 continue
             
-            self.silence_pi(other_pi)      
+            self.silence_pi(other_pi, left_punish=True, right_punish=True)      
 
     def send_acoustic_params(self, port_params):
         """Take a DataFrame of acoustic_params by pi and send them
@@ -563,7 +563,7 @@ class PAFT(Task):
         self.logger.debug('end_of_trial: entering stage')
 
         # Silence all of them for 5 s ITI
-        self.silence_all()
+        self.silence_all(left_punish=False, right_punish=False)
         time.sleep(5)        
         
         # Cleanup logic could go here
