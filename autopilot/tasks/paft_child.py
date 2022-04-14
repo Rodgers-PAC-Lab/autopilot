@@ -347,14 +347,6 @@ class PAFT_Child(children.Child):
             self.logger.debug(f"No trigger found for {pin}")
             return
 
-    def end(self):
-        """
-        Release all hardware objects
-        """
-        for k, v in self.hardware.items():
-            for pin, obj in v.items():
-                obj.release()
-
     def set_poke_triggers(self, left_punish, right_punish, 
         left_reward, right_reward):
         """"Set triggers for poke entry
@@ -599,10 +591,13 @@ class PAFT_Child(children.Child):
         # debug
         self.logger.debug("recv_stop with value: {}".format(value))
 
-    def end(self):
+    def end(self, *args, **kwargs):
         """This is called when the STOP signal is received from the parent"""
         self.logger.debug("Inside the self.end function")
 
         # Explicitly close the socket (helps with restarting cleanly)
         self.node2.sock.close()
         self.node2.release()
+        
+        # Let the superclass end handle releasing hardware
+        super().end(*args, **kwargs)
