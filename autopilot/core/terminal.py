@@ -953,7 +953,14 @@ class Terminal(QtWidgets.QMainWindow):
         # Stop networking
         # send message to kill networking process
         self.node.send(key="KILL")
-
+        
+        # I think this is needed or else it won't shut down gracefully
+        self.node.sock.close()
+        self.node.release()
+        
+        # This might also be necessary? Could also do kill here
+        self.networking.release()
+        
         event.accept()
 
 # Create the QApplication and run it
