@@ -420,7 +420,7 @@ class PAFT_Child(children.Child):
             
             # Send to the parent
             self.node2.send(
-                'parent_pi', 'REWARD', {'from': self.name, 'poke': poke},
+                'parent_pi', 'REWARD', {'from': self.name, 'poke': 'L'},
                 )         
             
             # Open the port
@@ -443,7 +443,7 @@ class PAFT_Child(children.Child):
             
             # Send to the parent
             self.node2.send(
-                'parent_pi', 'REWARD', {'from': self.name, 'poke': poke},
+                'parent_pi', 'REWARD', {'from': self.name, 'poke': 'R'},
                 )         
             
             # Open the port
