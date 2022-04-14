@@ -700,7 +700,7 @@ class PAFT(Task):
         # Announce
         self.logger.debug(
             "[{}] received REWARD from child with value {}".format(
-            poke_timestamp.isoformat(), value))
+            reward_timestamp.isoformat(), value))
 
         # Form poked_port
         poked_port = '{}_{}'.format(value['from'], value['poke'])
