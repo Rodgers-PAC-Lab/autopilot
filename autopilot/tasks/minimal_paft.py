@@ -255,7 +255,7 @@ class MinimalPAFT(Task):
         self.init_hardware()
 
     def do_nothing(self):
-        pass
+        self.stage_block.set()
 
     def init_hardware(self):
         self.hardware = {}
