@@ -541,6 +541,9 @@ class PAFT(Task):
         
         # Store this for the next stage
         self.rewarded_port = rewarded_port
+        
+        # This will be set at the time of reward
+        self.timestamp_of_last_reward = None
 
         # Return data about chosen_stim so it will be added to HDF5
         # I think it's best to increment trial_num now, since this is the
@@ -579,9 +582,19 @@ class PAFT(Task):
         self.stage_block.set()        
         
         # Return TRIAL_END so the Terminal knows the trial is over
-        return {
-            'TRIAL_END': True,
-            }
+        # Return self.timestamp_of_last_reward, which was set at the time
+        # of the reward
+        if self.timestamp_of_last_reward is None:
+            # This shouldn't happen, but just in case, make sure TRIAL_END
+            # is returned
+            return {
+                'TRIAL_END': True,
+                }
+        else:
+            return {
+                'timestamp_reward': self.timestamp_of_last_reward.isoformat(),
+                'TRIAL_END': True,
+                }
 
     def init_hardware(self, *args, **kwargs):
         """Placeholder to init hardware
@@ -720,10 +733,8 @@ class PAFT(Task):
                 "but advance_on_port was {}".format(self.advance_on_port)
                 )
 
-        # This should only happen once per trial, so return as TrialData
-        return {
-            'timestamp_reward': reward_timestamp.isoformat(),
-            }
+        # Store the time of the reward
+        self.timestamp_of_last_reward = reward_timestamp
 
     def end(self, *args, **kwargs):
         """Called when the task is ended by the user.
