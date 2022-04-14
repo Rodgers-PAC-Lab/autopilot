@@ -595,6 +595,10 @@ class PAFT_Child(children.Child):
         """This is called when the STOP signal is received from the parent"""
         self.logger.debug("Inside the self.end function")
 
+        # Remove all triggers
+        # Otherwise pokes can still trigger network events on closed sockets
+        self.triggers = []
+
         # Explicitly close the socket (helps with restarting cleanly)
         self.node2.sock.close()
         self.node2.release()
