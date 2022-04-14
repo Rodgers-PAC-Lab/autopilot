@@ -597,11 +597,13 @@ class PAFT_Child(children.Child):
 
         # Remove all triggers
         # Otherwise pokes can still trigger network events on closed sockets
-        self.triggers = {}
+        #~ self.triggers = {}
 
         # Explicitly close the socket (helps with restarting cleanly)
         self.node2.sock.close()
         self.node2.release()
         
-        # Let the superclass end handle releasing hardware
-        super().end(*args, **kwargs)
+        # Release hardware. No superclass to do this for us.
+        for k, v in self.hardware.items():
+            for pin, obj in v.items():
+                obj.release()
