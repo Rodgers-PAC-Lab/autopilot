@@ -227,9 +227,14 @@ class Plot(QtWidgets.QWidget):
         self.infobox = QtWidgets.QFormLayout()
         self.infobox_items = {
             'N Trials': QtWidgets.QLabel(),
+            'N Rewards': QtWidgets.QLabel(),
             'Runtime' : Timer(),
-            'Last poke': QtWidgets.QLabel(),
+            'Last poke': Timer(),
         }
+        
+        # This is a counter for N Rewards
+        self.n_rewards = 0
+        self.infobox_items['N Rewards'].setText(str(self.n_rewards))
         
         # Add rows to infobox
         for k, v in self.infobox_items.items():
@@ -282,7 +287,7 @@ class Plot(QtWidgets.QWidget):
         self.timecourse_plot.setContentsMargins(0,0,0,0)
         
         # Set xlim
-        self.timecourse_plot.setRange(xRange=[0, 10 * 60], yRange=[0, 7])
+        self.timecourse_plot.setRange(xRange=[0, 25 * 60], yRange=[0, 7])
         self.timecourse_plot.getViewBox().invertY(True)
        
         # Add a vertical line indicating the current time
@@ -328,9 +333,13 @@ class Plot(QtWidgets.QWidget):
         
         # set infobox stuff
         self.infobox_items['Runtime'].start_timer()
+        self.infobox_items['Last poke'].start_timer()
 
         # Set state
         self.state = 'RUNNING'
+        
+        # Set reward counter to 0
+        self.n_rewards = 0
         
         # Set time
         self.start_time = None
@@ -415,12 +424,16 @@ class Plot(QtWidgets.QWidget):
         
         # This would be used to store the timestamps of rewards
         if 'timestamp_reward' in value.keys():
-            #self.timestamp_reward_l.append(value['timestamp_reward'])
-            pass
+            # TODO: Plot green arrows
+            self.n_rewards += 1
+            self.infobox_items['N Rewards'].setText(str(self.n_rewards))
         
         # A port was just poked
         # Log this, mark the port red, plot the poke time
         if 'poked_port' in value.keys():
+            # Reset poke timer
+            self.infobox_items['Last poke'].start_time = time.time()
+           
             # Extract data
             poked_port = value['poked_port']
             
@@ -464,6 +477,7 @@ class Plot(QtWidgets.QWidget):
         
         # Stop the timer
         self.infobox_items['Runtime'].stop_timer()
+        self.infobox_items['Last poke'].stop_timer()
         self.update_timer.stop()
         
         # Clear the data
