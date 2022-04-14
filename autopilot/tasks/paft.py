@@ -290,7 +290,9 @@ class PAFT(Task):
         # Stage list to iterate
         # Iterate through these three stages forever
         stage_list = [
-            self.choose_stimulus, self.wait_for_response, self.end_of_trial]
+            self.choose_stimulus, self.wait_for_response, 
+            self.report_reward, self.end_of_trial,
+            ]
         self.num_stages = len(stage_list)
         self.stages = itertools.cycle(stage_list)        
         
@@ -568,33 +570,46 @@ class PAFT(Task):
         # This is tested in recv_poke before advancing
         self.advance_on_port = self.rewarded_port
     
-    def end_of_trial(self):
-        """A stage that ends the trial"""
-        self.logger.debug('end_of_trial: entering stage')
-
-        # Silence all of them for 5 s ITI
+    def report_reward(self):
+        """A stage that just reports reward timestamp"""
+        # Silence all speakers, no punishment
         self.silence_all(left_punish=False, right_punish=False)
-        time.sleep(5)        
+
+        # Immediately advance to next stage
+        self.stage_block.set()
         
-        # Cleanup logic could go here
+        # Return self.timestamp_of_last_reward, which was set at the time
+        # of the reward.
+        # Check for None just to be safe
+        if self.timestamp_of_last_reward is not None:
+            return {
+                'timestamp_reward': self.timestamp_of_last_reward.isoformat(),        
+                }
+        else:
+            self.logger.debug(
+                "error: self.timestamp_of_last_reward is None, "
+                "this shouldn't happen")
+    
+    def end_of_trial(self):
+        """A stage that ends the trial
+        
+        TODO: split out the ITI component into its own stage, so
+        reward can be reported immediately
+        """
+        # Announce
+        self.logger.debug('end_of_trial: entering stage')
+        
+        # 5 s ITI
+        time.sleep(5)        
 
         # Continue to the next stage
         self.stage_block.set()        
         
-        # Return TRIAL_END so the Terminal knows the trial is over
-        # Return self.timestamp_of_last_reward, which was set at the time
-        # of the reward
-        if self.timestamp_of_last_reward is None:
-            # This shouldn't happen, but just in case, make sure TRIAL_END
-            # is returned
-            return {
-                'TRIAL_END': True,
-                }
-        else:
-            return {
-                'timestamp_reward': self.timestamp_of_last_reward.isoformat(),
-                'TRIAL_END': True,
-                }
+        # Return TRIAL_END so the Terminal knows the trial is over, which
+        # appends a row to the HDF5
+        return {
+            'TRIAL_END': True,
+            }
 
     def init_hardware(self, *args, **kwargs):
         """Placeholder to init hardware
