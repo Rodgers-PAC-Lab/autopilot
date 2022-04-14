@@ -378,6 +378,7 @@ class PAFT(Task):
             listens={
                 'HELLO': self.recv_hello,
                 'POKE': self.recv_poke,
+                'REWARD': self.recv_reward,
                 },
             instance=False,
             )
@@ -689,14 +690,40 @@ class PAFT(Task):
                 'timestamp': poke_timestamp.isoformat(),
                 },
             )  
+
+    def recv_reward(self, value):
+        """Log reward and advance stage block"""
+        # TODO: get the timestamp directly from the child rpi instead of 
+        # inferring it here
+        reward_timestamp = datetime.datetime.now()
+
+        # Announce
+        self.logger.debug(
+            "[{}] received REWARD from child with value {}".format(
+            poke_timestamp.isoformat(), value))
+
+        # Form poked_port
+        poked_port = '{}_{}'.format(value['from'], value['poke'])
         
         # If the poked port was the rewarded port, then set the stage_block
+        # This guard should not be necessary because the child pi should
+        # only reward once per trial
         if poked_port == self.advance_on_port:
             # Null this flag so we can't somehow advance twice
             self.advance_on_port = None
             
             # Advance
             self.stage_block.set()
+        else:
+            self.logger.debug(
+                "error: reward signal received from {}, ".format(poked_port) +
+                "but advance_on_port was {}".format(self.advance_on_port)
+                )
+
+        # This should only happen once per trial, so return as TrialData
+        return {
+            'timestamp_reward': reward_timestamp.isoformat(),
+            }
 
     def end(self, *args, **kwargs):
         """Called when the task is ended by the user.

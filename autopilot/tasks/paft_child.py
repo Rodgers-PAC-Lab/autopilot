@@ -408,9 +408,22 @@ class PAFT_Child(children.Child):
         
         """
         if not self.reward_already_dispensed_on_this_trial:
+            # Get the time
+            reward_timestamp = datetime.datetime.now()
+            
+            # Set the flag so we don't reward twice
             self.reward_already_dispensed_on_this_trial = True
+            
+            # Log
             self.logger.debug('[{}] rewarding left port'.format(
                 datetime.datetime.now().isoformat()))
+            
+            # Send to the parent
+            self.node2.send(
+                'parent_pi', 'REWARD', {'from': self.name, 'poke': poke},
+                )         
+            
+            # Open the port
             self.hardware['PORTS']['L'].open()
     
     def reward_right_once(self):
@@ -418,9 +431,22 @@ class PAFT_Child(children.Child):
         
         """
         if not self.reward_already_dispensed_on_this_trial:
+            # Get the time
+            reward_timestamp = datetime.datetime.now()
+            
+            # Set the flag so we don't reward twice
             self.reward_already_dispensed_on_this_trial = True
+            
+            # Log
             self.logger.debug('[{}] rewarding right port'.format(
                 datetime.datetime.now().isoformat()))
+            
+            # Send to the parent
+            self.node2.send(
+                'parent_pi', 'REWARD', {'from': self.name, 'poke': poke},
+                )         
+            
+            # Open the port
             self.hardware['PORTS']['R'].open()
     
     def play(self):
