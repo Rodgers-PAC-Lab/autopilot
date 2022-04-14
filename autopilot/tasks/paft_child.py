@@ -597,7 +597,7 @@ class PAFT_Child(children.Child):
 
         # Remove all triggers
         # Otherwise pokes can still trigger network events on closed sockets
-        self.triggers = []
+        self.triggers = {}
 
         # Explicitly close the socket (helps with restarting cleanly)
         self.node2.sock.close()
