@@ -640,5 +640,6 @@ class Net_Node(object):
         return self._ip
 
     def release(self):
+        self.sock.close()
         self.closing.set()
         self.loop.stop()
