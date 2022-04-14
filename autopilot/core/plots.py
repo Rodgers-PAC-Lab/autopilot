@@ -173,11 +173,12 @@ class Plot(QtWidgets.QWidget):
             ]
             
         # These are used to store data we receive over time
-        self.known_pilot_ports_poke_data = []
+        self.known_pilot_ports_poke_data = [
+            [] for kpp in self.known_pilot_ports]
         
         # These are used to store handles to different graph traces
         self.known_pilot_ports_poke_plot = []
-        
+
         
         ## Init the plots and handles
         self.init_plots()
@@ -295,18 +296,15 @@ class Plot(QtWidgets.QWidget):
         for n_row in range(len(self.known_pilot_ports)):
             # Create the plot handle
             poke_plot = self.timecourse_plot.plot(
-                x=[0],
-                y=np.array([n_row]),
+                x=[],
+                y=np.array([]),
                 pen=None, symbolBrush=(255, 0, 0), 
                 symbolPen=None, symbol='arrow_down',
                 )
             
             # Store
             self.known_pilot_ports_poke_plot.append(poke_plot)
-            
-            # Also use this list to store the times of the pokes
-            self.known_pilot_ports_poke_data.append([])
-            
+
             # Also keep track of yticks
             ticks_l.append((n_row, self.known_pilot_ports[n_row]))
 
@@ -325,7 +323,9 @@ class Plot(QtWidgets.QWidget):
                 'Plot was told to start but the state is '
                 'already {}'.format(self.state))
             return
-
+        
+        self.logger.debug('PLOT L_START')
+        
         # set infobox stuff
         self.infobox_items['Runtime'].start_timer()
 
@@ -335,6 +335,11 @@ class Plot(QtWidgets.QWidget):
         # Set time
         self.start_time = None
         self.local_start_time = None
+        
+        # Update each poke plot, mostly to remove residual pokes from
+        # previous session
+        for poke_plot in self.known_pilot_ports_poke_plot:
+            poke_plot.setData(x=[], y=[])
         
         # Update every so often
         self.update_timer = pg.QtCore.QTimer()
@@ -358,6 +363,8 @@ class Plot(QtWidgets.QWidget):
         Args:
             value (dict): Value field of a data message sent during a task.
         """
+        self.logger.debug('plots : l_data : received value {}'.format(value))
+        
         # Return if we're not ready to take data
         if self.state in ["INITIALIZING", "IDLE"]:
             self.logger.debug(
@@ -452,8 +459,8 @@ class Plot(QtWidgets.QWidget):
 
         """
         # Clear the plots
-        self.plot_octagon.clear()
-        self.timecourse_plot.clear()
+        #~ self.plot_octagon.clear()
+        #~ self.timecourse_plot.clear()
         
         # Stop the timer
         self.infobox_items['Runtime'].stop_timer()
@@ -461,11 +468,11 @@ class Plot(QtWidgets.QWidget):
         
         # Clear the data
         # Otherwise the next session will be using the same ones
-        self.known_pilot_ports_poke_plot = []
-        self.known_pilot_ports_poke_data = []
+        #~ self.known_pilot_ports_poke_plot = []
         
-        # Reinit the plots to create new traces and things
-        self.init_plots()
+        # Clear the data
+        self.known_pilot_ports_poke_data = [
+            [] for kpp in self.known_pilot_ports]
         
         # Don't close the Net_Node socket now or we can't receive again
         # Although find a way to close it when the user closes the Terminal
