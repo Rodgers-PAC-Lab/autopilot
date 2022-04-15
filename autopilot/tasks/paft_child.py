@@ -51,8 +51,16 @@ class PAFT_Child(children.Child):
         ## Hardware
         self.triggers = {}
         self.init_hardware()
+        
+        # Set initial poke triggers
         self.set_poke_triggers(left_punish=False, right_punish=False,
             left_reward=False, right_reward=False)
+
+        # Set reward values for solenoids
+        for port_name, port in self.hardware['PORTS'].items():
+            self.logger.debug(
+                "setting reward for {} to {}".format(port_name, reward))
+            port.duration = float(reward)
 
 
         ## Stages

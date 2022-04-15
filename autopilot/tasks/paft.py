@@ -307,12 +307,6 @@ class PAFT(Task):
         ## assigns self.handle_trigger to gpio callbacks
         self.init_hardware()
 
-        # Set reward values for solenoids
-        for port_name, port in self.hardware['PORTS'].items():
-            self.logger.debug(
-                "setting reward for {} to {}".format(port_name, reward))
-            port.duration = float(reward)
-
 
         ## Connect to children
         # This dict keeps track of which self.CHILDREN have connected
