@@ -129,6 +129,7 @@ class PAFT(Task):
         
         # The rewarded_port
         # Must specify the max length of the string, we use 64 to be safe
+        previously_rewarded_port = tables.StringCol(64)
         rewarded_port = tables.StringCol(64)
         
         # The timestamps
@@ -295,6 +296,10 @@ class PAFT(Task):
             ]
         self.num_stages = len(stage_list)
         self.stages = itertools.cycle(stage_list)        
+        
+        # This is used to keep track of the rewarded port
+        self.rewarded_port = None
+        self.previously_rewarded_port = None
         
         
         ## Init hardware -- this sets self.hardware, self.pin_id, and
@@ -489,10 +494,21 @@ class PAFT(Task):
         self.logger.debug(
             'choose_stimulus: entering stage at {}'.format(
             timestamp_trial_start.isoformat()))
+
+        # self.rewarded_port on *previous* trial is now previously_rewarded_port
+        self.previously_rewarded_port = self.rewarded_port
         
-        # Choose stimulus randomly
-        rewarded_port = random.choice(self.known_pilot_ports)
-        self.logger.debug('choose_stimulus: chose {}'.format(rewarded_port))
+        # Exclude previously rewarded port
+        choose_from = [
+            kpp for kpp in self.known_pilots_ports 
+            if kpp != self.previously_rewarded_port]
+        
+        # Choose stimulus randomly and update `self.rewarded_port`
+        self.rewarded_port = random.choice(choose_from)
+        self.logger.debug('choose_stimulus: chose {}'.format(self.rewarded_port))
+        
+        # This will be set at the time of reward
+        self.timestamp_of_last_reward = None        
         
         
         ## Set acoustic params accordingly
@@ -508,7 +524,7 @@ class PAFT(Task):
 
         # Find the rewarded row
         rewarded_idx = port_params.index[
-            np.where(port_params['port'] == rewarded_port)[0][0]]
+            np.where(port_params['port'] == self.rewarded_port)[0][0]]
         
         # Only reward that one
         port_params['reward'] = False
@@ -540,20 +556,20 @@ class PAFT(Task):
         # CLEAR means "wait for triggers"
         # SET means "advance anyway"
         self.stage_block.set()
-        
-        # Store this for the next stage
-        self.rewarded_port = rewarded_port
-        
-        # This will be set at the time of reward
-        self.timestamp_of_last_reward = None
 
         # Return data about chosen_stim so it will be added to HDF5
         # I think it's best to increment trial_num now, since this is the
         # first return from this trial. Even if we don't increment trial_num,
         # it will still make another row in the HDF5, but it might warn.
         # (This happens in autopilot.core.subject.Subject.data_thread)
+        if self.previously_rewarded_port is None:
+            prp_to_send = ''
+        else:
+            prp_to_send = self.previously_rewarded_port
+        
         return {
-            'rewarded_port': rewarded_port,
+            'rewarded_port': self.rewarded_port,
+            'previously_rewarded_port': prp_to_send,
             'timestamp_trial_start': timestamp_trial_start.isoformat(),
             'trial_num': next(self.counter_trials_across_sessions),
             'trial_in_session': next(self.counter_trials_in_session),
