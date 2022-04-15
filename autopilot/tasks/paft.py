@@ -272,10 +272,10 @@ class PAFT(Task):
         self.subject = subject
         
         # This is used to count the trials for the "trial_num" HDF5 column
-        self.counter_trials_across_sessions = itertools.count(int(current_trial))        
+        self.counter_trials_across_sessions = int(current_trial)
 
         # This is used to count the trials for the "trial_in_session" HDF5 column
-        self.counter_trials_in_session = itertools.count(0)
+        self.counter_trials_in_session = 0
 
         # A dict of hardware triggers
         self.triggers = {}
@@ -491,6 +491,12 @@ class PAFT(Task):
         # Get timestamp
         timestamp_trial_start = datetime.datetime.now()
         
+        # Pokes occuring *right here* will get the wrong trial number!
+        
+        # Increment trial now
+        self.counter_trials_in_session += 1
+        self.counter_trials_across_sessions += 1
+        
         # Announce
         self.logger.debug(
             'choose_stimulus: entering stage at {}'.format(
@@ -559,12 +565,12 @@ class PAFT(Task):
         self.stage_block.set()
 
         # Return data about chosen_stim so it will be added to HDF5
-        # I think it's best to increment trial_num now, since this is the
-        # first return from this trial. Even if we don't increment trial_num,
+        # Because this is the first return of the incremented trial_num,
+        # this will make a new row in the HDF5 file.
+        # Even if we don't increment trial_num,
         # it will still make another row in the HDF5, but it might warn.
+        # (TODO: Check this actually works)
         # (This happens in autopilot.core.subject.Subject.data_thread)
-        # On the other hand, pokes that occur between the top of this function
-        # and now will be reported by recv_poke with the wrong trial number
         if self.previously_rewarded_port is None:
             prp_to_send = ''
         else:
@@ -574,8 +580,8 @@ class PAFT(Task):
             'rewarded_port': self.rewarded_port,
             'previously_rewarded_port': prp_to_send,
             'timestamp_trial_start': timestamp_trial_start.isoformat(),
-            'trial_num': next(self.counter_trials_across_sessions),
-            'trial_in_session': next(self.counter_trials_in_session),
+            'trial_num': self.counter_trials_across_sessions,
+            'trial_in_session': self.counter_trials_in_session,
             }
 
     def wait_for_response(self):
