@@ -524,7 +524,7 @@ class PAFT(Task):
         port_params.loc[:, 'sound_on'] = port_params['absdist'] <= 1
         
         # Choose mean_interval
-        port_params.loc[:, 'mean_interval'] = .25 + port_params['absdist'] * .25
+        port_params.loc[:, 'mean_interval'] = .25 + port_params['absdist'] * .45
         
         # Choose var_interval
         port_params.loc[:, 'var_interval'] = .01
