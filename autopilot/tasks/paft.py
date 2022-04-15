@@ -144,6 +144,7 @@ class PAFT(Task):
     # networked message, and should not be defined here
     class ContinuousData(tables.IsDescription):
         poked_port = tables.StringCol(64)
+        trial = tables.Int32Col()
 
     # Per https://docs.auto-pi-lot.com/en/latest/guide/task.html:
     # The HARDWARE dictionary maps a hardware type (eg. POKES) and 
@@ -562,6 +563,8 @@ class PAFT(Task):
         # first return from this trial. Even if we don't increment trial_num,
         # it will still make another row in the HDF5, but it might warn.
         # (This happens in autopilot.core.subject.Subject.data_thread)
+        # On the other hand, pokes that occur between the top of this function
+        # and now will be reported by recv_poke with the wrong trial number
         if self.previously_rewarded_port is None:
             prp_to_send = ''
         else:
@@ -710,6 +713,8 @@ class PAFT(Task):
         # subject is needed by core.terminal.Terminal.l_data
         # pilot is needed by networking.station.Terminal_Station.l_data
         # timestamp and continuous are needed by subject.Subject.data_thread
+        # `trial` is for convenience, but note it will be wrong for pokes
+        # that occur during the "choose_stimulus" function
         self.node.send(
             to='_T',
             key='DATA',
@@ -719,6 +724,7 @@ class PAFT(Task):
                 'continuous': True,
                 'poked_port': poked_port,
                 'timestamp': poke_timestamp.isoformat(),
+                'trial': self.counter_trials_in_session,
                 },
             )
 
@@ -732,6 +738,7 @@ class PAFT(Task):
                 'continuous': True,
                 'poked_port': poked_port,
                 'timestamp': poke_timestamp.isoformat(),
+                'trial': self.counter_trials_in_session,
                 },
             )  
 
