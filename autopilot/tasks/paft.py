@@ -500,7 +500,7 @@ class PAFT(Task):
         
         # Exclude previously rewarded port
         choose_from = [
-            kpp for kpp in self.known_pilots_ports 
+            kpp for kpp in self.known_pilot_ports 
             if kpp != self.previously_rewarded_port]
         
         # Choose stimulus randomly and update `self.rewarded_port`
