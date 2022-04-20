@@ -609,7 +609,7 @@ class PAFT(Task):
         if self.timestamp_of_last_reward is not None:
             return {
                 'timestamp_reward': self.timestamp_of_last_reward.isoformat(),        
-                }
+                } 
         else:
             self.logger.debug(
                 "error: self.timestamp_of_last_reward is None, "
