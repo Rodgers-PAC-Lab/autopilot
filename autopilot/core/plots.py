@@ -161,16 +161,30 @@ class Plot(QtWidgets.QWidget):
         ## Task specific stuff
         # These are the possible ports to display
         # TODO: receive these from the Pilot? Or how to handle multiple boxes?
-        self.known_pilot_ports = [
-            'rpi09_L',
-            'rpi09_R',
-            'rpi10_L',
-            'rpi10_R',            
-            'rpi11_L',
-            'rpi11_R',
-            'rpi12_L',
-            'rpi12_R', 
-            ]
+        if pilot == 'rpi_parent01':
+            self.known_pilot_ports = [
+                'rpi09_L',
+                'rpi09_R',
+                'rpi10_L',
+                'rpi10_R',            
+                'rpi11_L',
+                'rpi11_R',
+                'rpi12_L',
+                'rpi12_R', 
+                ]
+        elif pilot == 'rpi_parent02':
+            self.known_pilot_ports = [
+                'rpi05_L',
+                'rpi05_R',
+                'rpi06_L',
+                'rpi06_R',            
+                'rpi07_L',
+                'rpi07_R',
+                'rpi08_L',
+                'rpi08_R', 
+                ]
+        else:
+            raise ValueError("unrecognized parent name: {}".format(pilot))
             
         # These are used to store data we receive over time
         self.known_pilot_ports_poke_data = [
