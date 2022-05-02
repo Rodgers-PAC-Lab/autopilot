@@ -422,6 +422,9 @@ class PokeTrain(Task):
         # This will be set at the time of reward
         self.timestamp_of_last_reward = None        
         
+        # This flag makes sure we only advance on reward once per trial
+        self.flag_recv_reward_function_entered_on_this_trial = False
+        
         
         ## Punish the previously rewarded port, and reward all others
         self.reward_all_ports_but_one()
@@ -458,9 +461,6 @@ class PokeTrain(Task):
 
         # Do not continue until the stage_block is set, e.g. by a poke
         self.stage_block.clear()        
-        
-        # This is tested in recv_poke before advancing
-        self.advance_on_port = self.rewarded_port
     
     def report_reward(self):
         """A stage that just reports reward timestamp"""
@@ -635,28 +635,23 @@ class PokeTrain(Task):
         # Form poked_port
         poked_port = '{}_{}'.format(value['from'], value['poke'])
         
-        # If the poked port was the rewarded port, then set the stage_block
-        # This guard should not be necessary because the child pi should
-        # only reward once per trial
-        if poked_port == self.advance_on_port:
-            self.logger.debug("ADVANCE ON PORT")
-            
-            # Null this flag so we can't somehow advance twice
-            self.advance_on_port = None
-            
-            # Advance
+        # Check if this function has already been entered on this 
+        # trial
+        if not self.flag_recv_reward_function_entered_on_this_trial:
+            # This is the first time
+            # Set the stage block and the flag
             self.stage_block.set()
+            self.flag_recv_reward_function_entered_on_this_trial = True
+            
+            # Store the time of the reward
+            self.timestamp_of_last_reward = reward_timestamp
+            
+            # Set this one as the rewarded port
+            self.rewarded_port = poked_port            
+
         else:
             self.logger.debug(
-                "error: reward signal received from {}, ".format(poked_port) +
-                "but advance_on_port was {}".format(self.advance_on_port)
-                )
-
-        # Store the time of the reward
-        self.timestamp_of_last_reward = reward_timestamp
-        
-        # Set this one as the rewarded port
-        self.rewarded_port = poked_port
+                "warning: multiple rewards received on same trial")
 
     def end(self, *args, **kwargs):
         """Called when the task is ended by the user.
