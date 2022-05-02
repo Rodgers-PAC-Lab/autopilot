@@ -365,8 +365,8 @@ class PokeTrain(Task):
     def reward_all_ports_but_one(self):
         """Punish previously rewarded port and reward all others."""
         for pilot in prefs.get('CHILDID'):
-            left_port = '{}_L'
-            right_port = '{}_R'
+            left_port = '{}_L'.format(pilot)
+            right_port = '{}_R'.format(pilot)
             
             # Silence both ports
             kwargs = {
