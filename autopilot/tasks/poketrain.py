@@ -682,5 +682,5 @@ class PokeTrain(Task):
         self.node2.release() 
 
         # Let the superclass end handle releasing hardware
-        super(PAFT, self).end(*args, **kwargs)
+        super().end(*args, **kwargs)
 
