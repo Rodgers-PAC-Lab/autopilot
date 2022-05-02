@@ -516,7 +516,7 @@ class PokeTrain(Task):
         base class `Task`. This function could be removed if there is
         no hardware actually connected and/or defined in HARDWARE.
         """
-        super(PAFT, self).init_hardware(*args, **kwargs)
+        super().init_hardware(*args, **kwargs)
 
     def handle_trigger(self, pin, level=None, tick=None):
         """Handle a GPIO trigger, overriding superclass.
