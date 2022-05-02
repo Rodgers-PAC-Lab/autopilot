@@ -639,6 +639,8 @@ class PokeTrain(Task):
         # This guard should not be necessary because the child pi should
         # only reward once per trial
         if poked_port == self.advance_on_port:
+            self.logger.debug("ADVANCE ON PORT")
+            
             # Null this flag so we can't somehow advance twice
             self.advance_on_port = None
             
