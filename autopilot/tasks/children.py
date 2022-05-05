@@ -8,14 +8,6 @@ Sub-tasks that serve as children to other tasks.
 
 """
 
-
-import threading
-import itertools
-from itertools import cycle
-import random
-import datetime
-from time import sleep
-import functools
 from collections import OrderedDict as odict
 from collections import deque
 import time
@@ -23,9 +15,6 @@ import functools
 import datetime
 import autopilot.transform
 from autopilot import prefs
-from autopilot.hardware import BCM_TO_BOARD
-from autopilot.core.loggers import init_logger
-import autopilot.transform
 from autopilot.hardware.gpio import Digital_Out
 from autopilot.hardware.usb import Wheel
 from autopilot.hardware import cameras
@@ -42,21 +31,6 @@ import threading
 import logging
 from time import sleep
 
-STIM_AMPLITUDE = .01
-STIM_HP_FILT = 5000
-INTER_STIM_INTERVAL_FLOOR = .15
-STIM_DURATION_MS = 10
-
-# Figure out which box we're in
-MY_NAME = prefs.get('NAME')
-if MY_NAME in ['rpi01', 'rpi02', 'rpi03', 'rpi04']:
-    MY_BOX = 'Box1'
-elif MY_NAME in ['rpi05', 'rpi06', 'rpi07', 'rpi08']:
-    MY_BOX = 'Box2'
-else:
-    # This happens on the Terminal, for instance
-    MY_BOX = 'NoBox'
-    
 class Child(object):
     """Just a placeholder class for now to work with :func:`autopilot.get`"""
 
