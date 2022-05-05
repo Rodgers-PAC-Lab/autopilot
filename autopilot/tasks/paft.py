@@ -352,6 +352,12 @@ class PAFT(Task):
             'task_type': 'PAFT_Child',
             'subject': subject,
             'reward': reward,
+            'target_highpass': 10000.,
+            'target_amplitude': .01,
+            'target_lowpass': None,
+            'distracter_highpass': None,
+            'distracter_amplitude': .01,
+            'distracter_lowpass': 10000.,            
         }
 
         # send to the station object with a 'CHILD' key
@@ -458,13 +464,16 @@ class PAFT(Task):
     def send_acoustic_params(self, port_params):
         """Take a DataFrame of acoustic_params by pi and send them
         
-           pilot side  reward  sound_on  mean_interval  var_interval
-        0  rpi10    L   False      True           0.50          0.01
-        1  rpi10    R    True      True           0.25          0.01
-        2  rpi11    L   False      True           0.50          0.01
-        3  rpi11    R   False     False           0.75          0.01
-        4  rpi12    L   False     False           1.00          0.01
-        5  rpi12    R   False     False           0.75          0.01
+              port  pilot side  reward  absdist  sound_on  target_rate  target_mean_interval  std_interval  distracter_rate  distracter_mean_interval
+        0  rpi09_L  rpi09    L   False        3      True          0.0                   inf           0.1              4.0                  0.250000
+        1  rpi09_R  rpi09    R   False        4      True          0.0                   inf           0.1              4.0                  0.250000
+        2  rpi10_L  rpi10    L   False        3      True          0.0                   inf           0.1              4.0                  0.250000
+        3  rpi10_R  rpi10    R   False        2      True          0.0                   inf           0.1              4.0                  0.250000
+        4  rpi11_L  rpi11    L   False        1      True          1.0                  1.00           0.1              3.0                  0.333333
+        5  rpi11_R  rpi11    R    True        0      True          4.0                  0.25           0.1              0.0                       inf
+        6  rpi12_L  rpi12    L   False        1      True          1.0                  1.00           0.1              3.0                  0.333333
+        7  rpi12_R  rpi12    R   False        2      True          0.0                   inf           0.1              4.0                  0.250000
+
         """
         # Iterate over pilots
         for which_pi, sub_df in port_params.groupby('pilot'):
@@ -472,14 +481,18 @@ class PAFT(Task):
             sub_df = sub_df.set_index('side')
             kwargs = {
                 'left_on': sub_df.loc['L', 'sound_on'],
-                'left_mean_interval': sub_df.loc['L', 'mean_interval'],
-                'left_var_interval': sub_df.loc['L', 'var_interval'],
+                'left_target_rate': sub_df.loc['L', 'target_rate'],
+                'left_target_std_interval': sub_df.loc['L', 'target_std_interval'],
+                'left_distracter_rate': sub_df.loc['L', 'distracter_rate'],
+                'left_distracter_std_interval': sub_df.loc['L', 'distracter_std_interval'],
                 'left_punish': ~sub_df.loc['L', 'reward'],
                 'left_reward': sub_df.loc['L', 'reward'],
                 'right_on': sub_df.loc['R', 'sound_on'],
-                'right_mean_interval': sub_df.loc['R', 'mean_interval'],
-                'right_var_interval': sub_df.loc['R', 'var_interval'],
-                'right_punish': ~sub_df.loc['R', 'reward'],         
+                'right_target_rate': sub_df.loc['R', 'target_rate'],
+                'right_target_std_interval': sub_df.loc['R', 'target_std_interval'],
+                'right_distracter_rate': sub_df.loc['R', 'distracter_rate'],
+                'right_distracter_std_interval': sub_df.loc['R', 'distracter_std_interval'],
+                'right_punish': ~sub_df.loc['R', 'reward'],
                 'right_reward': sub_df.loc['R', 'reward'],
                 }
 
@@ -519,7 +532,28 @@ class PAFT(Task):
         
         
         ## Set acoustic params accordingly
-        # Generate port_params DataFrame
+        # The rate of target sounds, in Hz
+        target_rate_at_goal = 4.
+        
+        # The linear decrease in target rate with distance from goal
+        # This will be floored at zero
+        target_rate_slope = 3.
+        
+        # The temporal uncertainty across all speakers and both sounds
+        # This is something like the standard deviation in drawn intervals, in s
+        global_std_interval = .1
+        
+        # The top-up rate to achieve by adding distractor sounds
+        # If less than target rate at that speaker, no distracters added
+        # If zero, distracters are never added
+        min_combined_rate = 4
+        
+        # The kwargs to use for target and distracter
+        target_kwargs = {'highpass': 10000., 'amplitude': .1}
+        distractor_kwargs = {'lowpass': 10000., 'amplitude': .1}
+        
+        
+        ## Generate port_params DataFrame
         port_params = pandas.Series(
             self.known_pilot_ports, name='port').to_frame()
         
@@ -543,14 +577,35 @@ class PAFT(Task):
             port_params.index - rewarded_idx + half_dist, 
             len(port_params)) - half_dist)
         
-        # Only have sound on for some
-        port_params.loc[:, 'sound_on'] = port_params['absdist'] <= 1
         
-        # Choose mean_interval
-        port_params.loc[:, 'mean_interval'] = .25 + port_params['absdist'] * .45
+        ## Use the acoustic params to set the port_params
+        # They all have sound on
+        port_params.loc[:, 'sound_on'] = True
         
-        # Choose var_interval
-        port_params.loc[:, 'var_interval'] = .01
+        # Set rate of target sounds, floored at zero
+        port_params.loc[:, 'target_rate'] = (
+            target_rate_at_goal - port_params['absdist'] * target_rate_slope)
+        port_params.loc[port_params['target_rate'] < 0, 'target_rate'] = 0
+        
+        # Convert rate of target sounds to target_mean_interval
+        # In some cases this will be np.inf
+        port_params.loc[:, 'target_mean_interval'] = (
+            1 / port_params.loc[:, 'target_rate'])
+        
+        # Calculate distracter rate
+        port_params.loc[:, 'distracter_rate'] = (
+            min_combined_rate - port_params.loc[:, 'target_rate'])
+        port_params.loc[
+            port_params['distracter_rate'] < 0, 'distracter_rate'] = 0
+        
+        # Convert rate of distracter sounds to distracter_mean_interval
+        # In some cases this will be np.inf
+        port_params.loc[:, 'distracter_mean_interval'] = (
+            1 / port_params.loc[:, 'distracter_rate'])        
+        
+        # Set std_interval for both
+        port_params.loc[:, 'target_std_interval'] = global_std_interval
+        port_params.loc[:, 'distracter_std_interval'] = global_std_interval
         
         
         ## Send the play and silence messages

@@ -236,6 +236,8 @@ class Noise(BASE_CLASS):
                 If None, send the same information to all channels ("mono")
             highpass (float or None): highpass the Noise above this value
                 If None, no highpass is applied
+            lowpass (float or None): lowpass the Noise below this value
+                If None, no lowpass is applied                
             **kwargs: extraneous parameters that might come along with instantiating us
         """
         # This calls the base class, which sets server-specific parameters
@@ -249,6 +251,10 @@ class Noise(BASE_CLASS):
             self.highpass = None
         else:
             self.highpass = float(highpass)
+        if lowpass is None:
+            self.lowpass = None
+        else:
+            self.lowpass = float(lowpass)
         try:
             self.channel = int(channel)
         except TypeError:
@@ -290,10 +296,14 @@ class Noise(BASE_CLASS):
                 self.table = np.random.uniform(-1, 1, self.nsamples)
                 
                 if self.highpass is not None:
-                    # Filter
                     bhi, ahi = scipy.signal.butter(
                         2, self.highpass / (self.fs / 2), 'high')
                     self.table = scipy.signal.filtfilt(bhi, ahi, self.table)
+                
+                if self.lowpass is not None:
+                    blo, alo = scipy.signal.butter(
+                        2, self.lowpass / (self.fs / 2), 'low')
+                    self.table = scipy.signal.filtfilt(blo, alo, self.table)
 
             else:
                 # The table will be 2-dimensional for stereo sound
@@ -302,10 +312,14 @@ class Noise(BASE_CLASS):
                 data = np.random.uniform(-1, 1, self.nsamples)
                 
                 if self.highpass is not None:
-                    # Filter
                     bhi, ahi = scipy.signal.butter(
                         2, self.highpass / (self.fs / 2), 'high')
                     data = scipy.signal.filtfilt(bhi, ahi, data)
+                
+                if self.lowpass is not None:
+                    blo, alo = scipy.signal.butter(
+                        2, self.lowpass / (self.fs / 2), 'low')
+                    data = scipy.signal.filtfilt(blo, alo, data)
                 
                 self.table = np.zeros((self.nsamples, 2))
                 assert self.channel in [0, 1]

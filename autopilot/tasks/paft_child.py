@@ -31,7 +31,10 @@ class PAFT_Child(children.Child):
         }
     }    
 
-    def __init__(self, stage_block, task_type, subject, child, reward):
+    def __init__(self, stage_block, task_type, subject, child, reward,
+        target_highpass, target_amplitude, target_lowpass,
+        distracter_highpass, distracter_amplitude, distracter_lowpass,
+        ):
         """Initialize a new PAFT_Child
         
         task_type : 'PAFT Child'
@@ -87,7 +90,10 @@ class PAFT_Child(children.Child):
         self.n_error_counter = 0        
 
         # Define the sounds that will be used in the cycle
-        self.initalize_sounds()
+        self.initalize_sounds(        
+            target_highpass, target_amplitude, target_lowpass,
+            distracter_highpass, distracter_amplitude, distracter_lowpass,
+            )
         
         # Define a cycle of those sounds
         # This can only be done after target_qsize is set and sounds initialized
@@ -99,18 +105,30 @@ class PAFT_Child(children.Child):
         # ready to play yet
         self.create_inter_pi_communication_node()
 
-    def initalize_sounds(self):
+    def initalize_sounds(self,             
+        target_highpass, target_amplitude, target_lowpass,
+        distracter_highpass, distracter_amplitude, distracter_lowpass,
+        ):
         """Defines sounds that will be played during the task"""
         ## Define sounds
-        # Left and right noise bursts
-        self.left_stim = autopilot.stim.sound.sounds.Noise(
-            duration=10, amplitude=.01, channel=0, 
-            highpass=5000)       
+        # Left and right target noise bursts
+        self.left_target_stim = autopilot.stim.sound.sounds.Noise(
+            duration=10, amplitude=target_amplitude, channel=0, 
+            lowpass=target_lowpass, highpass=target_highpass)       
 
-        self.right_stim = autopilot.stim.sound.sounds.Noise(
-            duration=10, amplitude=.01, channel=1, 
-            highpass=5000)        
-        
+        self.right_target_stim = autopilot.stim.sound.sounds.Noise(
+            duration=10, amplitude=target_amplitude, channel=1, 
+            lowpass=target_lowpass, highpass=target_highpass)        
+
+        # Left and right distracter noise bursts
+        self.left_distracter_stim = autopilot.stim.sound.sounds.Noise(
+            duration=10, amplitude=distracter_amplitude, channel=0, 
+            lowpass=distracter_lowpass, highpass=distracter_highpass)       
+
+        self.right_distracter_stim = autopilot.stim.sound.sounds.Noise(
+            duration=10, amplitude=distracter_amplitude, channel=1, 
+            lowpass=distracter_lowpass, highpass=distracter_highpass)  
+            
         # Left and right tritone error noises
         self.left_error_sound = autopilot.stim.sound.sounds.Tritone(
             frequency=8000, duration=250, amplitude=.003, channel=0)
@@ -119,10 +137,14 @@ class PAFT_Child(children.Child):
             frequency=8000, duration=250, amplitude=.003, channel=1)
         
         # Chunk the sounds into frames
-        if not self.left_stim.chunks:
-            self.left_stim.chunk()
-        if not self.right_stim.chunks:
-            self.right_stim.chunk()
+        if not self.left_target_stim.chunks:
+            self.left_target_stim.chunk()
+        if not self.right_target_stim.chunks:
+            self.right_target_stim.chunk()
+        if not self.left_distracter_stim.chunks:
+            self.left_distracter_stim.chunk()
+        if not self.right_distracter_stim.chunks:
+            self.right_distracter_stim.chunk()
         if not self.left_error_sound.chunks:
             self.left_error_sound.chunk()
         if not self.right_error_sound.chunks:
@@ -155,44 +177,121 @@ class PAFT_Child(children.Child):
         # Extract params or use defaults
         left_on = params.get('left_on', False)
         right_on = params.get('right_on', False)
-        left_mean_interval = params.get('left_mean_interval', .25)
-        right_mean_interval = params.get('right_mean_interval', .25)
-        left_var_interval = params.get('left_var_interval', .001)
-        right_var_interval = params.get('right_var_interval', .001)
+        left_target_rate = params.get('left_target_rate', 0)
+        right_target_rate = params.get('right_target_rate', 0)
+        left_distracter_rate = params.get('left_distracter_rate', 0)
+        right_distracter_rate = params.get('right_distracter_rate', 0)
+        left_target_std_interval = params.get('left_target_std_interval', 0)
+        right_target_std_interval = params.get('right_target_std_interval', 0)
+        left_distracter_std_interval = params.get('left_distracter_std_interval', 0)
+        right_distracter_std_interval = params.get('right_distracter_std_interval', 0)
+        
+        
+        ## Generate intervals 
+        # left target
+        if left_on and left_target_rate > 1e-3:
+            # Change of basis
+            mean_interval = 1 / left_target_rate
+            var_interval = left_target_std_interval ** 2
 
-        # Generate intervals for left and right
-        # TODO: Floor?
-        if left_on:
-            gamma_shape = (left_mean_interval ** 2) / left_var_interval
-            gamma_scale = left_var_interval / left_mean_interval
-            left_intervals = np.random.gamma(gamma_shape, gamma_scale, 100)
+            # Change of basis
+            gamma_shape = (mean_interval ** 2) / var_interval
+            gamma_scale = var_interval / mean_interval
+
+            # Draw
+            left_target_intervals = np.random.gamma(
+                gamma_shape, gamma_scale, 100)
         else:
-            left_intervals = np.array([])
-        
-        if right_on:
-            gamma_shape = (right_mean_interval ** 2) / right_var_interval
-            gamma_scale = right_var_interval / right_mean_interval
-            right_intervals = np.random.gamma(gamma_shape, gamma_scale, 100)        
+            left_target_intervals = np.array([])
+
+        # right target
+        if right_on and right_target_rate > 1e-3:
+            # Change of basis
+            mean_interval = 1 / right_target_rate
+            var_interval = right_target_std_interval ** 2
+
+            # Change of basis
+            gamma_shape = (mean_interval ** 2) / var_interval
+            gamma_scale = var_interval / mean_interval
+
+            # Draw
+            right_target_intervals = np.random.gamma(
+                gamma_shape, gamma_scale, 100)
         else:
-            right_intervals = np.array([])
+            right_target_intervals = np.array([])     
+
+        # left distracter
+        if left_on and left_distracter_rate > 1e-3:
+            # Change of basis
+            mean_interval = 1 / left_distracter_rate
+            var_interval = left_distracter_std_interval ** 2
+
+            # Change of basis
+            gamma_shape = (mean_interval ** 2) / var_interval
+            gamma_scale = var_interval / mean_interval
+
+            # Draw
+            left_distracter_intervals = np.random.gamma(
+                gamma_shape, gamma_scale, 100)
+        else:
+            left_distracter_intervals = np.array([])
+
+        # right distracter
+        if right_on and right_distracter_rate > 1e-3:
+            # Change of basis
+            mean_interval = 1 / right_distracter_rate
+            var_interval = right_distracter_std_interval ** 2
+
+            # Change of basis
+            gamma_shape = (mean_interval ** 2) / var_interval
+            gamma_scale = var_interval / mean_interval
+
+            # Draw
+            right_distracter_intervals = np.random.gamma(
+                gamma_shape, gamma_scale, 100)
+        else:
+            right_distracter_intervals = np.array([])               
         
-        # Sort them together
-        left_df = pandas.DataFrame.from_dict({
-            'time': np.cumsum(left_intervals),
-            'side': ['left'] * len(left_intervals),
+        
+        ## Sort all the drawn intervals together
+        # Turn into series
+        left_target_df = pandas.DataFrame.from_dict({
+            'time': np.cumsum(left_target_intervals),
+            'side': ['left'] * len(left_target_intervals),
+            'sound': ['target'] * len(left_target_intervals),
             })
-        right_df = pandas.DataFrame.from_dict({
-            'time': np.cumsum(right_intervals),
-            'side': ['right'] * len(right_intervals),
+        right_target_df = pandas.DataFrame.from_dict({
+            'time': np.cumsum(right_target_intervals),
+            'side': ['right'] * len(right_target_intervals),
+            'sound': ['target'] * len(right_target_intervals),
             })
-        both_df = pandas.concat([left_df, right_df], axis=0).sort_values('time')
+        left_distracter_df = pandas.DataFrame.from_dict({
+            'time': np.cumsum(left_distracter_intervals),
+            'side': ['left'] * len(left_distracter_intervals),
+            'sound': ['distracter'] * len(left_distracter_intervals),
+            })
+        right_distracter_df = pandas.DataFrame.from_dict({
+            'time': np.cumsum(right_distracter_intervals),
+            'side': ['right'] * len(right_distracter_intervals),
+            'sound': ['distracter'] * len(right_distracter_intervals),
+            })
+        
+        # Concatenate them all together and resort by time
+        both_df = pandas.concat([
+            left_target_df, right_target_df, 
+            left_distracter_df, right_distracter_df,
+            ], axis=0).sort_values('time')
 
         # Calculate the gap between sounds
-        # The last diff is null, will be dropped below
         both_df['gap'] = both_df['time'].diff().shift(-1)
+        
+        # Drop the last row which has a null gap
+        both_df = both_df.loc[~both_df['gap'].isnull()].copy()
 
         # Keep only those below the sound cycle length
         both_df = both_df.loc[both_df['time'] < 10].copy()
+        
+        # Nothing should be null
         assert not both_df.isnull().any().any() 
 
         # Calculate gap size in chunks
@@ -204,34 +303,41 @@ class PAFT_Child(children.Child):
         self.logger.debug("generated both_df: {}".format(both_df))
         
         
-        # Depends on how long both_df is
+        ## Depends on how long both_df is
+        # If both_df has a nonzero but short length, results will be weird,
+        # because it might just be one noise burst repeating every ten seconds
+        # This only happens with low rates ~0.1Hz
         if len(both_df) == 0:
             # If no sound, then just put gaps
             append_gap(100)
-        elif len(both_df) < 5:
-            # If a very small number of sounds, probably something is wrong
-            # Possibly need to generate more intervals above, or do for
-            # a longer cycle length
-            raise ValueError("both_df is too short")
         else:
             # Iterate through the rows, adding the sound and the gap
             # TODO: the gap should be shorter by the duration of the sound,
             # and simultaneous sounds should be possible
             for bdrow in both_df.itertuples():
                 # Append the sound
-                if bdrow.side == 'left':
-                    for frame in self.left_stim.chunks:
+                if bdrow.side == 'left' and bdrow.sound == 'target':
+                    for frame in self.left_target_stim.chunks:
                         self.sound_block.append(frame) 
-                elif bdrow.side == 'right':
-                    for frame in self.right_stim.chunks:
-                        self.sound_block.append(frame)     
+                elif bdrow.side == 'left' and bdrow.sound == 'distracter':
+                    for frame in self.left_distracter_stim.chunks:
+                        self.sound_block.append(frame)                         
+                elif bdrow.side == 'right' and bdrow.sound == 'target':
+                    for frame in self.right_target_stim.chunks:
+                        self.sound_block.append(frame) 
+                elif bdrow.side == 'right' and bdrow.sound == 'distracter':
+                    for frame in self.right_distracter_stim.chunks:
+                        self.sound_block.append(frame)       
                 else:
-                    raise ValueError("unrecognized side: {}".format(bdrow.side))
+                    raise ValueError(
+                        "unrecognized side and sound: {} {}".format(
+                        bdrow.side, bdrow.sound))
                 
                 # Append the gap
                 append_gap(bdrow.gap_chunks)
         
-        # Cycle so it can repeat forever
+        
+        ## Cycle so it can repeat forever
         self.sound_cycle = itertools.cycle(self.sound_block)        
 
     def create_inter_pi_communication_node(self):
