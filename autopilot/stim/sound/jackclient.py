@@ -1,15 +1,27 @@
 """
 Client that dumps samples directly to the jack client with the :mod:`jack` package.
+
+.. note::
+
+    The latest version of raspiOS (bullseye) causes a lot of problems with the Jack audio that we have not figured out a workaround for.
+    If you intend to use sound, we recommend sticking with Buster for now (available from their `legacy downloads <https://www.raspberrypi.com/software/operating-systems/#raspberry-pi-os-legacy>`_ section).
+
 """
+import typing
 from itertools import cycle
 import multiprocessing as mp
 import queue as queue
 import numpy as np
 from copy import copy
 from queue import Empty
+import time
+from threading import Thread
+if typing.TYPE_CHECKING:
+    from autopilot.stim.sound.base import Jack_Sound
 
 
 # importing configures environment variables necessary for importing jack-client module below
+import autopilot
 from autopilot import external
 from autopilot.core.loggers import init_logger
 
@@ -37,6 +49,7 @@ int: Blocksize, or the amount of samples processed by jack per each :meth:`.Jack
 """
 
 QUEUE = None
+QUEUE2 = None
 """
 :class:`multiprocessing.Queue`: Queue to be loaded with frames of BLOCKSIZE audio.
 """
@@ -55,6 +68,7 @@ Note:
 """
 
 Q_LOCK = None
+Q2_LOCK = None
 """
 :class:`multiprocessing.Lock`: Lock that enforces a single writer to the `QUEUE` at a time.
 """
@@ -80,10 +94,33 @@ class JackClient(mp.Process):
     """
     Client that dumps frames of audio directly into a running jackd client.
 
-    When first initialized, sets module level variables above.
+    See the :meth:`.process` method to see how the client works in detail, but
+    as a narrative overview:
+
+    * The client interacts with a running jackd daemon, typically launched with :func:`.external.start_jackd`
+      The jackd process is configured with the ``JACKDSTRING`` pref, which by default is built from other parameters
+      like the ``FS`` sampling rate et al.
+    * :class:`multiprocessing.Event` objects are used to synchronize state within the client,
+      eg. the play event signals that the client should begin to pull frames from the sound queue
+    * :class:`multiprocessing.Queue` objects are used to send samples to the client,
+      specifically chunks samples with length ``BLOCKSIZE``
+    * The general pattern of using both together is to load a queue with chunks of samples and then set the
+      play event.
+    * Jackd will call the ``process`` method repeatedly, within which this class will check the state
+      of the event flags and pull from the appropriate queues to load the samples into jackd's audio buffer
+
+    When first initialized, sets module level variables above, which are the public
+    hooks to use the client. Within autopilot, the module-level variables are used, but
+    if using the jackclient or sound system outside of a typical autopilot context, you can
+    instantiate a JackClient and then pass it to sounds as ``jack_client``.
+
+    Args:
+        name (str): name of client, default "jack_client"
+        outchannels (list): Optionally manually pass outchannels rather than getting
+            from prefs. A list of integers corresponding to output channels to initialize.
+            if ``None`` (default), get ``'OUTCHANNELS'`` from prefs
 
     Attributes:
-        name (str): name of client, default "jack_client"
         q (:class:`~.multiprocessing.Queue`): Queue that stores buffered frames of audio
         q_lock (:class:`~.multiprocessing.Lock`): Lock that manages access to the Queue
         play_evt (:class:`multiprocessing.Event`): Event used to trigger loading samples from `QUEUE`, ie. playing.
@@ -97,7 +134,10 @@ class JackClient(mp.Process):
         mono_output (bool): ``True`` or ``False`` depending on if the number of output channels is 1 or >1, respectively.
             detected and set in :meth:`.JackClient.boot_server` , initialized to ``True`` (which is hopefully harmless)
     """
-    def __init__(self, name='jack_client'):
+    def __init__(self,
+                 name='jack_client',
+                 outchannels: typing.Optional[list] = None,
+                 debug_timing:bool=False):
         """
         Args:
             name:
@@ -107,13 +147,24 @@ class JackClient(mp.Process):
         # TODO: If global client variable is set, just return that one.
 
         self.name = name
+        if outchannels is None:
+            self.outchannels = prefs.get('OUTCHANNELS')
+        else:
+            self.outchannels = outchannels
+
         #self.pipe = pipe
         self.q = mp.Queue()
         self.q_lock = mp.Lock()
+        
+        # A second one
+        self.q2 = mp.Queue()
+        self.q2_lock = mp.Lock()
 
         self.play_evt = mp.Event()
         self.stop_evt = mp.Event()
         self.quit_evt = mp.Event()
+        self.play_started = mp.Event()
+        """set after the first frame of a sound is buffered, used to keep track internally when sounds are started and stopped."""
 
         # we make a client that dies now so we can stash the fs and etc.
         self.client = jack.Client(self.name)
@@ -129,6 +180,8 @@ class JackClient(mp.Process):
         self.continuous_cycle = None
         self.continuous.clear()
         self.continuous_loop.clear()
+        self._continuous_sound = None # type: typing.Optional['Jack_Sound']
+        self._continuous_dehydrated = None
 
         # store the frames of the continuous sound and cycle through them if set in continous mode
         self.continuous_cycle = None
@@ -143,6 +196,8 @@ class JackClient(mp.Process):
         globals()['BLOCKSIZE'] = copy(self.blocksize)
         globals()['QUEUE'] = self.q
         globals()['Q_LOCK'] = self.q_lock
+        globals()['QUEUE2'] = self.q2
+        globals()['Q2_LOCK'] = self.q2_lock
         globals()['PLAY'] = self.play_evt
         globals()['STOP'] = self.stop_evt
         globals()['CONTINUOUS'] = self.continuous
@@ -155,7 +210,13 @@ class JackClient(mp.Process):
             self.logger.warning(
                 f"Sampling rate was set to {prefs.get('FS')} in prefs, but the jack audio daemon is running at {self.fs}. \
                 Check that jackd was not already running, and is being correctly started by autopilot (see autopilot.external)")
-    
+
+        self.debug_timing = debug_timing
+        self.querythread = None
+        self.wait_until = None
+        self.alsa_nperiods = prefs.get('ALSA_NPERIODS')
+        if self.alsa_nperiods is None:
+            self.alsa_nperiods = 1
 
     def boot_server(self):
         """
@@ -187,22 +248,20 @@ class JackClient(mp.Process):
         processing sample starts.
         """
         ## Parse OUTCHANNELS into listified_outchannels and set `self.mono_output`
-        # Get the pref
-        outchannels = prefs.get('OUTCHANNELS')
         
         # This generates `listified_outchannels`, which is always a list
         # It also sets `self.mono_output` if outchannels is None
-        if outchannels == '':
+        if self.outchannels == '':
             # Mono mode
             listified_outchannels = []
             self.mono_output = True
-        elif not isinstance(outchannels, list):
+        elif not isinstance(self.outchannels, list):
             # Must be a single integer-like thing
-            listified_outchannels = [int(outchannels)]
+            listified_outchannels = [int(self.outchannels)]
             self.mono_output = False
         else:
             # Already a list
-            listified_outchannels = outchannels
+            listified_outchannels = self.outchannels
             self.mono_output = False
         
         ## Initalize self.client
@@ -231,7 +290,8 @@ class JackClient(mp.Process):
 
         # Activate the client
         self.client.activate()
-        
+        self.logger.debug('client activated')
+
         
         ## Hook up the outports (data sinks) to physical ports
         # Get the actual physical ports that can play sound
@@ -272,6 +332,11 @@ class JackClient(mp.Process):
         """
         self.logger = init_logger(self)
         self.boot_server()
+        self.logger.debug('server booted')
+
+        if self.debug_timing:
+            self.querythread = Thread(target=self._query_timebase)
+            self.querythread.start()
 
         # we are just holding the process open, so wait to quit
         try:
@@ -279,7 +344,7 @@ class JackClient(mp.Process):
             self.quit_evt.wait()
         except KeyboardInterrupt:
             # just want to kill the process, so just continue from here
-            pass
+            self.quit_evt.set()
 
     def quit(self):
         """
@@ -288,91 +353,46 @@ class JackClient(mp.Process):
         self.quit_evt.set()
 
     def process(self, frames):
-        """
-        Process a frame of audio.
+        """Process a frame of audio.
 
-        If the :attr:`.JackClient.play_evt` is not set, fill port buffers with zeroes.
-
-        Otherwise, pull frames of audio from the :attr:`.JackClient.q` until it's empty.
-
-        When it's empty, set the :attr:`.JackClient.stop_evt` and clear the :attr:`.JackClient.play_evt` .
+        Always play audio. If there is audio in the queue, play that. If not,
+        play silence.
 
         Args:
-            frames: number of frames (samples) to be processed. unused. passed by jack client
+            frames: number of frames (samples) to be processed. 
+            unused. passed by jack client
         """
-        ## Switch on whether the play event is set
-        if not self.play_evt.is_set():
-            # A play event has not been set
-            # Play only if we are in continuous mode, otherwise write zeros
-            
-            ## Switch on whether we are in continuous mode
-            if self.continuous.is_set():
-                # We are in continuous mode, keep playing
-                if self.continuous_cycle is None:
-                    try:
-                        to_cycle = self.continuous_q.get_nowait()
-                        self.continuous_cycle = cycle(to_cycle)
-                        self.logger.debug(f'started playing continuous sound with length {len(to_cycle)} frames')
-                    except Empty:
-                        self.logger.exception('told to play continuous sound but nothing in queue, will try again next loop around')
-                        self.client.outports[0].get_array()[:] = self.zero_arr.T
-                        return
-
-                # Get the data to play
-                data = next(self.continuous_cycle).T
-                
-                # Write
-                self.write_to_outports(data)
-
-            else:
-                # We are not in continuous mode, play silence
-                # clear continuous sound after it's done
-                if self.continuous_cycle is not None:
-                    self.continuous_cycle = None
-
-                # Play zeros
-                data = np.zeros(self.blocksize, dtype='float32')
-                
-                # Write
-                self.write_to_outports(data)
-
-        else:
-            # A play event has been set
-            # Play a sound
-
-            # Try to get data
-            try:
+        # Try to get data from the first queue
+        try:
+            with self.q_lock:
                 data = self.q.get_nowait()
-            except queue.Empty:
-                data = None
-                self.logger.warning('Queue Empty')
-            
-            
-            ## Switch on whether data is available
-            if data is None:
-                # fill with continuous noise
-                if self.continuous.is_set():
-                    try:
-                        data = next(self.continuous_cycle)
-                    except Exception as e:
-                        self.logger.exception(f'Continuous mode was set but got exception with continuous queue:\n{e}')
-                        data = self.zero_arr
+        except queue.Empty:
+            data = np.transpose([
+                np.zeros(self.blocksize, dtype='float32'),
+                np.zeros(self.blocksize, dtype='float32'),
+                ])
 
-                else:
-                    # Play zeros
-                    data = np.zeros(self.blocksize, dtype='float32')
-                
-                # Write data
-                self.write_to_outports(data)
-                
-                # sound is over
-                self.play_evt.clear()
-                self.stop_evt.set()
-                
-            else:
-                ## There is data available
-                # Write
-                self.write_to_outports(data)
+        # Try to get data from the second queue
+        try:
+            with self.q2_lock:
+                data2 = self.q2.get_nowait()
+        except queue.Empty:
+            data2 = np.transpose([
+                np.zeros(self.blocksize, dtype='float32'),
+                np.zeros(self.blocksize, dtype='float32'),
+                ])
+        
+        # Force to stereo
+        if data.ndim == 1:
+            data = np.transpose([data, data])
+        if data2.ndim == 1:
+            data2 = np.transpose([data2, data2])
+        
+        # Add
+        data = data + data2
+
+        # Write
+        self.write_to_outports(data)
     
     def write_to_outports(self, data):
         """Write the sound in `data` to the outport(s).
@@ -390,6 +410,8 @@ class JackClient(mp.Process):
                 Write one column to each outport, raising an error if there
                 is a different number of columns than outports.
         """
+        data = data.squeeze()
+
         ## Write the output to each outport
         if self.mono_output:
             ## Mono mode - Write the same data to all channels
@@ -431,4 +453,58 @@ class JackClient(mp.Process):
                 ## What would a 3d sound even mean?
                 raise ValueError(
                     "data must be 1 or 2d, not {}".format(data.shape))
+
+    def _pad_continuous(self, data:np.ndarray) -> np.ndarray:
+        """
+        When playing a sound in :meth:`.process`, if we're given a sound that is less than the blocksize,
+        pad it with either silence or the continuous sound
+
+        Returns:
+
+        """
+        # if sound was not padded, fill remaining with continuous sound or silence
+        n_from_end = self.blocksize - data.shape[0]
+        if self.continuous.is_set():
+            try:
+                cont_data = next(self.continuous_cycle)
+                data = np.concatenate((data, cont_data[-n_from_end:]),
+                                      axis=0)
+            except Exception as e:
+                self.logger.exception(f'Continuous mode was set but got exception with continuous queue:\n{e}')
+                pad_with = [(0, n_from_end)]
+                pad_with.extend([(0, 0) for i in range(len(data.ndim-1))])
+                data = np.pad(data, pad_with, 'constant')
+        else:
+            pad_with = [(0, n_from_end)]
+            pad_with.extend([(0, 0) for i in range(len(data.ndim - 1))])
+            data = np.pad(data, pad_with, 'constant')
+
+        return data
+
+    def _wait_for_end(self):
+        """
+        Thread that waits for a time (returned by :attr:`jack.Client.frame_time`) passed as ``end_time``
+        and then sets :attr:`.JackClient.stop_evt`
+
+        Args:
+            end_time (int): the ``frame_time`` at which to set the event
+        """
+        try:
+            while self.wait_until is None or self.client.frame_time < self.wait_until:
+                time.sleep(0.000001)
+        finally:
+            if self.debug_timing:
+                self.logger.debug(f'stop event set at f{self.client.frame_time}, requested {self.wait_until}')
+            self.stop_evt.set()
+            self.querythread = None
+            self.wait_until = None
+
+    def _query_timebase(self):
+        while not self.quit_evt.is_set():
+            state, pos = self.client.transport_query()
+            self.logger.debug(
+                f'query thread - frame_time: {self.client.frame_time}, last_frame_time: {self.client.last_frame_time}, usecs: {pos["usecs"]}, frames: {self.client.frames_since_cycle_start}')
+            time.sleep(0.00001)
+
+
 

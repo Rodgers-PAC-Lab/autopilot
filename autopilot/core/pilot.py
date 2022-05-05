@@ -16,6 +16,7 @@ import subprocess
 import warnings
 import numpy as np
 import pandas as pd
+from pathlib import Path
 from scipy.stats import linregress
 
 import tables
@@ -24,8 +25,6 @@ warnings.simplefilter('ignore', category=tables.NaturalNameWarning)
 import autopilot
 from autopilot import prefs
 from autopilot.core.loggers import init_logger
-
-
 
 if __name__ == '__main__':
     # Parse arguments - this should have been called with a .json prefs file passed
@@ -139,16 +138,25 @@ class Pilot:
     # audio server
     server = None
 
-    def __init__(self, splash=True):
+    def __init__(self, splash=True, warn_defaults = True):
 
         if splash:
-            with open(os.path.join(os.path.dirname(os.path.dirname(__file__)), 'setup', 'welcome_msg.txt'), 'r') as welcome_f:
-                welcome = welcome_f.read()
-                print('')
-                for line in welcome.split('\n'):
-                    print(line)
-                print('')
-                sys.stdout.flush()
+            try:
+                welcome_msg = Path(__file__).resolve().parents[1] / 'setup' / 'welcome_msg.txt'
+                if welcome_msg.exists():
+                    with open(welcome_msg, 'r') as welcome_f:
+                        welcome = welcome_f.read()
+                        print('')
+                        for line in welcome.split('\n'):
+                            print(line)
+                        print('')
+                        sys.stdout.flush()
+            except:
+                # truly an unnecessary thing, just pass quietly
+                pass
+
+        if warn_defaults:
+            os.environ['AUTOPILOT_WARN_DEFAULTS'] = '1'
 
         self.name = prefs.get('NAME')
         if prefs.get('LINEAGE') == "CHILD":
@@ -175,7 +183,6 @@ class Pilot:
         if prefs.get('AUDIOSERVER') or 'AUDIO' in prefs.get('CONFIG'):
             self.init_audio()
 
-
         # Init Station
         # Listen dictionary - what do we do when we receive different messages?
         self.listens = {
@@ -184,7 +191,8 @@ class Pilot:
             'PARAM': self.l_param, # A parameter is being changed
             'CALIBRATE_PORT': self.l_cal_port, # Calibrate a water port
             'CALIBRATE_RESULT': self.l_cal_result, # Compute curve and store result
-            'BANDWIDTH': self.l_bandwidth # test our bandwidth
+            'BANDWIDTH': self.l_bandwidth, # test our bandwidth
+            'STREAM_VIDEO': self.l_stream_video
         }
 
         # spawn_network gives us the independent message-handling process
@@ -207,8 +215,9 @@ class Pilot:
                 self.pulls.append(gpio.Digital_Out(int(pin), pull='D', polarity=1))
 
         self.logger.debug('pullups and pulldowns set')
-        # check if the calibration file needs to be updated
 
+        # store some hardware we use outside of a task
+        self.hardware = {}
 
         # Set and update state
         self.state = 'IDLE' # or 'Running'
@@ -219,13 +228,7 @@ class Pilot:
         self.handshake()
         self.logger.debug('handshake sent')
 
-
-
-        #self.blank_LEDs()
-
         # TODO Synchronize system clock w/ time from terminal.
-
-
 
     #################################################################
     # Station
@@ -256,7 +259,7 @@ class Pilot:
 
         # TODO: Report any calibrations that we have
 
-        hello = {'pilot':self.name, 'ip':self.ip, 'state':self.state}
+        hello = {'pilot':self.name, 'ip':self.ip, 'state':self.state, 'prefs': prefs.get()}
 
         self.node.send(self.parentid, 'HANDSHAKE', value=hello)
 
@@ -281,6 +284,7 @@ class Pilot:
         Args:
             value (dict): A dictionary of task parameters
         """
+        print("I RECEIVED L_START")
         # TODO: If any of the sounds are 'file,' make sure we have them. If not, request them.
         # Value should be a dict of protocol params
         # The networking object should have already checked that we have all the files we need
@@ -512,6 +516,60 @@ class Pilot:
         #self.networking.set_logging(True)
         #self.node.do_logging.set()
 
+    def l_stream_video(self, value):
+        """
+        Start or stop video streaming
+
+        Args:
+            value (dict): a dictionary of the form::
+
+                {
+                    'starting': bool, # whether we're starting (True) or stopping
+                    'camera': str, # the camera to start/stop, of form 'group.camera_id'
+                    'stream_to': node id that the camera should send to
+                }
+        """
+
+        starting = value.get('starting', False)
+        camera = value.get('camera', None)
+        stream_to = value.get('stream_to', None)
+
+        if camera is None or stream_to is None:
+            self.logger.exception('Need a camera and a place to stream it to!')
+            return
+
+        try:
+            cam_group, cam_id = camera.split('.')
+        except ValueError:
+            self.logger.exception(f'Expected camera id in form group.camera_id, got {camera}')
+            return
+
+        if starting:
+            if cam_group in prefs.get('HARDWARE') and cam_id in prefs.get('HARDWARE')[cam_group]:
+                cam_prefs = prefs.get('HARDWARE')[cam_group][cam_id]
+                cam_obj = get_hardware_class(cam_prefs['type'])(**cam_prefs)
+                if cam_group not in self.hardware.keys():
+                    self.hardware[cam_group] = {}
+                self.hardware[cam_group][cam_id] = cam_obj
+
+                cam_obj.stream(to=stream_to, min_size=1)
+                cam_obj.capture()
+                self.logger.info(f'Starting to stream video from {camera} to {stream_to}')
+
+            else:
+                self.logger.exception(f'No camera in group {cam_group} and id {cam_id} is configured in prefs')
+
+        else:
+            # stopping!
+            if cam_group in self.hardware.keys() and cam_id in self.hardware[cam_group]:
+                cam_obj = self.hardware[cam_group][cam_id]
+                cam_obj.stop()
+                cam_obj.release()
+                del self.hardware[cam_group][cam_id]
+                self.logger.info(f'Stopped streaming camera {camera}')
+            else:
+                self.logger.exception(f'No camera was capturing with group {cam_group} and id {cam_id}, have hardware {self.hardware}')
+
 
 
     def calibration_curve(self, path=None, calibration=None):
@@ -676,10 +734,42 @@ class Pilot:
         Sends data back to the terminal between every stage.
 
         Waits for the task to clear `stage_block` between stages.
+        
+        Pseudocode:
+        * Initialize a `task_class` with `task_params`, and store as `self.task`
+        * Open a local HDF5 file
+        * Loop until break or error:
+            * Get the next task stage and call it
+            * If it returns data:
+                * Send that data to the terminal, which sends it to the
+                  Subject, so it's ultimately stored in Subject.data_thread
+                * Also store that data in the current row of the local HDF5 file
+                * If 'TRIAL_END' is in data, then append the row, so that
+                  future data will be stored in the next row
+            * Wait for the stage_block to clear
+            * Break if the running flag is not set
+        * Cleanup
+            * Append the current row
+            * Clear scripts
+            * Close the hdf5 file
+        
+        The logic behind stage progression:
+        * We always go through stages in the order specified by task.stages.
+            A stage never repeats (unless I guess it's included multiple times
+            in task.stages).
+        * The stage runs once, and then this function waits until the stage
+            block is set.
+        * The standard Task.handle_trigger function sets the stage block
+            after any GPIO event, and so any GPIO event triggers a stage
+            progression. Override this behavior in your task if not desired.
+        * Trial results are accumulated until a 'TRIAL_END' is sent. This 
+            doesn't necessarily relate to the stage progression. 
         """
         # TODO: give a net node to the Task class and let the task run itself.
         # Run as a separate thread, just keeps calling next() and shoveling data
+        self.logger.debug('initializing task')
         self.task = task_class(stage_block=self.stage_block, **task_params)
+        self.logger.debug('task initialized')
 
         # do we expect TrialData?
         trial_data = False
@@ -706,6 +796,7 @@ class Pilot:
 
                     # Store a local copy
                     # the task class has a class variable DATA that lets us know which data the row is expecting
+                    # I think this is no longer true, there is no DATA
                     if trial_data:
                         for k, v in data.items():
                             if k in self.task.TrialData.columns.keys():
@@ -735,14 +826,18 @@ class Pilot:
                 self.task.end()
             except Exception as e:
                 self.logger.exception(f'got exception while stopping task: {e}')
+            del self.task
             self.task = None
-            row.append()
-            table.flush()
+            if row is not None: # This happens if there have never been trials
+                row.append()
+            if table is not None: # This happens if there have never been trials
+                table.flush()
             gpio.clear_scripts()
             self.logger.debug('stopped task and cleared scripts')
 
-        h5f.flush()
-        h5f.close()
+            # Shouldn't this be in `finally` in case there was an error?
+            h5f.flush()
+            h5f.close()
 
 
 if __name__ == "__main__":
