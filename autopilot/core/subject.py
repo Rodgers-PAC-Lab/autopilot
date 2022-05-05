@@ -545,7 +545,7 @@ class Subject(object):
                     cont_group = h5f.create_group(step_group, "continuous_data")
 
                     # save data names as attributes
-                    data_names = tuple(task_class.ContinuousData.keys())
+                    data_names = tuple(task_class.ContinuousData.columns.keys())
 
                     cont_group._v_attrs['data'] = data_names
                     #cont_descriptor = task_class.ContinuousData
@@ -818,7 +818,7 @@ class Subject(object):
 
             cont_tables = {}
             cont_rows = {}
-        except AttributeError:
+        except (KeyError, AttributeError):
             continuous_table = False
 
         # start getting data
@@ -830,26 +830,38 @@ class Subject(object):
                 # there must be a more elegant way to check if something is a key and it is true...
                 # yet here we are
                 if 'continuous' in data.keys():
+                    print("in continuous")
                     for k, v in data.items():
                         # if this isn't data that we're expecting, ignore it
                         if k not in cont_data:
+                            print("{} not in cont_data".format(k))
                             continue
 
                         # if we haven't made a table yet, do it
                         if k not in cont_tables.keys():
-                            # make atom for this data
-                            try:
-                                # if it's a numpy array...
-                                col_atom = tables.Atom.from_type(v.dtype.name, v.shape)
-                            except AttributeError:
-                                temp_array = np.array(v)
-                                col_atom = tables.Atom.from_type(temp_array.dtype.name, temp_array.shape)
+                            print("{} not in cont_tables.keys".format(k))
+                            
+                            # Make it an array if it's not already
+                            varr = np.asarray(v)
+                            
+                            # Special case string
+                            if 'str' in varr.dtype.name:
+                                col_atom = tables.StringAtom(len(v))
+                            else:
+                                col_atom = tables.Atom.from_type(
+                                    varr.dtype.name, varr.shape)
+                                
                             # should have come in with a timestamp
                             # TODO: Log if no timestamp is received
                             try:
-                                temp_timestamp_arr = np.array(data['timestamp'])
-                                timestamp_atom = tables.Atom.from_type(temp_timestamp_arr.dtype.name,
-                                                                       temp_timestamp_arr.shape)
+                                varr_timestamp = np.asarray(data['timestamp'])
+                                # Special case string
+                                if 'str' in varr_timestamp.dtype.name:
+                                    timestamp_atom = tables.StringAtom(len(data['timestamp']))
+                                else:
+                                    timestamp_atom = tables.Atom.from_type(
+                                        varr_timestamp.dtype.name, 
+                                        varr_timestamp.shape)
 
                             except KeyError:
                                 self.logger.warning('no timestamp sent with continuous data')
@@ -862,10 +874,13 @@ class Subject(object):
                             }, filters=self.continuous_filter)
 
                             cont_rows[k] = cont_tables[k].row
+                            
+                            print("created")
 
                         cont_rows[k][k] = v
                         cont_rows[k]['timestamp'] = data['timestamp']
                         cont_rows[k].append()
+                        print("stored")
 
                     # continue, the rest is for handling trial data
                     continue
@@ -917,6 +932,15 @@ class Subject(object):
                         except KeyError:
                             # TODO: Logging here
                             self.logger.warning("Data dropped: key: {}, value: {}".format(k, v))
+                    elif k in ['TRIAL_END', 'pilot', 'subject']:
+                        # Silently pass, because these are not expected to be
+                        # in the table anyway
+                        pass
+                    else:
+                        # Warn that we're dropping data. The HDF5 file needs
+                        # a new column appended.
+                        self.logger.warning(
+                            "Data dropped because {} is not a column: key: {}, value: {}".format(k, k, v))
 
                 # TODO: Or if all the values have been filled, shouldn't need explicit TRIAL_END flags
                 if 'TRIAL_END' in data.keys():

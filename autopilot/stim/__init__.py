@@ -1,11 +1,6 @@
 from autopilot import prefs
 
-# Put this ahead of the next import to avoid circularity problems
-class Stim(object):
-    """
-    Placeholder stimulus meta-object until full implementation
-    """
-
+from autopilot.stim.stim import Stim
 from autopilot.stim.managers import Stim_Manager, Proportional, init_manager
 
 

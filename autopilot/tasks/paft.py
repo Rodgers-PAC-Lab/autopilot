@@ -1,6 +1,5 @@
 """This module defines the PAFT task
 
-
 Multiple Child rpis running the "PAFT_Child" Task connect to this Parent.
 The Parent chooses the correct stimulus and logs all events. It tells each
 Child if it should start playing sounds and when it should stop. The Child
@@ -39,6 +38,8 @@ import random
 import datetime
 import functools
 from collections import OrderedDict as odict
+import time
+import queue
 import tables
 import numpy as np
 import pandas
@@ -49,159 +50,42 @@ from autopilot.networking import Net_Node
 from autopilot import prefs
 from autopilot.hardware import BCM_TO_BOARD
 from autopilot.core.loggers import init_logger
+from autopilot.stim.sound import jackclient
 
 # The name of the task
 # This declaration allows Subject to identify which class in this file 
 # contains the task class. 
 TASK = 'PAFT'
 
-# Figure out which box we're in
-MY_NAME = prefs.get('NAME')
-if MY_NAME in ['rpi01', 'rpi02', 'rpi03', 'rpi04']:
-    MY_BOX = 'Box1'
-    MY_PARENTS_NAME = 'rpi01'
-    MY_PI1 = 'rpi01'
-    MY_PI2 = 'rpi02'
-    MY_PI3 = 'rpi03'
-    MY_PI4 = 'rpi04'
 
-elif MY_NAME in ['rpi05', 'rpi06', 'rpi07', 'rpi08']:
-    MY_BOX = 'Box2'
-    MY_PARENTS_NAME = 'rpi05'
-    MY_PI1 = 'rpi05'
-    MY_PI2 = 'rpi06'
-    MY_PI3 = 'rpi07'
-    MY_PI4 = 'rpi08'
-
-else:
-    # This happens on the Terminal, for instance
-    MY_BOX = 'NoBox'
-    MY_PARENTS_NAME = 'NoParent'
-    MY_PI1 = 'NoPi1'
-    MY_PI2 = 'NoPi2'
-    MY_PI3 = 'NoPi3'
-    MY_PI4 = 'NoPi4'
-
-# Duration of the ITI
-ITI_DURATION_SEC = 1
-STIM_AMPLITUDE = .01
-STIM_HP_FILT = 5000
-INTER_STIM_INTERVAL_FLOOR = .15
-STIM_DURATION_MS = 10
-
-# Fraction of trials to activate opto pin
-FRAC_OPTO_TRIALS = 0.3
-
-# Define a stimulus set to use
-method = 'sound_and_not_light'
-if method == 'sound_xor_light':
-    stimulus_set = pandas.DataFrame.from_records([
-        (MY_PI1, 'L', True, False),
-        (MY_PI1, 'R', True, False),
-        (MY_PI2, 'L', True, False),
-        (MY_PI2, 'R', True, False),
-        (MY_PI3, 'L', True, False),
-        (MY_PI3, 'R', True, False),
-        (MY_PI4, 'L', True, False),
-        (MY_PI4, 'R', True, False),
-        (MY_PI1, 'L', False, True),
-        (MY_PI1, 'R', False, True),
-        (MY_PI2, 'L', False, True),
-        (MY_PI2, 'R', False, True),
-        (MY_PI3, 'L', False, True),
-        (MY_PI3, 'R', False, True),
-        (MY_PI4, 'L', False, True),
-        (MY_PI4, 'R', False, True),
-        ], columns=['rpi', 'side', 'sound', 'light'],
-        )
-elif method == 'sound_and_not_light':
-    stimulus_set = pandas.DataFrame.from_records([
-        (MY_PI1, 'L', True, False),
-        (MY_PI1, 'R', True, False),
-        (MY_PI2, 'L', True, False),
-        (MY_PI2, 'R', True, False),
-        (MY_PI3, 'L', True, False),
-        (MY_PI3, 'R', True, False),
-        (MY_PI4, 'L', True, False),
-        (MY_PI4, 'R', True, False),
-        ], columns=['rpi', 'side', 'sound', 'light'],
-        )        
-elif method == 'sound_and_maybe_light':
-    stimulus_set = pandas.DataFrame.from_records([
-        (MY_PI1, 'L', True, False),
-        (MY_PI1, 'R', True, False),
-        (MY_PI2, 'L', True, False),
-        (MY_PI2, 'R', True, False),
-        (MY_PI3, 'L', True, False),
-        (MY_PI3, 'R', True, False),
-        (MY_PI4, 'L', True, False),
-        (MY_PI4, 'R', True, False),
-        (MY_PI1, 'L', True, True),
-        (MY_PI1, 'R', True, True),
-        (MY_PI2, 'L', True, True),
-        (MY_PI2, 'R', True, True),
-        (MY_PI3, 'L', True, True),
-        (MY_PI3, 'R', True, True),
-        (MY_PI4, 'L', True, True),
-        (MY_PI4, 'R', True, True),
-        ], columns=['rpi', 'side', 'sound', 'light'],
-        )
-elif method == 'sound_or_light':
-    stimulus_set = pandas.DataFrame.from_records([
-        (MY_PI1, 'L', True, False),
-        (MY_PI1, 'R', True, False),
-        (MY_PI2, 'L', True, False),
-        (MY_PI2, 'R', True, False),
-        (MY_PI3, 'L', True, False),
-        (MY_PI3, 'R', True, False),
-        (MY_PI4, 'L', True, False),
-        (MY_PI4, 'R', True, False),
-        (MY_PI1, 'L', False, True),
-        (MY_PI1, 'R', False, True),
-        (MY_PI2, 'L', False, True),
-        (MY_PI2, 'R', False, True),
-        (MY_PI3, 'L', False, True),
-        (MY_PI3, 'R', False, True),
-        (MY_PI4, 'L', False, True),
-        (MY_PI4, 'R', False, True),
-        (MY_PI1, 'L', True, True),
-        (MY_PI1, 'R', True, True),
-        (MY_PI2, 'L', True, True),
-        (MY_PI2, 'R', True, True),
-        (MY_PI3, 'L', True, True),
-        (MY_PI3, 'R', True, True),
-        (MY_PI4, 'L', True, True),
-        (MY_PI4, 'R', True, True),
-        ], columns=['rpi', 'side', 'sound', 'light'],
-        )
-elif method == 'sound_and_light':
-    stimulus_set = pandas.DataFrame.from_records([
-        (MY_PI1, 'L', True, True),
-        (MY_PI1, 'R', True, True),
-        (MY_PI2, 'L', True, True),
-        (MY_PI2, 'R', True, True),
-        (MY_PI3, 'L', True, True),
-        (MY_PI3, 'R', True, True),
-        (MY_PI4, 'L', True, True),
-        (MY_PI4, 'R', True, True),
-        ], columns=['rpi', 'side', 'sound', 'light'],
-        )
-else:
-    raise ValueError('unrecognized method: {}'.format(method))
-
+## Define the Task
 class PAFT(Task):
     """The probabalistic auditory foraging task (PAFT).
-    
-    This task chooses a port at random, lights up the LED for that port,
-    plays sounds through the associated speaker, and then dispenses water 
-    once the subject pokes there.
 
-    Stage list:
-    * waiting for the response
-    * reporting the response
+    This passes through three stages and returns random data for each.
+    
+    To understand the stage progression logic, see:
+    * autopilot.core.pilot.Pilot.run_task - the main loop
+    * autopilot.tasks.task.Task.handle_trigger - set stage trigger
+    
+    To understand the data saving logic, see:
+    * autopilot.core.terminal.Terminal.l_data - what happens when data is sent
+    * autopilot.core.subject.Subject.data_thread - how data is saved
+
+    Class attributes:
+        PARAMS : collections.OrderedDict
+            This defines the params we expect to receive from the terminal.
+        TrialData : subclass of tables.IsDescription
+            This defines how to set up the hdf5 file for the Subject with
+            the returned data
+        HARDWARE : dict of dicts
+            Defines 'POKES', 'PORTS', and 'LEDS'
+        CHILDREN : dict of dicts
+            Defines the child pis that we'll connect to
+        PLOT : dict of dicts
+            Defines how to plot the results
 
     Attributes:
-        target ('L', 'C', 'R'): The correct port
         trial_counter (:class:`itertools.count`): 
             Counts trials starting from current_trial specified as argument
         triggers (dict): 
@@ -211,85 +95,138 @@ class PAFT(Task):
         stages (:class:`itertools.cycle`): 
             iterator to cycle indefinitely through task stages.
     """
-    ## Params
+    
+    
+    ## Define the class attributes
+    # This defines params we receive from terminal on session init
+    # It also determines the params that are available to specify in the
+    # Protocol creation GUI.
+    # The params themselves are defined the protocol json.
+    # Presently these can only be of type int, bool, enum (aka list), or sound
+    # Defaults cannot be specified here or in the GUI, only in the corresponding
+    # kwarg in __init__
     PARAMS = odict()
     PARAMS['reward'] = {
         'tag':'Reward Duration (ms)',
         'type':'int',
         }
 
-
-    ## Returned data
-    DATA = {
-        'trial': {'type':'i32'},
-        'trials_total': {'type': 'i32'},
-        'rpi': {'type': 'S10'},
-        'side': {'type': 'S10'},
-        'light': {'type': 'S10'},
-        'sound': {'type': 'S10'},
-        'timestamp': {'type':'S26'},
-    }
-
+    # Per https://docs.auto-pi-lot.com/en/latest/guide/task.html:
+    # The `TrialData` object is used by the `Subject` class when a task
+    # is assigned to create the data storage table
+    # 'trial_num' and 'session_num' get added by the `Subject` class
+    # 'session_num' is properly set by `Subject`, but 'trial_num' needs
+    # to be set properly here.
+    # If they are left unspecified on any given trial, they receive 
+    # a default value, such as 0 for Int32Col.
     class TrialData(tables.IsDescription):
         # The trial within this session
+        # Unambigously label this
+        trial_in_session = tables.Int32Col()
+        
+        # If this isn't specified here, it will be added anyway
+        trial_num = tables.Int32Col()
+        
+        # The rewarded_port
+        # Must specify the max length of the string, we use 64 to be safe
+        previously_rewarded_port = tables.StringCol(64)
+        rewarded_port = tables.StringCol(64)
+        
+        # The timestamps
+        timestamp_trial_start = tables.StringCol(64)
+        timestamp_reward = tables.StringCol(64)
+
+    # Define continuous data
+    # https://docs.auto-pi-lot.com/en/latest/guide/task.html
+    # autopilot.core.subject.Subject.data_thread would like one of the
+    # keys to be "timestamp"
+    # Actually, no I think that is extracted automatically from the 
+    # networked message, and should not be defined here
+    class ContinuousData(tables.IsDescription):
+        poked_port = tables.StringCol(64)
         trial = tables.Int32Col()
-        
-        # The trial number accumulated over all sessions
-        trials_total = tables.Int32Col()
-        
-        # The target
-        rpi = tables.StringCol(10)
-        side = tables.StringCol(10)
-        light = tables.StringCol(10)
-        sound = tables.StringCol(10)
-        
-        # The timestamp
-        timestamp = tables.StringCol(26)
 
-
-    ## Required hardware
+    # Per https://docs.auto-pi-lot.com/en/latest/guide/task.html:
+    # The HARDWARE dictionary maps a hardware type (eg. POKES) and 
+    # identifier (eg. 'L') to a Hardware object. The task uses the hardware 
+    # parameterization in the prefs file (also see setup_pilot) to 
+    # instantiate each of the hardware objects, so their naming system 
+    # must match (ie. there must be a prefs.PINS['POKES']['L'] entry in 
+    # prefs for a task that has a task.HARDWARE['POKES']['L'] object).
     HARDWARE = {
         'POKES':{
             'L': autopilot.hardware.gpio.Digital_In,
-            'R': autopilot.hardware.gpio.Digital_In
+            'R': autopilot.hardware.gpio.Digital_In,
         },
         'LEDS':{
             'L': autopilot.hardware.gpio.LED_RGB,
-            'R': autopilot.hardware.gpio.LED_RGB
+            'R': autopilot.hardware.gpio.LED_RGB,
         },
         'PORTS':{
             'L': autopilot.hardware.gpio.Solenoid,
-            'R': autopilot.hardware.gpio.Solenoid
+            'R': autopilot.hardware.gpio.Solenoid,
         }
     }
     
-    
-    ## The child rpi that handles the other ports
-    CHILDREN = {
-        MY_PI2: {
-            'task_type': "PAFT_Child",
-        },
-        MY_PI3: {
-            'task_type': "PAFT_Child",
-        },
-        MY_PI4: {
-            'task_type': "PAFT_Child",
-        },
-    }
+    # This defines the child rpis to connect to
+    children_names = prefs.get('CHILDID')
+    if children_names is None:
+        # This happens on terminal
+        children_names = []
+    CHILDREN = {}
+    for child in children_names:
+        CHILDREN[child] = {'task_type': "PAFT_Child"}
 
     
-    ## Plot parameters
-    PLOT = {
-        'data': {
-            'target': 'point'
-        }
-    }
-
-    
-    ## Methods
+    ## Define the class methods
     def __init__(self, stage_block, current_trial, step_name, task_type, 
-        subject, step, session, pilot, reward):
-        """Initialize a new PAFT Task
+        subject, step, session, pilot, graduation, reward):
+        """Initialize a new PAFT Task. 
+        
+        
+        --
+        Plan
+        
+        The first version of this new task needs to:
+        * Be able to play streams of sounds from two speakers (no children)
+        
+        Another version needs to
+        * Connect to the children, without playing sounds
+        
+        Then these can be merged in a second version that can
+        * Report pokes from children
+        * Tell children to play sounds
+        
+        The third version needs to:
+        * Incorporate advancing through stages
+        * Return data about each trial
+        * Test continuous data (pokes)
+        * Test plot data
+        
+        The fourth version needs to:
+        * Incorporate subject-specific training params (skip for now)
+        
+        Then bring together into one version that
+        * Connects to children, each of which play sounds
+        * Chooses stim and tells them to play which sound
+        * Reports pokes as continuous data
+        * Reports trial outcome as trial data
+        * Plots        
+        
+        ---
+        
+        All arguments are provided by the Terminal.
+        
+        Note that this __init__ does not call the superclass __init__, 
+        because that superclass Task inclues functions for punish_block
+        and so on that we don't want to use.
+        
+        Some params, such as `step_name` and `task_type`, are always required 
+        to be specified in the json defining this protocol
+        
+        Other params, such as `reward`, are custom to this particular task.
+        They should be described in the class attribute `PARAMS` above, and
+        their values should be specified in the protocol json.
         
         Arguments
         ---------
@@ -298,137 +235,117 @@ class PAFT(Task):
             stage is over
         current_trial (int): 
             If not zero, initial number of `trial_counter`
+            This is set to be 1 greater than the last value of "trial_num"
+            in the HDF5 file by autopilot.core.subject.Subject.prepare_run
+            Or sometimes this is just zero, for some reason
+        step_name : string
+            This is passed from the "protocol" json
+            Currently it is always "PAFT"
+        task_type : string
+            This is passed from the "protocol" json
+            Currently it is always "PAFT"
+        subject : string
+            The name of the subject
+        step : 0
+            Index into the "protocol" json?
+        session : int
+            number of times it's been started
+        pilot : string
+            The name of this pilot
+        graduation : dict
+            Probably a dict of graduation criteria
         reward (int): 
             ms to open solenoids
             This is passed from the "protocol" json
-        step_name : 'PAFT'
-            This is passed from the "protocol" json
-        task_type : 'PAFT'
-            This is passed from the "protocol" json
-        subject : taken from Terminal
-        step : 0
-            Index into the "protocol" json?
-        session : number of times it's been started
-        pilot : name of pilot
-        """
-        ## Task management
-        # a threading.Event used by the pilot to manage stage transitions
-        # Who provides this?
-        self.stage_block = stage_block  
+        """    
         
-        # Set up a logger
+        ## These are things that would normally be done in superclass __init__
+        # Set up a logger first, so we can debug if anything goes wrong
         self.logger = init_logger(self)
 
+        # This threading.Event is checked by Pilot.run_task before
+        # advancing through stages. Clear it to wait for triggers; set
+        # it to advance to the next stage.
+        self.stage_block = stage_block
+        
+        # This is needed for sending Node messages
+        self.subject = subject
+        
+        # This is used to count the trials for the "trial_num" HDF5 column
+        self.counter_trials_across_sessions = int(current_trial)
+
+        # This is used to count the trials for the "trial_in_session" HDF5 column
+        self.counter_trials_in_session = 0
+
+        # A dict of hardware triggers
+        self.triggers = {}
+        
+        
+        ## Define the possible ports
+        self.known_pilot_ports = []
+        for child in prefs.get('CHILDID'):
+            self.known_pilot_ports.append('{}_{}'.format(child, 'L'))
+            self.known_pilot_ports.append('{}_{}'.format(child, 'R'))
+        
+    
+        ## Define the stages
+        # Stage list to iterate
+        # Iterate through these three stages forever
+        stage_list = [
+            self.choose_stimulus, self.wait_for_response, 
+            self.report_reward, self.end_of_trial,
+            ]
+        self.num_stages = len(stage_list)
+        self.stages = itertools.cycle(stage_list)        
+        
+        # This is used to keep track of the rewarded port
+        self.rewarded_port = None
+        self.previously_rewarded_port = None
+        
+        
+        ## Init hardware -- this sets self.hardware, self.pin_id, and
+        ## assigns self.handle_trigger to gpio callbacks
+        self.init_hardware()
+
+
+        ## Connect to children
         # This dict keeps track of which self.CHILDREN have connected
         self.child_connected = {}
         for child in self.CHILDREN.keys():
             self.child_connected[child] = False
         
-        # This keeps track of the current stim
-        self.stim = None
-        self.stim_index = None
-        self.stim_params = None
+        # Tell each child to start the task
+        self.initiate_task_on_children(subject, reward)
         
-        # This is used to count the trials, it is initialized by
-        # something to wherever we are in the Protocol graduation
-        self.trial_counter = itertools.count(int(current_trial))
+        # Create a Net_Node for communicating with the children, and
+        # wait until all children have connected
+        self.create_inter_pi_communication_node()
+
+    def initiate_task_on_children(self, subject, reward):
+        """Defines a Net_Node and uses it to tell each child to start
         
-        # This is a trial counter that always starts at zero
-        self.n_trials = 0
+        This Net_Node is saved as `self.node`. A 'CHILD' message is sent,
+        I think to the Pilot_Node, which is handled by
+        networking.station.Pilot_Node.l_child .
         
-        # A dict of hardware triggers
-        self.triggers = {}
-
-        # This is used in the ITI stage
-        self.iti_is_over = False
-
-        # Stage list to iterate
-        stage_list = [self.ITI_start, self.ITI_wait, self.water, self.response]
-        self.num_stages = len(stage_list)
-        self.stages = itertools.cycle(stage_list)
-
-
-        ## Subject-specific params (requires self.logger)
-        self.subject_params = {}
-        if subject in [
-            'tstPAFT', 'Female2_0903', 'Female4_0903',
-            'Male4_0720', 'Male5_0720',
-            '3276-7',
-            '3277-1', '3277-3',
-            '3279-5', '3279-1', 
-            '3279-4', 
-            '3279-3', 
-            '3279-7', '3279-6',
-            ]:
-            # Irregular
-            self.subject_params['gamma_scale'] = 0.15
+        That code broadcasts the 'START' message to each of the children
+        specified in CHILDID in prefs.json, telling them to start the
+        'PAFT_Child' task. That 'START' message also includes task 
+        parameters specified here, such as subject name and reward value.
         
-        elif subject in [
-            '3279-8',
-            '3279-9',
-            '3279-2',
-            '3276-2', 
-            ]:
-            # Intermediate
-            self.subject_params['gamma_scale'] = 0.075
-        
-        elif subject in [
-            'Female3_0903', 
-            'Male3_0720', 
-            'Cage3276F', 'Cage3277F',
-            'Cage3279F', 'Cage3279M', 'Cage3277M',
-            '3276-1', 
-            '3277-4', '3277-5',
-            '3277-2',
-            ]:
-            # Regular
-            self.subject_params['gamma_scale'] = 0.001
-        
-        else:
-            # Default (but warn, because this should be specified)
-            self.logger.debug("warning: unknown subject {}".format(subject))
-            self.subject_params['gamma_scale'] = 0.001
-
-
-        ## Init hardware -- this sets self.hardware and self.pin_id
-        self.init_hardware()
-
-        # Set reward values for solenoids
-        for port_name, port in self.hardware['PORTS'].items():
-            self.logger.debug(
-                "setting reward for {} to {}".format(port_name, reward))
-            port.duration = float(reward)
-
-        # Turn off LEDs
-        self.hardware['LEDS']['L'].set(r=0, g=0, b=0)
-        self.hardware['LEDS']['R'].set(r=0, g=0, b=0)
-
-        # Opto trigger
-        self.opto_trigger = autopilot.hardware.gpio.Digital_Out(29)
-        self.opto_trigger.set(False)
-
-
-        ## This is used for error pokes
-        self.left_error_sound = sounds.Tritone(
-            frequency=8000, duration=250, amplitude=.003, channel=0)
-        self.right_error_sound = sounds.Tritone(
-            frequency=8000, duration=250, amplitude=.003, channel=1)
-        
-        # init sound
-        self.init_sound = sounds.Noise(duration=100, amplitude=.001, channel=0)
-
-        
-        ## Initialize net node for communications with child
+        The same `self.node` is used later to end the session on the children.
+        """
         # With instance=True, I get a threading error about current event loop
-        self.node = Net_Node(id="T_{}".format(prefs.get('NAME')),
+        self.node = Net_Node(
+            id="T_{}".format(prefs.get('NAME')),
             upstream=prefs.get('NAME'),
             port=prefs.get('MSGPORT'),
             listens={},
-            instance=False)
+            instance=False,
+            )
 
         # Construct a message to send to child
         # Specify the subjects for the child (twice)
-        self.subject = subject
         value = {
             'child': {
                 'parent': prefs.get('NAME'), 'subject': subject},
@@ -438,9 +355,25 @@ class PAFT(Task):
         }
 
         # send to the station object with a 'CHILD' key
-        self.node.send(to=prefs.get('NAME'), key='CHILD', value=value)
+        self.node.send(to=prefs.get('NAME'), key='CHILD', value=value)        
 
+    def create_inter_pi_communication_node(self):
+        """Defines a Net_Node to communicate with the children
         
+        This is a second Net_Node that is used to directly exchange information
+        with the children about pokes and sounds. Unlike the first Net_Node,
+        for this one the parent is the "router" / server and the children
+        are the "dealer" / clients .. ie many dealers, one router.
+        
+        Each child needs to create a corresponding Net_Node and connect to
+        this one. This function will block until that happens.
+        
+        The Net_Node defined here also specifies "listens" (ie triggers)
+        of functions to be called upon receiving specified messages
+        from the children, such as "HELLO" or "POKE".
+        
+        This Net_Node is saved as `self.node2`.
+        """
         ## Create a second node to communicate with the child
         # We (parent) are the "router"/server
         # The children are the "dealer"/clients
@@ -453,6 +386,7 @@ class PAFT(Task):
             listens={
                 'HELLO': self.recv_hello,
                 'POKE': self.recv_poke,
+                'REWARD': self.recv_reward,
                 },
             instance=False,
             )
@@ -469,88 +403,268 @@ class PAFT(Task):
             if stop_looping:
                 break
         self.logger.debug(
-            "All children have connected: {}".format(self.child_connected))
+            "All children have connected: {}".format(self.child_connected)
+            )        
+
+    def silence_all(self, left_punish, right_punish):
+        """Tell all children to play no sound and punish all pokes"""
+        for which_pi in prefs.get('CHILDID'):
+            self.silence_pi(which_pi, left_punish, right_punish)
+
+    def silence_pi(self, which_pi, left_punish, right_punish):
+        """Silence `which_pi` by playing neither and punishing both"""
+        self.logger.debug('silencing {}'.format(which_pi))
+        self.node2.send(
+            to=which_pi,
+            key='PLAY',
+            value={
+                'left_on': False, 'right_on': False,
+                'left_punish': left_punish, 'right_punish': right_punish,
+                'left_reward': False, 'right_reward': False,
+                },
+            )              
+
+    def reward_one(self, which_pi, which_side):
+        """Tell one speaker to play and silence all others"""
         
-        # Play init sound
-        # This is just because there's often weird audio garbling until the
-        # first sound is played, not sure why, not sure which of these lines
-        # helps
-        self.init_sound.buffer()
-        self.init_sound.set_trigger(self.do_nothing)
-        threading.Timer(.75, self.init_sound.play).start()
+        ## Tell `which_pi` to reward `which_side` (and not the other)
+        # Construct kwargs
+        if which_side in ['left', 'L']:
+            kwargs = {
+                'left_on': True, 'right_on': False,
+                'left_punish': False, 'right_punish': True,
+                'left_reward': True, 'right_reward': False,
+                }
+        elif which_side in ['right', 'R']:
+            kwargs = {
+                'left_on': False, 'right_on': True,
+                'left_punish': True, 'right_punish': False,
+                'left_reward': False, 'right_reward': True,
+                }
+        else:
+            raise ValueError("unexpected which_side: {}".format(which_side))        
+        
+        # Send the message
+        self.node2.send(to=which_pi, key='PLAY', value=kwargs)
+        
+        
+        ## Tell all other children to reward neither
+        for other_pi in prefs.get('CHILDID'):
+            if other_pi == which_pi:
+                continue
+            
+            self.silence_pi(other_pi, left_punish=True, right_punish=True)      
+
+    def send_acoustic_params(self, port_params):
+        """Take a DataFrame of acoustic_params by pi and send them
+        
+           pilot side  reward  sound_on  mean_interval  var_interval
+        0  rpi10    L   False      True           0.50          0.01
+        1  rpi10    R    True      True           0.25          0.01
+        2  rpi11    L   False      True           0.50          0.01
+        3  rpi11    R   False     False           0.75          0.01
+        4  rpi12    L   False     False           1.00          0.01
+        5  rpi12    R   False     False           0.75          0.01
+        """
+        # Iterate over pilots
+        for which_pi, sub_df in port_params.groupby('pilot'):
+            # Extract kwargs for this pilot
+            sub_df = sub_df.set_index('side')
+            kwargs = {
+                'left_on': sub_df.loc['L', 'sound_on'],
+                'left_mean_interval': sub_df.loc['L', 'mean_interval'],
+                'left_var_interval': sub_df.loc['L', 'var_interval'],
+                'left_punish': ~sub_df.loc['L', 'reward'],
+                'left_reward': sub_df.loc['L', 'reward'],
+                'right_on': sub_df.loc['R', 'sound_on'],
+                'right_mean_interval': sub_df.loc['R', 'mean_interval'],
+                'right_var_interval': sub_df.loc['R', 'var_interval'],
+                'right_punish': ~sub_df.loc['R', 'reward'],         
+                'right_reward': sub_df.loc['R', 'reward'],
+                }
+
+            # Send the message
+            self.node2.send(to=which_pi, key='PLAY', value=kwargs)
     
-    def do_nothing(self):
-        pass
-
-    def init_hardware(self):
-        """
-        Use the HARDWARE dict that specifies what we need to run the task
-        alongside the HARDWARE subdict in :mod:`prefs` to tell us how
-        they're plugged in to the pi
-
-        Instantiate the hardware, assign it :meth:`.Task.handle_trigger`
-        as a callback if it is a trigger.
+    def choose_stimulus(self):
+        """A stage that chooses the stimulus"""
+        # Get timestamp
+        timestamp_trial_start = datetime.datetime.now()
         
-        Sets the following:
-            self.hardware
-            self.pin_id
+        # Pokes occuring *right here* will get the wrong trial number!
+        
+        # Increment trial now
+        self.counter_trials_in_session += 1
+        self.counter_trials_across_sessions += 1
+        
+        # Announce
+        self.logger.debug(
+            'choose_stimulus: entering stage at {}'.format(
+            timestamp_trial_start.isoformat()))
+
+        # self.rewarded_port on *previous* trial is now previously_rewarded_port
+        self.previously_rewarded_port = self.rewarded_port
+        
+        # Exclude previously rewarded port
+        choose_from = [
+            kpp for kpp in self.known_pilot_ports 
+            if kpp != self.previously_rewarded_port]
+        
+        # Choose stimulus randomly and update `self.rewarded_port`
+        self.rewarded_port = random.choice(choose_from)
+        self.logger.debug('choose_stimulus: chose {}'.format(self.rewarded_port))
+        
+        # This will be set at the time of reward
+        self.timestamp_of_last_reward = None        
+        
+        
+        ## Set acoustic params accordingly
+        # Generate port_params DataFrame
+        port_params = pandas.Series(
+            self.known_pilot_ports, name='port').to_frame()
+        
+        # Extract pilot and side
+        port_params['pilot'] = port_params['port'].apply(
+            lambda s: s.split('_')[0])
+        port_params['side'] = port_params['port'].apply(
+            lambda s: s.split('_')[1])
+
+        # Find the rewarded row
+        rewarded_idx = port_params.index[
+            np.where(port_params['port'] == self.rewarded_port)[0][0]]
+        
+        # Only reward that one
+        port_params['reward'] = False
+        port_params.loc[rewarded_idx, 'reward'] = True
+
+        # This is the distance from each port to the rewarded port
+        half_dist = len(port_params) // 2
+        port_params['absdist'] = np.abs(np.mod(
+            port_params.index - rewarded_idx + half_dist, 
+            len(port_params)) - half_dist)
+        
+        # Only have sound on for some
+        port_params.loc[:, 'sound_on'] = port_params['absdist'] <= 1
+        
+        # Choose mean_interval
+        port_params.loc[:, 'mean_interval'] = .25 + port_params['absdist'] * .45
+        
+        # Choose var_interval
+        port_params.loc[:, 'var_interval'] = .01
+        
+        
+        ## Send the play and silence messages
+        # Tell those to play
+        self.logger.debug('using {}'.format(port_params))
+        self.send_acoustic_params(port_params)
+    
+
+        ## Continue to the next stage
+        # CLEAR means "wait for triggers"
+        # SET means "advance anyway"
+        self.stage_block.set()
+
+        # Return data about chosen_stim so it will be added to HDF5
+        # Because this is the first return of the incremented trial_num,
+        # this will make a new row in the HDF5 file.
+        # Even if we don't increment trial_num,
+        # it will still make another row in the HDF5, but it might warn.
+        # (TODO: Check this actually works)
+        # (This happens in autopilot.core.subject.Subject.data_thread)
+        if self.previously_rewarded_port is None:
+            prp_to_send = ''
+        else:
+            prp_to_send = self.previously_rewarded_port
+        
+        return {
+            'rewarded_port': self.rewarded_port,
+            'previously_rewarded_port': prp_to_send,
+            'timestamp_trial_start': timestamp_trial_start.isoformat(),
+            'trial_num': self.counter_trials_across_sessions,
+            'trial_in_session': self.counter_trials_in_session,
+            }
+
+    def wait_for_response(self):
+        """A stage that waits for a response"""
+        # Wait a little before doing anything
+        self.logger.debug('wait_for_response: entering stage')
+
+        # Do not continue until the stage_block is set, e.g. by a poke
+        self.stage_block.clear()        
+        
+        # This is tested in recv_poke before advancing
+        self.advance_on_port = self.rewarded_port
+    
+    def report_reward(self):
+        """A stage that just reports reward timestamp"""
+        # Silence all speakers, no punishment
+        self.silence_all(left_punish=False, right_punish=False)
+
+        # Immediately advance to next stage
+        self.stage_block.set()
+        
+        # Return self.timestamp_of_last_reward, which was set at the time
+        # of the reward.
+        # Check for None just to be safe
+        if self.timestamp_of_last_reward is not None:
+            return {
+                'timestamp_reward': self.timestamp_of_last_reward.isoformat(),        
+                } 
+        else:
+            self.logger.debug(
+                "error: self.timestamp_of_last_reward is None, "
+                "this shouldn't happen")
+    
+    def end_of_trial(self):
+        """A stage that ends the trial
+        
+        TODO: split out the ITI component into its own stage, so
+        reward can be reported immediately
         """
-        # We use the HARDWARE dict that specifies what we need to run the task
-        # alongside the HARDWARE subdict in the prefs structure to tell us 
-        # how they're plugged in to the pi
-        self.hardware = {}
-        self.pin_id = {} # Reverse dict to identify pokes
-        pin_numbers = prefs.get('HARDWARE')
+        # Announce
+        self.logger.debug('end_of_trial: entering stage')
+        
+        # 5 s ITI
+        time.sleep(3)        
 
-        # We first iterate through the types of hardware we need
-        for type, values in self.HARDWARE.items():
-            self.hardware[type] = {}
-            # then iterate through each pin and handler of this type
-            for pin, handler in values.items():
-                try:
-                    hw_args = pin_numbers[type][pin]
-                    if isinstance(hw_args, dict):
-                        if 'name' not in hw_args.keys():
-                            hw_args['name'] = "{}_{}".format(type, pin)
-                        hw = handler(**hw_args)
-                    else:
-                        hw_name = "{}_{}".format(type, pin)
-                        hw = handler(hw_args, name=hw_name)
+        # Continue to the next stage
+        self.stage_block.set()        
+        
+        # Return TRIAL_END so the Terminal knows the trial is over, which
+        # appends a row to the HDF5
+        return {
+            'TRIAL_END': True,
+            }
 
-                    # if a pin is a trigger pin (event-based input), 
-                    # give it the trigger handler
-                    if hw.is_trigger:
-                        hw.assign_cb(self.handle_trigger)
-
-                    # add to forward and backwards pin dicts
-                    self.hardware[type][pin] = hw
-                    if isinstance(hw_args, int) or isinstance(hw_args, str):
-                        self.pin_id[hw_args] = pin
-                    elif isinstance(hw_args, list):
-                        for p in hw_args:
-                            self.pin_id[p] = pin
-                    elif isinstance(hw_args, dict):
-                        if 'pin' in hw_args.keys():
-                            self.pin_id[hw_args['pin']] = pin 
-
-                except:
-                    self.logger.exception(
-                        "Pin could not be instantiated - Type: "
-                        "{}, Pin: {}".format(type, pin))
+    def init_hardware(self, *args, **kwargs):
+        """Placeholder to init hardware
+        
+        This is here to remind me that init_hardware is implemented by the
+        base class `Task`. This function could be removed if there is
+        no hardware actually connected and/or defined in HARDWARE.
+        """
+        super(PAFT, self).init_hardware(*args, **kwargs)
 
     def handle_trigger(self, pin, level=None, tick=None):
-        """Handle a GPIO trigger.
+        """Handle a GPIO trigger, overriding superclass.
         
-        All GPIO triggers call this function with the pin number, 
-        level (high, low), and ticks since booting pigpio.
-
-        Args:
+        This overrides the behavior in the superclass `Task`, most importantly
+        by not changing the stage block or clearing the triggers. Therefore
+        this function changes the way tasks proceed through stages, and
+        should be included in any PAFT-like task to provide consistent
+        stage progression logic. 
+        
+        All GPIO triggers call this function because the `init_hardware`
+        function sets their callback to this function. (Possibly true only
+        for pins in self.HARDWARE?) 
+        
+        When they do call, they provide these arguments:
             pin (int): BCM Pin number
             level (bool): True, False high/low
             tick (int): ticks since booting pigpio
         
-        This converts the BCM pin number to a board number using
-        BCM_TO_BOARD and then a letter using `self.pin_id`.
+        This function converts the BCM pin number to a board number using
+        BCM_TO_BOARD, and then to a letter using `self.pin_id`.
         
         That letter is used to look up the relevant triggers in
         `self.triggers`, and calls each of them.
@@ -569,7 +683,8 @@ class PAFT(Task):
         self.logger.debug(
             'trigger bcm {}; board {}; letter {}; level {}; tick {}'.format(
             pin, board_pin, pin_letter, level, tick))
-
+        
+        # TODO: acquire trigger_lock here?
         # Call any triggers that exist
         if pin_letter in self.triggers:
             trigger_l = self.triggers[pin_letter]
@@ -577,310 +692,117 @@ class PAFT(Task):
                 trigger()
         else:
             self.logger.debug(f"No trigger found for {pin}")
-            return
-
-    def end(self):
-        """
-        Release all hardware objects
-        """
-        for k, v in self.hardware.items():
-            for pin, obj in v.items():
-                obj.release()
-
-    def recv_poke(self, value):
-        # Log it
-        self.log_poke_from_child(value)
-        
-        # Identify poked
-        child_name = value['from']
-        poke_name = value['poke']
-        
-        # Compare target to poked
-        if (
-                self.stim_params['rpi'] == child_name and 
-                self.stim_params['side'] == poke_name):
-            self.logger.debug('correct poke {}; target was {}'.format(
-                value, 
-                self.stim_params['rpi'] + '_' + self.stim_params['side']))
-            self.stage_block.set()
-        else:
-            self.logger.debug('incorrect poke {}; target was {}'.format(
-                value, 
-                self.stim_params['rpi'] + '_' + self.stim_params['side']))
-        
-    def log_poke_from_child(self, value):
-        child_name = value['from']
-        poke_name = value['poke']
-        self.log_poke('{}_{}'.format(child_name, poke_name))
-    
-    def log_poke(self, port):
-        self.logger.debug('{} {} poke'.format(
-            datetime.datetime.now().isoformat(),
-            port,
-            ))
-    
-    def set_poke_triggers(self):
-        """"Set triggers for poke entry
-        
-        For each poke, sets these triggers:
-            self.log_poke (write to own debugger)
-            self.report_poke (report to parent)
-        
-        The C-poke doesn't really exist, but this is useful for debugging.
-        """
-        for poke in ['L', 'C', 'R']:
-            self.triggers[poke] = [
-                functools.partial(self.log_poke, poke),
-                ]        
-
-        # Append error sound to each
-        self.triggers['L'].append(self.left_error_sound.play)
-        self.triggers['R'].append(self.right_error_sound.play)
-    
-    def ITI_start(self, *args, **kwargs):
-        """A state that initiates an ITI timer"""
-        # Set poke triggers (for logging)
-        # Make sure this doesn't depend on self.stim which hasn't been
-        # chosen yet!
-        self.set_poke_triggers()
-        
-        # This flag is set after the timer is over
-        self.iti_is_over = False
-        
-        # Start the timer
-        threading.Timer(ITI_DURATION_SEC, self.ITI_stop).start()
-        
-        # Continue to next stage (self.ITI_wait)
-        self.stage_block.set()
-
-    def ITI_stop(self):
-        """Helper function just to set flag iti_is_over"""
-        self.iti_is_over = True
-        
-    def ITI_wait(self, *args, **kwargs):
-        """A state that waits for the ITI to be over"""
-        # Wait until the ITI is over
-        while not self.iti_is_over:
-            pass
-        
-        # Set the stage block
-        self.stage_block.set()
-    
-    def water(self, *args, **kwargs):
-        """
-        First stage of task - open a port if it's poked.
-
-        Returns:
-            dict: Data dictionary containing::
-
-                'target': ('L', 'C', 'R') - correct response
-                'timestamp': isoformatted timestamp
-                'trial_num': number of current trial
-        """
-        ## Prevents moving to next stage
-        self.stage_block.clear()
-
-
-        ## Set poke triggers (for logging)
-        # Make sure this doesn't depend on self.stim which hasn't been
-        # chosen yet!
-        self.set_poke_triggers()
-        
-        
-        ## Choose target
-        # Identify possible stim (those that do not repeat the reward port)
-        excluding_previous = []
-        for idx in stimulus_set.index:
-            if self.stim_params is not None:
-                if (
-                    stimulus_set.loc[idx, 'side'] == self.stim_params['side'] 
-                    and stimulus_set.loc[idx, 'rpi'] == self.stim_params['rpi'] 
-                    ):
-                    continue
-            excluding_previous.append(idx)
-        
-        # Choose
-        self.stim_index = random.choice(excluding_previous)
-        self.stim_params = stimulus_set.loc[self.stim_index]
-        stringy_stim_params = self.stim_params.to_string().replace('\n', '; ')
-        self.logger.debug("Chosen stim params: {}".format(stringy_stim_params))
-        
-        
-        ## Set stim
-        if self.stim_params['rpi'] == MY_PI1:
-            ## This rpi controls the target port
-            # Set channel and other_side variables, used below
-            if self.stim_params['side'] == 'L':
-                channel = 0
-                other_side = 'R'
-            else:
-                channel = 1
-                other_side = 'L'
-            
-            # Set sound on or off
-            if self.stim_params['sound']:
-                amplitude = STIM_AMPLITUDE
-            else:
-                amplitude = 0
-            
-            # Set light on or off
-            if self.stim_params['light']:
-                self.hardware['LEDS'][self.stim_params['side']].set(
-                    r=0, g=255, b=0)
-                self.hardware['LEDS'][other_side].set(
-                    r=0, g=0, b=0)
-            
-            # Generate the sound
-            self.stim = sounds.Noise(
-                duration=STIM_DURATION_MS, amplitude=amplitude, channel=channel, 
-                highpass=STIM_HP_FILT)
-
-            # Remove the error sound (should be the last one)
-            popped = self.triggers[self.stim_params['side']].pop()
-            assert popped in [
-                self.left_error_sound.play, self.right_error_sound.play]
-            
-            # Add a trigger to open the port
-            self.triggers[self.stim_params['side']].append(
-                self.hardware['PORTS'][self.stim_params['side']].open)
-            self.triggers[self.stim_params['side']].append(
-                self.stage_block.set)
-
-        else:
-            ## A child rpi controls the target port
-            # No stim
-            self.stim = None
-
-            # Tell child what the target is
-            self.node2.send(
-                to=self.stim_params['rpi'],
-                key='PLAY',
-                value={
-                    'side': self.stim_params['side'],
-                    'light': self.stim_params['light'],
-                    'sound': self.stim_params['sound'],
-                    },
-                )
-
-
-        ## Set the stim to repeat
-        if self.stim is not None:
-            # Set the trigger to call function when stim is over
-            self.stim.set_trigger(self.delayed_play_again)
-            
-            # Buffer the stim and start playing it after a delay
-            self.stim.buffer()
-            threading.Timer(.75, self.stim.play).start()        
-        
-        
-        ## Opto
-        is_opto_trial = int(np.random.rand() < FRAC_OPTO_TRIALS)
-        hacked_light_string = 'hacked'
-        if is_opto_trial == 1: 
-            self.logger.debug('opto is true on this trial {}'.format(self.n_trials))
-            
-            # Hack
-            hacked_light_string = 'opto_on'
-            
-            # This actually activates the pin
-            # Might want a delay here?
-            self.opto_trigger.set(True)
-        
-        else:
-            # Hack
-            hacked_light_string = 'opto_off'
-            self.logger.debug('opto is false on this trial {}'.format(self.n_trials))
-        
-        
-        ## Return data
-        data = {
-            'rpi': self.stim_params['rpi'],
-            'side': self.stim_params['side'],
-            'light': hacked_light_string, #str(self.stim_params['light']),
-            'sound': str(self.stim_params['sound']),
-            'timestamp': datetime.datetime.now().isoformat(),
-            'trial': self.n_trials,
-            'trials_total' : next(self.trial_counter)
-        }
-        self.n_trials = self.n_trials + 1
-
-        return data
 
     def recv_hello(self, value):
-        self.logger.debug("received HELLO from child with value {}".format(value))
+        self.logger.debug(
+            "received HELLO from child with value {}".format(value))
+        
+        # Set this flag
         self.child_connected[value['from']] = True
-
-    def response(self):
-        """
-        Just have to alert the Terminal that the current trial has ended
-        and turn off any lights.
-        """
-        # Turn off the "stim_end" trigger so it doesn't keep playing
-        if self.stim is not None:
-            self.stim.set_trigger(self.done_playing)
-        
-        # Turn off any LEDs
-        self.hardware['LEDS']['L'].set(r=0, g=0, b=0)
-        self.hardware['LEDS']['R'].set(r=0, g=0, b=0)
-        
-        # Turn off opto_trigger
-        self.opto_trigger.set(False)
-
-        # Tell the child to stop
-        if self.stim_params['rpi'] != MY_PI1:
-            self.node2.send(
-                to=self.stim_params['rpi'],
-                key='STOP',
-                value={},
-                )                
-
-        # Tell the Terminal the trial has ended
-        return {'TRIAL_END':True}
-
-    def end(self):
-        """
-        When shutting down, release all hardware objects and turn LEDs off.
-        """
-        # Tell each child to END
-        for child_name in self.CHILDREN.keys():
-            # Tell child what the target is
-            self.node2.send(
-                to=child_name,
-                key='END',
-                value={},
-                )    
-        
-        # Stop playing sound
-        if self.stim is not None:
-            self.stim.set_trigger(self.done_playing)
     
-        # Turn off LEDs
-        self.hardware['LEDS']['L'].set(r=0, g=0, b=0)
-        self.hardware['LEDS']['R'].set(r=0, g=0, b=0)
+    def recv_poke(self, value):
+        # TODO: get the timestamp directly from the child rpi instead of 
+        # inferring it here
+        poke_timestamp = datetime.datetime.now()
 
-        # Release
-        self.node2.release()
+        # Announce
+        self.logger.debug(
+            "[{}] received POKE from child with value {}".format(
+            poke_timestamp.isoformat(), value))
 
-        # Release all hardware
-        for k, v in self.hardware.items():
-            for pin, obj in v.items():
-                obj.release()
+        # Form poked_port
+        poked_port = '{}_{}'.format(value['from'], value['poke'])
+        
+        # Directly report continuous data to terminal (aka _T)
+        # Otherwise it can be encoded in the returned data, but that is only
+        # once per stage
+        # subject is needed by core.terminal.Terminal.l_data
+        # pilot is needed by networking.station.Terminal_Station.l_data
+        # timestamp and continuous are needed by subject.Subject.data_thread
+        # `trial` is for convenience, but note it will be wrong for pokes
+        # that occur during the "choose_stimulus" function
+        self.node.send(
+            to='_T',
+            key='DATA',
+            value={
+                'subject': self.subject,
+                'pilot': prefs.get('NAME'),
+                'continuous': True,
+                'poked_port': poked_port,
+                'timestamp': poke_timestamp.isoformat(),
+                'trial': self.counter_trials_in_session,
+                },
+            )
 
-    def delayed_play_again(self):
-        """Called when stim over
+        # Also send to plot
+        self.node.send(
+            to='P_{}'.format(prefs.get('NAME')),
+            key='DATA',
+            value={
+                'subject': self.subject,
+                'pilot': prefs.get('NAME'),
+                'continuous': True,
+                'poked_port': poked_port,
+                'timestamp': poke_timestamp.isoformat(),
+                'trial': self.counter_trials_in_session,
+                },
+            )  
+
+    def recv_reward(self, value):
+        """Log reward and advance stage block"""
+        # TODO: get the timestamp directly from the child rpi instead of 
+        # inferring it here
+        reward_timestamp = datetime.datetime.now()
+
+        # Announce
+        self.logger.debug(
+            "[{}] received REWARD from child with value {}".format(
+            reward_timestamp.isoformat(), value))
+
+        # Form poked_port
+        poked_port = '{}_{}'.format(value['from'], value['poke'])
+        
+        # If the poked port was the rewarded port, then set the stage_block
+        # This guard should not be necessary because the child pi should
+        # only reward once per trial
+        if poked_port == self.advance_on_port:
+            # Null this flag so we can't somehow advance twice
+            self.advance_on_port = None
+            
+            # Advance
+            self.stage_block.set()
+        else:
+            self.logger.debug(
+                "error: reward signal received from {}, ".format(poked_port) +
+                "but advance_on_port was {}".format(self.advance_on_port)
+                )
+
+        # Store the time of the reward
+        self.timestamp_of_last_reward = reward_timestamp
+
+    def end(self, *args, **kwargs):
+        """Called when the task is ended by the user.
+        
+        The base class `Task` releases hardware objects here.
+        This is a placeholder to remind me of that.
         """
-        # Play it again, after a delay
-        self.stim.buffer()
+        self.logger.debug('end: entering function')
         
-        # Draw the interval
-        interval = np.random.gamma(3, self.subject_params['gamma_scale'])
-        
-        # Hard floor
-        if interval < INTER_STIM_INTERVAL_FLOOR:
-            interval = INTER_STIM_INTERVAL_FLOOR
-        
-        threading.Timer(interval, self.stim.play).start()
-        
-    def done_playing(self):
-        # This is called when the last stim of the trial has finished playing
-        pass
+        # Tell the child to end the task
+        self.node.send(to=prefs.get('NAME'), key='CHILD', value={'KEY': 'STOP'})
+
+        # Sometimes it seems like the children don't get the message,
+        # maybe wait?
+        time.sleep(1)
+
+        # This sock.close seems to be necessary to be able to communicate again
+        self.node.sock.close()
+        self.node.release()
+
+        # This router.close() prevents ZMQError on the next start
+        self.node2.router.close()
+        self.node2.release() 
+
+        # Let the superclass end handle releasing hardware
+        super(PAFT, self).end(*args, **kwargs)
+
