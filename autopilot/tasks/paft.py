@@ -537,7 +537,7 @@ class PAFT(Task):
         
         # The linear decrease in target rate with distance from goal
         # This will be floored at zero
-        target_rate_slope = 3.
+        target_rate_slope = 4.
         
         # The temporal uncertainty across all speakers and both sounds
         # This is something like the standard deviation in drawn intervals, in s
@@ -546,7 +546,7 @@ class PAFT(Task):
         # The top-up rate to achieve by adding distractor sounds
         # If less than target rate at that speaker, no distracters added
         # If zero, distracters are never added
-        min_combined_rate = 4
+        min_combined_rate = 1
         
         # The kwargs to use for target and distracter
         target_kwargs = {'highpass': 10000., 'amplitude': .1}
