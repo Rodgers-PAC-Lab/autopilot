@@ -284,7 +284,6 @@ class Pilot:
         Args:
             value (dict): A dictionary of task parameters
         """
-        print("I RECEIVED L_START")
         # TODO: If any of the sounds are 'file,' make sure we have them. If not, request them.
         # Value should be a dict of protocol params
         # The networking object should have already checked that we have all the files we need
