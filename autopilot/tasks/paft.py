@@ -115,26 +115,28 @@ class PAFT(Task):
     # _max, _min, and _n_choices versions, to specify ranges
     helper_to_form_params = pandas.DataFrame.from_records([
         ('target_rate', 'rate of target sounds at goal (Hz)', 'float'),
-        ('target_temporal_std', 
-            'log[std[inter-target intervals (s)]]', 'float'),
+        ('target_temporal_log_std', 
+            'log(std(inter-target intervals [s]))', 'float'),
         
         ('target_spatial_extent', 
             'number of ports on each side of target that play sound', 'float'),
         
         ('distractor_rate', 'rate of distractor sounds (Hz)', 'float'),
-        ('distractor_temporal_std', 
-            'log[std[inter-distractor intervals (s)]]', 'float'),
+        ('distractor_temporal_log_std', 
+            'log(std(inter-distractor intervals [s]))', 'float'),
         
         ('target_center_freq', 'center freq of target sound (Hz)', 'float'),
         ('target_bandwidth', 
             'bandwidth (high-low) of target sound (Hz)', 'float'),
-        ('target_amplitude', 'amplitude of target sound', 'float'),
+        ('target_log_amplitude', 
+            'log(amplitude of target sound)', 'float'),
         
         ('distractor_center_freq', 
             'center freq of distractor sound (Hz)', 'float'),
         ('distractor_bandwidth', 
             'bandwidth (high-low) of distractor sound (Hz)', 'float'),
-        ('distractor_amplitude', 'amplitude of distractor sound', 'float'),
+        ('distractor_log_amplitude', 
+            'log(amplitude of distractor sound)', 'float'),
         ],
         columns=['key', 'tag', 'type'],
         )
@@ -158,8 +160,9 @@ class PAFT(Task):
             'tag': 'n_choices[{}]'.format(param.tag),
             'type': 'int',
             }    
-            
+
     
+    ## Set up TrialData and Continuous Data schema
     # Per https://docs.auto-pi-lot.com/en/latest/guide/task.html:
     # The `TrialData` object is used by the `Subject` class when a task
     # is assigned to create the data storage table
@@ -188,7 +191,16 @@ class PAFT(Task):
         # A bunch of stimulus parameters
         # TODO: generate this programmatically from helper
         stim_target_rate = tables.Float32Col()
-        
+        stim_target_temporal_std = tables.Float32Col()
+        stim_target_spatial_extent = tables.Float32Col()
+        stim_distractor_rate = tables.Float32Col()
+        stim_distractor_temporal_std = tables.Float32Col()
+        stim_target_center_freq = tables.Float32Col()
+        stim_target_bandwidth = tables.Float32Col()
+        stim_target_amplitude = tables.Float32Col()
+        stim_distractor_center_freq = tables.Float32Col()
+        stim_distractor_bandwidth = tables.Float32Col()
+        stim_distractor_amplitude = tables.Float32Col()
 
     # Define continuous data
     # https://docs.auto-pi-lot.com/en/latest/guide/task.html
@@ -200,6 +212,8 @@ class PAFT(Task):
         poked_port = tables.StringCol(64)
         trial = tables.Int32Col()
 
+
+    ## Set up hardware and children
     # Per https://docs.auto-pi-lot.com/en/latest/guide/task.html:
     # The HARDWARE dictionary maps a hardware type (eg. POKES) and 
     # identifier (eg. 'L') to a Hardware object. The task uses the hardware 
@@ -234,7 +248,7 @@ class PAFT(Task):
     
     ## Define the class methods
     def __init__(self, stage_block, current_trial, step_name, task_type, 
-        subject, step, session, pilot, graduation, reward):
+        subject, step, session, pilot, graduation, reward, **task_params):
         """Initialize a new PAFT Task. 
         
         All arguments are provided by the Terminal.
@@ -302,6 +316,31 @@ class PAFT(Task):
         # A dict of hardware triggers
         self.triggers = {}
         
+        
+        ## Store the stimulus parameters
+        stim_choosing_params = {}
+        
+        # Form choice list for each param
+        for param in self.helper_to_form_params.itertuples():
+            # Shortcuts
+            param_min = '{}_min'.format(param.key)
+            param_max = '{}_max'.format(param.key)
+            param_n_choices = '{}_n_choices'.format(param.key)
+            
+            # Depends on how many choices
+            if task_params[param_n_choices] == 1:
+                # If only 1, assert equal, and coresponding entry in 
+                # stim_choosing_params is a list of length one
+                assert (task_params[param_min] == task_params[param_max])
+                stim_choosing_params[param.key] = [task_params[param_min]]
+            else:
+                # Otherwise, linspace between min and max                
+                assert (task_params[param_min] < task_params[param_max])
+                stim_choosing_params[param.key] = np.linspace(
+                    task_params[param_min],
+                    task_params[param_max],
+                    task_params[param_n_choices])
+
         
         ## Define the possible ports
         self.known_pilot_ports = []
