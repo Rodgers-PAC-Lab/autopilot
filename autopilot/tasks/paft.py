@@ -107,10 +107,59 @@ class PAFT(Task):
     # kwarg in __init__
     PARAMS = odict()
     PARAMS['reward'] = {
-        'tag':'Reward Duration (ms)',
+        'tag':'reward duration (ms)',
         'type':'int',
         }
+    
+    # This DataFrame indicates a bunch of parameters that each have
+    # _max, _min, and _n_choices versions, to specify ranges
+    helper_to_form_params = pandas.DataFrame.from_records([
+        ('target_rate', 'rate of target sounds at goal (Hz)', 'float'),
+        ('target_temporal_std', 
+            'log[std[inter-target intervals (s)]]', 'float'),
+        
+        ('target_spatial_extent', 
+            'number of ports on each side of target that play sound', 'float'),
+        
+        ('distractor_rate', 'rate of distractor sounds (Hz)', 'float'),
+        ('distractor_temporal_std', 
+            'log[std[inter-distractor intervals (s)]]', 'float'),
+        
+        ('target_center_freq', 'center freq of target sound (Hz)', 'float'),
+        ('target_bandwidth', 
+            'bandwidth (high-low) of target sound (Hz)', 'float'),
+        ('target_amplitude', 'amplitude of target sound', 'float'),
+        
+        ('distractor_center_freq', 
+            'center freq of distractor sound (Hz)', 'float'),
+        ('distractor_bandwidth', 
+            'bandwidth (high-low) of distractor sound (Hz)', 'float'),
+        ('distractor_amplitude', 'amplitude of distractor sound', 'float'),
+        ],
+        columns=['key', 'tag', 'type'],
+        )
+    
+    # This generates the actual PARAMS using the helper
+    for param in helper_to_form_params.itertuples():
+        # Add the min
+        PARAMS['{}_min'.format(param.key)] = {
+            'tag': 'min[{}]'.format(param.tag),
+            'type': param.type,
+            }
 
+        # Add the max
+        PARAMS['{}_max'.format(param.key)] = {
+            'tag': 'max[{}]'.format(param.tag),
+            'type': param.type,
+            }    
+        
+        # Add the n_choices, which is always an int
+        PARAMS['{}_n_choices'.format(param.key)] = {
+            'tag': 'n_choices[{}]'.format(param.tag),
+            'type': 'int',
+            }    
+            
+    
     # Per https://docs.auto-pi-lot.com/en/latest/guide/task.html:
     # The `TrialData` object is used by the `Subject` class when a task
     # is assigned to create the data storage table
@@ -135,6 +184,11 @@ class PAFT(Task):
         # The timestamps
         timestamp_trial_start = tables.StringCol(64)
         timestamp_reward = tables.StringCol(64)
+        
+        # A bunch of stimulus parameters
+        # TODO: generate this programmatically from helper
+        stim_target_rate = tables.Float32Col()
+        
 
     # Define continuous data
     # https://docs.auto-pi-lot.com/en/latest/guide/task.html
@@ -182,38 +236,6 @@ class PAFT(Task):
     def __init__(self, stage_block, current_trial, step_name, task_type, 
         subject, step, session, pilot, graduation, reward):
         """Initialize a new PAFT Task. 
-        
-        
-        --
-        Plan
-        
-        The first version of this new task needs to:
-        * Be able to play streams of sounds from two speakers (no children)
-        
-        Another version needs to
-        * Connect to the children, without playing sounds
-        
-        Then these can be merged in a second version that can
-        * Report pokes from children
-        * Tell children to play sounds
-        
-        The third version needs to:
-        * Incorporate advancing through stages
-        * Return data about each trial
-        * Test continuous data (pokes)
-        * Test plot data
-        
-        The fourth version needs to:
-        * Incorporate subject-specific training params (skip for now)
-        
-        Then bring together into one version that
-        * Connects to children, each of which play sounds
-        * Chooses stim and tells them to play which sound
-        * Reports pokes as continuous data
-        * Reports trial outcome as trial data
-        * Plots        
-        
-        ---
         
         All arguments are provided by the Terminal.
         
