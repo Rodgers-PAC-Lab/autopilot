@@ -214,7 +214,7 @@ class Noise(BASE_CLASS):
     """
     # These are the parameters of the sound
     # These can be set in the GUI when generating a Nafc step in a Protocol
-    PARAMS = ['duration', 'amplitude', 'highpass', 'channel']
+    PARAMS = ['duration', 'amplitude', 'highpass', 'lowpass', 'channel']
     
     # The type of the sound
     type='Noise'
