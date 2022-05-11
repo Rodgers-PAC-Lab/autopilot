@@ -1303,9 +1303,6 @@ class Pilot_Station(Station):
         Returns: 
             nothing
         """
-        print("I RECEIVED L_CHILD")
-        
-        
         # Take `KEY` from msg.value['KEY'] if available
         # Otherwise, use 'START'
         if 'KEY' in msg.value.keys():
