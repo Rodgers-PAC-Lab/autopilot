@@ -549,8 +549,8 @@ class PAFT(Task):
         min_combined_rate = 1
         
         # The kwargs to use for target and distracter
-        target_kwargs = {'highpass': 10000., 'amplitude': .1}
-        distractor_kwargs = {'lowpass': 10000., 'amplitude': .1}
+        target_kwargs = {'highpass': 11000., 'lowpass': 14000., 'amplitude': .1}
+        distractor_kwargs = {'highpass': 8000.,'lowpass': 11000., 'amplitude': .1}
         
         
         ## Generate port_params DataFrame
