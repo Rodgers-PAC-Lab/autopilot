@@ -189,7 +189,7 @@ class PAFT_Child(children.Child):
         if left_on and left_target_rate > 1e-3:
             # Change of basis
             mean_interval = 1 / left_target_rate
-            var_interval = target_std_interval ** 2
+            var_interval = target_temporal_std ** 2
 
             # Change of basis
             gamma_shape = (mean_interval ** 2) / var_interval
@@ -205,7 +205,7 @@ class PAFT_Child(children.Child):
         if right_on and right_target_rate > 1e-3:
             # Change of basis
             mean_interval = 1 / right_target_rate
-            var_interval = target_std_interval ** 2
+            var_interval = target_temporal_std ** 2
 
             # Change of basis
             gamma_shape = (mean_interval ** 2) / var_interval
@@ -221,7 +221,7 @@ class PAFT_Child(children.Child):
         if left_on and left_distracter_rate > 1e-3:
             # Change of basis
             mean_interval = 1 / left_distracter_rate
-            var_interval = distracter_std_interval ** 2
+            var_interval = distracter_temporal_std ** 2
 
             # Change of basis
             gamma_shape = (mean_interval ** 2) / var_interval
@@ -237,7 +237,7 @@ class PAFT_Child(children.Child):
         if right_on and right_distracter_rate > 1e-3:
             # Change of basis
             mean_interval = 1 / right_distracter_rate
-            var_interval = distracter_std_interval ** 2
+            var_interval = distracter_temporal_std ** 2
 
             # Change of basis
             gamma_shape = (mean_interval ** 2) / var_interval
