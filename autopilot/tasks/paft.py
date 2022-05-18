@@ -654,10 +654,15 @@ class PAFT(Task):
         # They all have sound on
         port_params.loc[:, 'sound_on'] = True
         
-        # Set rate of target sounds, floored at zero
-        port_params.loc[:, 'target_rate'] = (
-            stim_target_rate - port_params['absdist'] / 
-            (1 + stim_target_spatial_extent))
+        # Set rate of target sounds
+        # Once port_params['absdist'] reaches 1 + stim_target_spatial_extent,
+        # target rate falls to zero
+        port_params.loc[:, 'target_rate'] = stim_target_rate * (
+            (1 + stim_target_spatial_extent - port_params['absdist']) /
+            (1 + stim_target_spatial_extent)
+            )
+        
+        # Floor target rate at zero
         port_params.loc[port_params['target_rate'] < 0, 'target_rate'] = 0
         
         # Calculate distracter rate
