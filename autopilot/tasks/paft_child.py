@@ -688,10 +688,6 @@ class PAFT_Child(children.Child):
         left_reward = value.pop('left_reward')
         right_reward = value.pop('right_reward')        
 
-        # Pop out left_on and right_on
-        left_on = value.pop('left_on')
-        right_on = value.pop('right_on')
-
         # Pop out the sound definition values
         target_center_freq = value.pop('stim_target_center_freq')
         target_bandwidth = value.pop('stim_target_bandwidth')
@@ -711,10 +707,6 @@ class PAFT_Child(children.Child):
             target_highpass, target_amplitude, target_lowpass,
             distracter_highpass, distracter_amplitude, distracter_lowpass,
             )
-        
-        # Define a cycle of those sounds
-        # This can only be done after target_qsize is set and sounds initialized
-        self.set_sound_cycle(params={'left_on': left_on, 'right_on': right_on})
         
         # Use left_punish and right_punish to set triggers
         self.set_poke_triggers(
