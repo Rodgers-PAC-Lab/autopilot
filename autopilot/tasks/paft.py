@@ -264,6 +264,41 @@ class PAFT(Task):
         They should be described in the class attribute `PARAMS` above, and
         their values should be specified in the protocol json.
         
+        These need to be defined in JSON now:
+            target_rate_min
+            target_rate_max
+            target_rate_n_choices
+            target_temporal_log_std_min
+            target_temporal_log_std_max
+            target_temporal_log_std_n_choices
+            target_spatial_extent_min
+            target_spatial_extent_max
+            target_spatial_extent_n_choices
+            distractor_rate_min
+            distractor_rate_max
+            distractor_rate_n_choices
+            distractor_temporal_log_std_min
+            distractor_temporal_log_std_max
+            distractor_temporal_log_std_n_choices
+            target_center_freq_min
+            target_center_freq_max
+            target_center_freq_n_choices
+            target_bandwidth_min
+            target_bandwidth_max
+            target_bandwidth_n_choices
+            target_log_amplitude_min
+            target_log_amplitude_max
+            target_log_amplitude_n_choices
+            distractor_center_freq_min
+            distractor_center_freq_max
+            distractor_center_freq_n_choices
+            distractor_bandwidth_min
+            distractor_bandwidth_max
+            distractor_bandwidth_n_choices
+            distractor_log_amplitude_min
+            distractor_log_amplitude_max
+            distractor_log_amplitude_n_choices
+        
         Arguments
         ---------
         stage_block (:class:`threading.Event`): 
