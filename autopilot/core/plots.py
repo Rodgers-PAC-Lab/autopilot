@@ -161,6 +161,8 @@ class Plot(QtWidgets.QWidget):
         ## Task specific stuff
         # These are the possible ports to display
         # TODO: receive these from the Pilot? Or how to handle multiple boxes?
+        # These will be rendered clockwise from northwest in the box plot
+        # And from top down in the raster plot
         if pilot == 'rpi_parent01':
             self.known_pilot_ports = [
                 'rpi09_L',
@@ -174,14 +176,14 @@ class Plot(QtWidgets.QWidget):
                 ]
         elif pilot == 'rpi_parent02':
             self.known_pilot_ports = [
-                'rpi05_L',
-                'rpi05_R',
-                'rpi06_L',
-                'rpi06_R',            
                 'rpi07_L',
                 'rpi07_R',
                 'rpi08_L',
                 'rpi08_R', 
+                'rpi05_L',
+                'rpi05_R',
+                'rpi06_L',
+                'rpi06_R',
                 ]
         else:
             raise ValueError("unrecognized parent name: {}".format(pilot))
