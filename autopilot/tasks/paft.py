@@ -521,12 +521,12 @@ class PAFT(Task):
                 },
             )              
 
-    def send_acoustic_params(self, port_params):
+    def send_acoustic_params(self, port_params, stim_params_to_send):
         """Send params to each pi
         
         port_params : DataFrame of port-specific params
         
-        stim_choosing_params : dict of global params
+        stim_params_to_send : dict of global params
 
         """
         # Iterate over pilots
@@ -547,7 +547,7 @@ class PAFT(Task):
                 }
             
             # Add on global params
-            kwargs.update(self.stim_choosing_params)
+            kwargs.update(stim_params_to_send)
 
             # Send the message
             self.node2.send(to=which_pi, key='PLAY', value=kwargs)
