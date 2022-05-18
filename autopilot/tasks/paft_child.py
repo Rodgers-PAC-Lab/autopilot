@@ -176,8 +176,8 @@ class PAFT_Child(children.Child):
         right_distracter_rate = params.get('right_distracter_rate', 0)
         
         # Global params
-        target_temporal_std = 10 ** params['stim_target_temporal_log_std']
-        distracter_temporal_std = 10 ** params['stim_distracter_temporal_log_std']
+        target_temporal_std = 10 ** params.get('stim_target_temporal_log_std', -2)
+        distracter_temporal_std = 10 ** params('stim_distracter_temporal_log_std', -2)
        
         
         ## Generate intervals 
