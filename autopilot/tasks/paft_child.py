@@ -154,6 +154,8 @@ class PAFT_Child(children.Child):
                 left_mean_interval
                 right_mean_interval
         """
+        print(params)
+        
         # This is just a left sound, gap, then right sound, then gap
         # And use a cycle to repeat forever
         # But this could be made more complex
