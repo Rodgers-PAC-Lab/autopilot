@@ -121,9 +121,9 @@ class PAFT(Task):
         ('target_spatial_extent', 
             'number of ports on each side of target that play sound', 'float'),
         
-        ('distractor_rate', 'rate of distractor sounds (Hz)', 'float'),
-        ('distractor_temporal_log_std', 
-            'log(std(inter-distractor intervals [s]))', 'float'),
+        ('distracter_rate', 'rate of distracter sounds (Hz)', 'float'),
+        ('distracter_temporal_log_std', 
+            'log(std(inter-distracter intervals [s]))', 'float'),
         
         ('target_center_freq', 'center freq of target sound (Hz)', 'float'),
         ('target_bandwidth', 
@@ -131,12 +131,12 @@ class PAFT(Task):
         ('target_log_amplitude', 
             'log(amplitude of target sound)', 'float'),
         
-        ('distractor_center_freq', 
-            'center freq of distractor sound (Hz)', 'float'),
-        ('distractor_bandwidth', 
-            'bandwidth (high-low) of distractor sound (Hz)', 'float'),
-        ('distractor_log_amplitude', 
-            'log(amplitude of distractor sound)', 'float'),
+        ('distracter_center_freq', 
+            'center freq of distracter sound (Hz)', 'float'),
+        ('distracter_bandwidth', 
+            'bandwidth (high-low) of distracter sound (Hz)', 'float'),
+        ('distracter_log_amplitude', 
+            'log(amplitude of distracter sound)', 'float'),
         ],
         columns=['key', 'tag', 'type'],
         )
@@ -193,14 +193,14 @@ class PAFT(Task):
         stim_target_rate = tables.Float32Col()
         stim_target_temporal_std = tables.Float32Col()
         stim_target_spatial_extent = tables.Float32Col()
-        stim_distractor_rate = tables.Float32Col()
-        stim_distractor_temporal_std = tables.Float32Col()
+        stim_distracter_rate = tables.Float32Col()
+        stim_distracter_temporal_std = tables.Float32Col()
         stim_target_center_freq = tables.Float32Col()
         stim_target_bandwidth = tables.Float32Col()
         stim_target_amplitude = tables.Float32Col()
-        stim_distractor_center_freq = tables.Float32Col()
-        stim_distractor_bandwidth = tables.Float32Col()
-        stim_distractor_amplitude = tables.Float32Col()
+        stim_distracter_center_freq = tables.Float32Col()
+        stim_distracter_bandwidth = tables.Float32Col()
+        stim_distracter_amplitude = tables.Float32Col()
 
     # Define continuous data
     # https://docs.auto-pi-lot.com/en/latest/guide/task.html
@@ -329,7 +329,7 @@ class PAFT(Task):
             
             # Depends on how many choices
             if task_params[param_n_choices] == 1:
-                # If only 1, assert equal, and coresponding entry in 
+                # If only 1, assert equal, and corresponding entry in 
                 # stim_choosing_params is a list of length one
                 assert (task_params[param_min] == task_params[param_max])
                 stim_choosing_params[param.key] = [task_params[param_min]]
@@ -407,18 +407,13 @@ class PAFT(Task):
 
         # Construct a message to send to child
         # Specify the subjects for the child (twice)
+        # These extra params end up in the __init__ for the child class
         value = {
             'child': {
                 'parent': prefs.get('NAME'), 'subject': subject},
             'task_type': 'PAFT_Child',
             'subject': subject,
-            'reward': reward,
-            'target_highpass': 10000.,
-            'target_amplitude': .01,
-            'target_lowpass': None,
-            'distracter_highpass': None,
-            'distracter_amplitude': .01,
-            'distracter_lowpass': 10000.,            
+            'reward': reward,          
         }
 
         # send to the station object with a 'CHILD' key
@@ -491,49 +486,12 @@ class PAFT(Task):
                 },
             )              
 
-    def reward_one(self, which_pi, which_side):
-        """Tell one speaker to play and silence all others"""
+    def send_acoustic_params(self, port_params, stim_choosing_params):
+        """Send params to each pi
         
-        ## Tell `which_pi` to reward `which_side` (and not the other)
-        # Construct kwargs
-        if which_side in ['left', 'L']:
-            kwargs = {
-                'left_on': True, 'right_on': False,
-                'left_punish': False, 'right_punish': True,
-                'left_reward': True, 'right_reward': False,
-                }
-        elif which_side in ['right', 'R']:
-            kwargs = {
-                'left_on': False, 'right_on': True,
-                'left_punish': True, 'right_punish': False,
-                'left_reward': False, 'right_reward': True,
-                }
-        else:
-            raise ValueError("unexpected which_side: {}".format(which_side))        
+        port_params : DataFrame of port-specific params
         
-        # Send the message
-        self.node2.send(to=which_pi, key='PLAY', value=kwargs)
-        
-        
-        ## Tell all other children to reward neither
-        for other_pi in prefs.get('CHILDID'):
-            if other_pi == which_pi:
-                continue
-            
-            self.silence_pi(other_pi, left_punish=True, right_punish=True)      
-
-    def send_acoustic_params(self, port_params):
-        """Take a DataFrame of acoustic_params by pi and send them
-        
-              port  pilot side  reward  absdist  sound_on  target_rate  target_mean_interval  std_interval  distracter_rate  distracter_mean_interval
-        0  rpi09_L  rpi09    L   False        3      True          0.0                   inf           0.1              4.0                  0.250000
-        1  rpi09_R  rpi09    R   False        4      True          0.0                   inf           0.1              4.0                  0.250000
-        2  rpi10_L  rpi10    L   False        3      True          0.0                   inf           0.1              4.0                  0.250000
-        3  rpi10_R  rpi10    R   False        2      True          0.0                   inf           0.1              4.0                  0.250000
-        4  rpi11_L  rpi11    L   False        1      True          1.0                  1.00           0.1              3.0                  0.333333
-        5  rpi11_R  rpi11    R    True        0      True          4.0                  0.25           0.1              0.0                       inf
-        6  rpi12_L  rpi12    L   False        1      True          1.0                  1.00           0.1              3.0                  0.333333
-        7  rpi12_R  rpi12    R   False        2      True          0.0                   inf           0.1              4.0                  0.250000
+        stim_choosing_params : dict of global params
 
         """
         # Iterate over pilots
@@ -543,19 +501,18 @@ class PAFT(Task):
             kwargs = {
                 'left_on': sub_df.loc['L', 'sound_on'],
                 'left_target_rate': sub_df.loc['L', 'target_rate'],
-                'left_target_std_interval': sub_df.loc['L', 'target_std_interval'],
                 'left_distracter_rate': sub_df.loc['L', 'distracter_rate'],
-                'left_distracter_std_interval': sub_df.loc['L', 'distracter_std_interval'],
                 'left_punish': ~sub_df.loc['L', 'reward'],
                 'left_reward': sub_df.loc['L', 'reward'],
                 'right_on': sub_df.loc['R', 'sound_on'],
                 'right_target_rate': sub_df.loc['R', 'target_rate'],
-                'right_target_std_interval': sub_df.loc['R', 'target_std_interval'],
                 'right_distracter_rate': sub_df.loc['R', 'distracter_rate'],
-                'right_distracter_std_interval': sub_df.loc['R', 'distracter_std_interval'],
                 'right_punish': ~sub_df.loc['R', 'reward'],
                 'right_reward': sub_df.loc['R', 'reward'],
                 }
+            
+            # Add on global params
+            kwargs.update(stim_choosing_params)
 
             # Send the message
             self.node2.send(to=which_pi, key='PLAY', value=kwargs)
@@ -592,26 +549,44 @@ class PAFT(Task):
         self.timestamp_of_last_reward = None        
         
         
-        ## Set acoustic params accordingly
-        # The rate of target sounds, in Hz
-        target_rate_at_goal = 4.
+        ## Choose params
+        # Each is taken from an entry in `stim_choosing_params`
+        # Each matches a column in `TrialData`
+        stim_target_rate = random.choice(
+            stim_choosing_params['target_rate'])
+        stim_target_temporal_log_std = random.choice(
+            stim_choosing_params['target_temporal_log_std'])
+        stim_target_spatial_extent = random.choice(
+            stim_choosing_params['target_spatial_extent'])
+        stim_distracter_rate = random.choice(
+            stim_choosing_params['distracter_rate'])
+        stim_distracter_temporal_log_std = random.choice(
+            stim_choosing_params['distracter_temporal_log_std'])
+        stim_target_center_freq = random.choice(
+            stim_choosing_params['target_center_freq'])
+        stim_target_bandwidth = random.choice(
+            stim_choosing_params['target_bandwidth'])
+        stim_target_log_amplitude = random.choice(
+            stim_choosing_params['target_log_amplitude'])
+        stim_distracter_center_freq = random.choice(
+            stim_choosing_params['distracter_center_freq'])
+        stim_distracter_bandwidth = random.choice(
+            stim_choosing_params['distracter_bandwidth'])
+        stim_distracter_log_amplitude = random.choice(
+            stim_choosing_params['distracter_log_amplitude'])
         
-        # The linear decrease in target rate with distance from goal
-        # This will be floored at zero
-        target_rate_slope = 4.
-        
-        # The temporal uncertainty across all speakers and both sounds
-        # This is something like the standard deviation in drawn intervals, in s
-        global_std_interval = .1
-        
-        # The top-up rate to achieve by adding distractor sounds
-        # If less than target rate at that speaker, no distracters added
-        # If zero, distracters are never added
-        min_combined_rate = 1
-        
-        # The kwargs to use for target and distracter
-        target_kwargs = {'highpass': 10000., 'amplitude': .1}
-        distractor_kwargs = {'lowpass': 10000., 'amplitude': .1}
+        # Put the ones that don't vary with port in a dict
+        # The ones that do vary with port are captured by port_params
+        stim_params_to_send = {
+            'stim_target_temporal_log_std': stim_target_temporal_log_std,
+            'stim_distracter_temporal_log_std': stim_distracter_temporal_log_std,
+            'stim_target_center_freq': stim_target_center_freq,
+            'stim_target_bandwidth': stim_target_bandwidth,
+            'stim_target_log_amplitude': stim_target_log_amplitude,
+            'stim_distracter_center_freq': stim_distracter_center_freq,
+            'stim_distracter_bandwidth': stim_distracter_bandwidth,
+            'stim_distracter_log_amplitude': stim_distracter_log_amplitude,            
+            }
         
         
         ## Generate port_params DataFrame
@@ -640,39 +615,27 @@ class PAFT(Task):
         
         
         ## Use the acoustic params to set the port_params
+        # These are the params that vary with distance from goal
         # They all have sound on
         port_params.loc[:, 'sound_on'] = True
         
         # Set rate of target sounds, floored at zero
         port_params.loc[:, 'target_rate'] = (
-            target_rate_at_goal - port_params['absdist'] * target_rate_slope)
+            stim_target_rate - port_params['absdist'] / 
+            (1 + stim_target_spatial_extent))
         port_params.loc[port_params['target_rate'] < 0, 'target_rate'] = 0
-        
-        # Convert rate of target sounds to target_mean_interval
-        # In some cases this will be np.inf
-        port_params.loc[:, 'target_mean_interval'] = (
-            1 / port_params.loc[:, 'target_rate'])
         
         # Calculate distracter rate
         port_params.loc[:, 'distracter_rate'] = (
-            min_combined_rate - port_params.loc[:, 'target_rate'])
+            stim_distracter_rate - port_params.loc[:, 'target_rate'])
         port_params.loc[
             port_params['distracter_rate'] < 0, 'distracter_rate'] = 0
-        
-        # Convert rate of distracter sounds to distracter_mean_interval
-        # In some cases this will be np.inf
-        port_params.loc[:, 'distracter_mean_interval'] = (
-            1 / port_params.loc[:, 'distracter_rate'])        
-        
-        # Set std_interval for both
-        port_params.loc[:, 'target_std_interval'] = global_std_interval
-        port_params.loc[:, 'distracter_std_interval'] = global_std_interval
         
         
         ## Send the play and silence messages
         # Tell those to play
         self.logger.debug('using {}'.format(port_params))
-        self.send_acoustic_params(port_params)
+        self.send_acoustic_params(port_params, stim_params_to_send)
     
 
         ## Continue to the next stage
@@ -698,6 +661,14 @@ class PAFT(Task):
             'timestamp_trial_start': timestamp_trial_start.isoformat(),
             'trial_num': self.counter_trials_across_sessions,
             'trial_in_session': self.counter_trials_in_session,
+            'stim_target_temporal_log_std': stim_target_temporal_log_std,
+            'stim_distracter_temporal_log_std': stim_distracter_temporal_log_std,
+            'stim_target_center_freq': stim_target_center_freq,
+            'stim_target_bandwidth': stim_target_bandwidth,
+            'stim_target_log_amplitude': stim_target_log_amplitude,
+            'stim_distracter_center_freq': stim_distracter_center_freq,
+            'stim_distracter_bandwidth': stim_distracter_bandwidth,
+            'stim_distracter_log_amplitude': stim_distracter_log_amplitude,              
             }
 
     def wait_for_response(self):

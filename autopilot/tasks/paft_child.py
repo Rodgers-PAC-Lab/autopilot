@@ -32,8 +32,6 @@ class PAFT_Child(children.Child):
     }    
 
     def __init__(self, stage_block, task_type, subject, child, reward,
-        target_highpass, target_amplitude, target_lowpass,
-        distracter_highpass, distracter_amplitude, distracter_lowpass,
         ):
         """Initialize a new PAFT_Child
         
@@ -89,14 +87,9 @@ class PAFT_Child(children.Child):
         self.n_frames = 0
         self.n_error_counter = 0        
 
-        # Define the sounds that will be used in the cycle
-        self.initalize_sounds(        
-            target_highpass, target_amplitude, target_lowpass,
-            distracter_highpass, distracter_amplitude, distracter_lowpass,
-            )
-        
-        # Define a cycle of those sounds
-        # This can only be done after target_qsize is set and sounds initialized
+        # Fill the queue with empty frames
+        # Sounds aren't initialized till the trial starts
+        # Using False here should work even without sounds initialized yet
         self.set_sound_cycle(params={'left_on': False, 'right_on': False})
 
 
@@ -181,18 +174,18 @@ class PAFT_Child(children.Child):
         right_target_rate = params.get('right_target_rate', 0)
         left_distracter_rate = params.get('left_distracter_rate', 0)
         right_distracter_rate = params.get('right_distracter_rate', 0)
-        left_target_std_interval = params.get('left_target_std_interval', 0)
-        right_target_std_interval = params.get('right_target_std_interval', 0)
-        left_distracter_std_interval = params.get('left_distracter_std_interval', 0)
-        right_distracter_std_interval = params.get('right_distracter_std_interval', 0)
         
+        # Global params
+        target_temporal_std = 10 ** params['stim_target_temporal_log_std']
+        distracter_temporal_std = 10 ** params['stim_distracter_temporal_log_std']
+       
         
         ## Generate intervals 
         # left target
         if left_on and left_target_rate > 1e-3:
             # Change of basis
             mean_interval = 1 / left_target_rate
-            var_interval = left_target_std_interval ** 2
+            var_interval = target_std_interval ** 2
 
             # Change of basis
             gamma_shape = (mean_interval ** 2) / var_interval
@@ -208,7 +201,7 @@ class PAFT_Child(children.Child):
         if right_on and right_target_rate > 1e-3:
             # Change of basis
             mean_interval = 1 / right_target_rate
-            var_interval = right_target_std_interval ** 2
+            var_interval = target_std_interval ** 2
 
             # Change of basis
             gamma_shape = (mean_interval ** 2) / var_interval
@@ -224,7 +217,7 @@ class PAFT_Child(children.Child):
         if left_on and left_distracter_rate > 1e-3:
             # Change of basis
             mean_interval = 1 / left_distracter_rate
-            var_interval = left_distracter_std_interval ** 2
+            var_interval = distracter_std_interval ** 2
 
             # Change of basis
             gamma_shape = (mean_interval ** 2) / var_interval
@@ -240,7 +233,7 @@ class PAFT_Child(children.Child):
         if right_on and right_distracter_rate > 1e-3:
             # Change of basis
             mean_interval = 1 / right_distracter_rate
-            var_interval = right_distracter_std_interval ** 2
+            var_interval = distracter_std_interval ** 2
 
             # Change of basis
             gamma_shape = (mean_interval ** 2) / var_interval
@@ -681,13 +674,43 @@ class PAFT_Child(children.Child):
             "received HELLO from parent with value {}".format(value))
 
     def recv_play(self, value):
+        """On receiving a PLAY command, set sounds and fill queues"""
+        # Log 
         self.logger.debug("recv_play with value: {}".format(value))
         
-        # Extract which pokes are punished
+        # Pop out the punish and reward values
         left_punish = value.pop('left_punish')
         right_punish = value.pop('right_punish')
         left_reward = value.pop('left_reward')
         right_reward = value.pop('right_reward')        
+
+        # Pop out left_on and right_on
+        left_on = value.pop('left_on')
+        right_on = value.pop('right_on')
+
+        # Pop out the sound definition values
+        target_center_freq = value.pop('stim_target_center_freq')
+        target_bandwidth = value.pop('stim_target_bandwidth')
+        target_amplitude = 10 ** value.pop('stim_target_log_amplitude')
+        distracter_center_freq = value.pop('stim_distracter_center_freq')
+        distracter_bandwidth = value.pop('stim_distracter_bandwidth')
+        distracter_amplitude = 10 ** value.pop('stim_distracter_log_amplitude')
+
+        # Convert center and bandwidth to lowpass and highpass
+        target_highpass = target_center_freq - target_bandwidth / 2
+        target_lowpass = target_center_freq + target_bandwidth / 2
+        distracter_highpass = distracter_center_freq - distracter_bandwidth / 2
+        distracter_lowpass = distracter_center_freq + distracter_bandwidth / 2
+
+        # Define the sounds that will be used in the cycle
+        self.initalize_sounds(        
+            target_highpass, target_amplitude, target_lowpass,
+            distracter_highpass, distracter_amplitude, distracter_lowpass,
+            )
+        
+        # Define a cycle of those sounds
+        # This can only be done after target_qsize is set and sounds initialized
+        self.set_sound_cycle(params={'left_on': left_on, 'right_on': right_on})
         
         # Use left_punish and right_punish to set triggers
         self.set_poke_triggers(
