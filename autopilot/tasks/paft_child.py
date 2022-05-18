@@ -688,25 +688,28 @@ class PAFT_Child(children.Child):
         left_reward = value.pop('left_reward')
         right_reward = value.pop('right_reward')        
 
-        # Pop out the sound definition values
-        target_center_freq = value.pop('stim_target_center_freq')
-        target_bandwidth = value.pop('stim_target_bandwidth')
-        target_amplitude = 10 ** value.pop('stim_target_log_amplitude')
-        distracter_center_freq = value.pop('stim_distracter_center_freq')
-        distracter_bandwidth = value.pop('stim_distracter_bandwidth')
-        distracter_amplitude = 10 ** value.pop('stim_distracter_log_amplitude')
+        # Only get these params if sound is supposed to play
+        # silence_pi doesn't include them
+        if value['left_on'] or value['right_on']:
+            # Pop out the sound definition values
+            target_center_freq = value.pop('stim_target_center_freq')
+            target_bandwidth = value.pop('stim_target_bandwidth')
+            target_amplitude = 10 ** value.pop('stim_target_log_amplitude')
+            distracter_center_freq = value.pop('stim_distracter_center_freq')
+            distracter_bandwidth = value.pop('stim_distracter_bandwidth')
+            distracter_amplitude = 10 ** value.pop('stim_distracter_log_amplitude')
 
-        # Convert center and bandwidth to lowpass and highpass
-        target_highpass = target_center_freq - target_bandwidth / 2
-        target_lowpass = target_center_freq + target_bandwidth / 2
-        distracter_highpass = distracter_center_freq - distracter_bandwidth / 2
-        distracter_lowpass = distracter_center_freq + distracter_bandwidth / 2
+            # Convert center and bandwidth to lowpass and highpass
+            target_highpass = target_center_freq - target_bandwidth / 2
+            target_lowpass = target_center_freq + target_bandwidth / 2
+            distracter_highpass = distracter_center_freq - distracter_bandwidth / 2
+            distracter_lowpass = distracter_center_freq + distracter_bandwidth / 2
 
-        # Define the sounds that will be used in the cycle
-        self.initalize_sounds(        
-            target_highpass, target_amplitude, target_lowpass,
-            distracter_highpass, distracter_amplitude, distracter_lowpass,
-            )
+            # Define the sounds that will be used in the cycle
+            self.initalize_sounds(        
+                target_highpass, target_amplitude, target_lowpass,
+                distracter_highpass, distracter_amplitude, distracter_lowpass,
+                )
         
         # Use left_punish and right_punish to set triggers
         self.set_poke_triggers(
