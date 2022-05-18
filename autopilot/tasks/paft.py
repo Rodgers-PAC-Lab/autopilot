@@ -353,10 +353,10 @@ class PAFT(Task):
             'subject': subject,
             'reward': reward,
             'target_highpass': 11000.,
-            'target_amplitude': .01,
+            'target_amplitude': .03,
             'target_lowpass': 14000.,
             'distracter_highpass': 11000.,
-            'distracter_amplitude': .01,
+            'distracter_amplitude': .03,
             'distracter_lowpass': 8000.,            
         }
 
