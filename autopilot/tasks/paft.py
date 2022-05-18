@@ -353,7 +353,7 @@ class PAFT(Task):
         
         
         ## Store the stimulus parameters
-        stim_choosing_params = {}
+        self.stim_choosing_params = {}
         
         # Form choice list for each param
         for param in self.helper_to_form_params.itertuples():
@@ -365,13 +365,13 @@ class PAFT(Task):
             # Depends on how many choices
             if task_params[param_n_choices] == 1:
                 # If only 1, assert equal, and corresponding entry in 
-                # stim_choosing_params is a list of length one
+                # self.stim_choosing_params is a list of length one
                 assert (task_params[param_min] == task_params[param_max])
-                stim_choosing_params[param.key] = [task_params[param_min]]
+                self.stim_choosing_params[param.key] = [task_params[param_min]]
             else:
                 # Otherwise, linspace between min and max                
                 assert (task_params[param_min] < task_params[param_max])
-                stim_choosing_params[param.key] = np.linspace(
+                self.stim_choosing_params[param.key] = np.linspace(
                     task_params[param_min],
                     task_params[param_max],
                     task_params[param_n_choices])
@@ -521,7 +521,7 @@ class PAFT(Task):
                 },
             )              
 
-    def send_acoustic_params(self, port_params, stim_choosing_params):
+    def send_acoustic_params(self, port_params):
         """Send params to each pi
         
         port_params : DataFrame of port-specific params
@@ -547,7 +547,7 @@ class PAFT(Task):
                 }
             
             # Add on global params
-            kwargs.update(stim_choosing_params)
+            kwargs.update(self.stim_choosing_params)
 
             # Send the message
             self.node2.send(to=which_pi, key='PLAY', value=kwargs)
@@ -585,30 +585,30 @@ class PAFT(Task):
         
         
         ## Choose params
-        # Each is taken from an entry in `stim_choosing_params`
+        # Each is taken from an entry in `self.stim_choosing_params`
         # Each matches a column in `TrialData`
         stim_target_rate = random.choice(
-            stim_choosing_params['target_rate'])
+            self.stim_choosing_params['target_rate'])
         stim_target_temporal_log_std = random.choice(
-            stim_choosing_params['target_temporal_log_std'])
+            self.stim_choosing_params['target_temporal_log_std'])
         stim_target_spatial_extent = random.choice(
-            stim_choosing_params['target_spatial_extent'])
+            self.stim_choosing_params['target_spatial_extent'])
         stim_distracter_rate = random.choice(
-            stim_choosing_params['distracter_rate'])
+            self.stim_choosing_params['distracter_rate'])
         stim_distracter_temporal_log_std = random.choice(
-            stim_choosing_params['distracter_temporal_log_std'])
+            self.stim_choosing_params['distracter_temporal_log_std'])
         stim_target_center_freq = random.choice(
-            stim_choosing_params['target_center_freq'])
+            self.stim_choosing_params['target_center_freq'])
         stim_target_bandwidth = random.choice(
-            stim_choosing_params['target_bandwidth'])
+            self.stim_choosing_params['target_bandwidth'])
         stim_target_log_amplitude = random.choice(
-            stim_choosing_params['target_log_amplitude'])
+            self.stim_choosing_params['target_log_amplitude'])
         stim_distracter_center_freq = random.choice(
-            stim_choosing_params['distracter_center_freq'])
+            self.stim_choosing_params['distracter_center_freq'])
         stim_distracter_bandwidth = random.choice(
-            stim_choosing_params['distracter_bandwidth'])
+            self.stim_choosing_params['distracter_bandwidth'])
         stim_distracter_log_amplitude = random.choice(
-            stim_choosing_params['distracter_log_amplitude'])
+            self.stim_choosing_params['distracter_log_amplitude'])
         
         # Put the ones that don't vary with port in a dict
         # The ones that do vary with port are captured by port_params
