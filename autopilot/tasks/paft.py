@@ -254,7 +254,7 @@ class PAFT(Task):
         All arguments are provided by the Terminal.
         
         Note that this __init__ does not call the superclass __init__, 
-        because that superclass Task inclues functions for punish_block
+        because that superclass Task includes functions for punish_block
         and so on that we don't want to use.
         
         Some params, such as `step_name` and `task_type`, are always required 
@@ -770,7 +770,7 @@ class PAFT(Task):
         base class `Task`. This function could be removed if there is
         no hardware actually connected and/or defined in HARDWARE.
         """
-        super(PAFT, self).init_hardware(*args, **kwargs)
+        super().init_hardware(*args, **kwargs)
 
     def handle_trigger(self, pin, level=None, tick=None):
         """Handle a GPIO trigger, overriding superclass.
@@ -931,5 +931,5 @@ class PAFT(Task):
         self.node2.release() 
 
         # Let the superclass end handle releasing hardware
-        super(PAFT, self).end(*args, **kwargs)
+        super().end(*args, **kwargs)
 
