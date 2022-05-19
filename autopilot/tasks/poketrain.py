@@ -290,6 +290,12 @@ class PokeTrain(Task):
             'task_type': 'PAFT_Child',
             'subject': subject,
             'reward': reward,
+            'target_highpass': 11000.,
+            'target_amplitude': .03,
+            'target_lowpass': 14000.,
+            'distracter_highpass': 11000.,
+            'distracter_amplitude': .03,
+            'distracter_lowpass': 8000.,            
         }
 
         # send to the station object with a 'CHILD' key
