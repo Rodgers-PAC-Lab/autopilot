@@ -376,6 +376,11 @@ class PAFT(Task):
                     task_params[param_max],
                     task_params[param_n_choices])
 
+        # Log
+        self.logger.debug('received task_params:\n{}'.format(task_params))
+        self.logger.debug('set self.stim_choosing_params:\n{}'.format(
+            self.stim_choosing_params))
+
         
         ## Define the possible ports
         self.known_pilot_ports = []
@@ -674,7 +679,9 @@ class PAFT(Task):
         
         ## Send the play and silence messages
         # Tell those to play
-        self.logger.debug('using {}'.format(port_params))
+        self.logger.debug('chose port_params:\n{}'.format(port_params))
+        self.logger.debug('chose stim_params_to_send:\n{}'.format(
+            stim_params_to_send))
         self.send_acoustic_params(port_params, stim_params_to_send)
     
 
