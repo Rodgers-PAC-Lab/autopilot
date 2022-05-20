@@ -87,6 +87,11 @@ class PAFT_Child(children.Child):
         self.n_frames = 0
         self.n_error_counter = 0        
 
+        # Initialize these to None, in case they don't get defined later
+        # (e.g., poketrain)
+        self.left_error_sound = None
+        self.right_error_sound = None
+
         # Fill the queue with empty frames
         # Sounds aren't initialized till the trial starts
         # Using False here should work even without sounds initialized yet
@@ -658,13 +663,17 @@ class PAFT_Child(children.Child):
         self.logger.debug('play_error_sound: emptied queue2')
         
         # Add sounds from the appropriate error sound to QUEUE2
+        # The guards here for None are in case no error sound was defined
+        # (e.g., poketrain)
         with autopilot.stim.sound.jackclient.Q2_LOCK:
             if which == 'left':
-                for frame in self.left_error_sound.chunks:
-                    autopilot.stim.sound.jackclient.QUEUE2.put_nowait(frame)
+                if self.left_error_sound is not None:
+                    for frame in self.left_error_sound.chunks:
+                        autopilot.stim.sound.jackclient.QUEUE2.put_nowait(frame)
             elif which == 'right':
-                for frame in self.right_error_sound.chunks:
-                    autopilot.stim.sound.jackclient.QUEUE2.put_nowait(frame)
+                if self.right_error_sound is not None:
+                    for frame in self.right_error_sound.chunks:
+                        autopilot.stim.sound.jackclient.QUEUE2.put_nowait(frame)
             else:
                 raise ValueError("unrecognized which: {}".format(which))
 
