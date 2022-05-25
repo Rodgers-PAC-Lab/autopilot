@@ -302,6 +302,11 @@ class PAFT_Child(children.Child):
             autopilot.stim.sound.jackclient.BLOCKSIZE)
         both_df['gap_chunks'] = both_df['gap_chunks'].round().astype(np.int)
         
+        # Floor gap_chunks at 1 chunk, the minimal gap size
+        # This is to avoid distortion
+        both_df.loc[both_df['gap_chunks'] < 1, 'gap_chunks'] = 1
+        
+        # Log
         self.logger.debug("generated both_df: {}".format(both_df))
         
         
