@@ -710,7 +710,7 @@ class PAFT(Task):
             'trial_num': self.counter_trials_across_sessions,
             'trial_in_session': self.counter_trials_in_session,
             'stim_target_rate': stim_target_rate,
-            'stim_target_temporal_log_std': stim_target_temporal_log_std,
+            'stim_target_temporal_std': stim_target_temporal_log_std,
             'stim_target_spatial_extent': stim_target_spatial_extent,
             'stim_distracter_rate': stim_distracter_rate,
             'stim_distracter_temporal_std': stim_distracter_temporal_log_std,
