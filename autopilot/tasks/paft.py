@@ -190,6 +190,7 @@ class PAFT(Task):
         
         # A bunch of stimulus parameters
         # TODO: generate this programmatically from helper
+        # TODO: add "log" to the names of the log-spaced params
         stim_target_rate = tables.Float32Col()
         stim_target_temporal_std = tables.Float32Col()
         stim_target_spatial_extent = tables.Float32Col()
@@ -708,14 +709,17 @@ class PAFT(Task):
             'timestamp_trial_start': timestamp_trial_start.isoformat(),
             'trial_num': self.counter_trials_across_sessions,
             'trial_in_session': self.counter_trials_in_session,
-            'stim_target_temporal_log_std': stim_target_temporal_log_std,
-            'stim_distracter_temporal_log_std': stim_distracter_temporal_log_std,
+            'stim_target_rate': stim_target_rate,
+            'stim_target_temporal_log_std': stim_target_temporal_std,
+            'stim_target_spatial_extent': stim_target_spatial_extent,
+            'stim_distracter_rate': stim_distracter_rate,
+            'stim_distracter_temporal_std': stim_distracter_temporal_log_std,
             'stim_target_center_freq': stim_target_center_freq,
             'stim_target_bandwidth': stim_target_bandwidth,
-            'stim_target_log_amplitude': stim_target_log_amplitude,
+            'stim_target_amplitude': stim_target_log_amplitude,
             'stim_distracter_center_freq': stim_distracter_center_freq,
             'stim_distracter_bandwidth': stim_distracter_bandwidth,
-            'stim_distracter_log_amplitude': stim_distracter_log_amplitude,              
+            'stim_distracter_amplitude': stim_distracter_log_amplitude,              
             }
 
     def wait_for_response(self):
