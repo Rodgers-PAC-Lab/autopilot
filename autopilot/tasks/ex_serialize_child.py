@@ -118,6 +118,8 @@ class ex_serialize_child(children.Child):
         }        
         test_msg = autopilot.networking.Message(
             to='rpiparent03', key='ARRDAT', value=message,
+            flags={'MINPRINT':True},
+            id="test_message", sender="test_sender", 
             blosc=True)
         
         test_msg.serialize()
