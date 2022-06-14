@@ -826,6 +826,10 @@ class Subject(object):
         for data in iter(queue.get, 'END'):
             # wrap everything in try because this thread shouldn't crash
             try:
+                # Special case arrdat
+                if 'arrdat' in data.keys():
+                    1/0
+                
                 # if we get continuous data, this should be simple because we always get a whole row
                 # there must be a more elegant way to check if something is a key and it is true...
                 # yet here we are
