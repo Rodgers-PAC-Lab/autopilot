@@ -185,6 +185,17 @@ class Plot(QtWidgets.QWidget):
                 'rpi06_L',
                 'rpi06_R',
                 ]
+        elif pilot == 'rpiparent03':
+            self.known_pilot_ports = [
+                'rpi01_L',
+                'rpi01_R',
+                'rpi02_L',
+                'rpi02_R',            
+                'rpi03_L',
+                'rpi03_R',
+                'rpi04_L',
+                'rpi04_R', 
+                ]
         else:
             raise ValueError("unrecognized parent name: {}".format(pilot))
             
