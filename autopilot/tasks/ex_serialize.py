@@ -274,6 +274,7 @@ class ex_serialize(Task):
             router_port=5001,
             listens={
                 'HELLO': self.recv_hello,
+                'ARRDAT': self.recv_arrdat,
                 },
             instance=False,
             )
@@ -315,6 +316,10 @@ class ex_serialize(Task):
         
         # Set this flag
         self.child_connected[value['from']] = True
+
+    def recv_arrdat(self, value):
+        self.logger.debug(
+            "received ARRDAT from child with value {}".format(value))
     
     def end(self, *args, **kwargs):
         """Called when the task is ended by the user.
