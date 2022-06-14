@@ -38,6 +38,7 @@ class Child(object):
 from .paft_with_children_pokes_child import Paft_With_Children_Pokes_Child
 from .paft_child_simple import PAFT_Child_Simple
 from .paft_child import PAFT_Child
+from .ex_serialize_child import ex_serialize_child
 
     
 class Wheel_Child(Child):
