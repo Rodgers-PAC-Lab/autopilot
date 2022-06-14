@@ -326,9 +326,11 @@ class ex_serialize(Task):
         # Reserialize it
         test_msg = autopilot.networking.Message(
             to=prefs.get('NAME'), key='ARRDAT', value=value,
+            flags={'MINPRINT':True},
+            id="test_message", sender="test_sender", 
             blosc=True)
         test_msg.serialize()
-        
+
         # Send to terminal
         self.node.send(to=prefs.get('NAME'), msg=test_msg)        
     
