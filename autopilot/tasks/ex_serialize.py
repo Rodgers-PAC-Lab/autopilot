@@ -325,7 +325,7 @@ class ex_serialize(Task):
         # `value` should have keys pilot, payload, and timestamp
         # Reserialize it
         test_msg = autopilot.networking.Message(
-            to=prefs.get('NAME'), key='DATA', value=value,
+            to='_T', key='DATA', value=value,
             arrdat=True,
             flags={'MINPRINT':True},
             id="test_message", sender="test_sender", 
