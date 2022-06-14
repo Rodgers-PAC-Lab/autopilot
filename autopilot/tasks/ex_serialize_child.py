@@ -10,6 +10,9 @@ import autopilot
 from autopilot import prefs
 from . import children
 
+import numpy as np
+import autopilot.networking
+
 class ex_serialize_child(children.Child):
     """Define the child task associated with ex_serialize"""
     # PARAMS to accept
@@ -104,6 +107,24 @@ class ex_serialize_child(children.Child):
         
         # Sleep so we don't go crazy
         time.sleep(3)
+
+        # Create a serialized message
+        # Adapted from the bandwidth test
+        payload = np.arange(128, dtype=np.float64)
+        message = {
+            'pilot': self.name,
+            'payload': payload,
+            'timestamp': datetime.datetime.now().isoformat(),
+        }        
+        test_msg = autopilot.networking.Message(
+            to='rpiparent03', key='ARRDAT', value=message, repeat=confirm, 
+            flags={'MINPRINT':True},
+            id="test_message", sender="test_sender", blosc=True)
+        
+        test_msg.serialize()
+        
+        self.node2.send(to='rpiparent03', msg=test_msg)
+
 
         # Continue to the next stage (which is this one again)
         self.stage_block.set()
