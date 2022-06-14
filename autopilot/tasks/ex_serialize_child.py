@@ -117,9 +117,10 @@ class ex_serialize_child(children.Child):
             'timestamp': datetime.datetime.now().isoformat(),
         }        
         test_msg = autopilot.networking.Message(
-            to='rpiparent03', key='ARRDAT', value=message, repeat=confirm, 
+            to='rpiparent03', key='ARRDAT', value=message,
             flags={'MINPRINT':True},
-            id="test_message", sender="test_sender", blosc=True)
+            id="test_message", sender="test_sender", 
+            blosc=True)
         
         test_msg.serialize()
         
