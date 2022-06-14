@@ -320,6 +320,17 @@ class ex_serialize(Task):
     def recv_arrdat(self, value):
         self.logger.debug(
             "received ARRDAT from child with value {}".format(value))
+        
+        # Pass along to terminal for saving
+        # `value` should have keys pilot, payload, and timestamp
+        # Reserialize it
+        test_msg = autopilot.networking.Message(
+            to=prefs.get('NAME'), key='ARRDAT', value=value,
+            blosc=True)
+        test_msg.serialize()
+        
+        # Send to terminal
+        self.node.send(to=prefs.get('NAME'), msg=test_msg)        
     
     def end(self, *args, **kwargs):
         """Called when the task is ended by the user.
