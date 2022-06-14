@@ -274,8 +274,6 @@ class ex_serialize(Task):
             router_port=5001,
             listens={
                 'HELLO': self.recv_hello,
-                'POKE': self.recv_poke,
-                'REWARD': self.recv_reward,
                 },
             instance=False,
             )
