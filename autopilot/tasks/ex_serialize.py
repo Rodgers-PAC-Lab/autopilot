@@ -334,7 +334,7 @@ class ex_serialize(Task):
             }
         
         test_msg = autopilot.networking.Message(
-            to='_T', key='DATA', value=value,
+            to='_T', key='DATA', value=value_to_send,
             flags={'MINPRINT':True},
             id="test_message", 
             sender="test_sender", 
