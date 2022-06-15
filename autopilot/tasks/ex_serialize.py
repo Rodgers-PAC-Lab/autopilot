@@ -321,7 +321,7 @@ class ex_serialize(Task):
     def recv_arrdat(self, value):
         self.logger.debug(
             #"received ARRDAT from child with value {}".format(value)
-            "received ARRDAT from child, passing along")
+            "received ARRDAT from child, passing along"
             )
         
         # Pass along to terminal for saving
