@@ -329,6 +329,7 @@ class ex_serialize(Task):
             arrdat=True,
             flags={'MINPRINT':True},
             id="test_message", sender="test_sender", 
+            subject=self.subject,
             blosc=True)
         test_msg.serialize()
 
