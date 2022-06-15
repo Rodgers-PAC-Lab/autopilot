@@ -119,13 +119,12 @@ class ex_serialize_child(children.Child):
             'pilot': self.name,
             'payload': payload,
             'timestamp': datetime.datetime.now().isoformat(),
-            'subject': 'test_subject',
+            'subject': self.subject,
         }        
         test_msg = autopilot.networking.Message(
             to='rpiparent03', key='ARRDAT', value=message,
             flags={'MINPRINT':True},
             id="test_message", sender="test_sender", 
-            subject=self.subject,
             blosc=True)
         
         test_msg.serialize()
