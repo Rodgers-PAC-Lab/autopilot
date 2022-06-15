@@ -828,6 +828,7 @@ class Subject(object):
             try:
                 # Special case arrdat
                 if 'arrdat' in data.keys():
+                    print "I AM IN ARRDAT"
                     1/0
                 
                 # if we get continuous data, this should be simple because we always get a whole row
