@@ -829,7 +829,56 @@ class Subject(object):
                 # Special case arrdat
                 if 'arrdat' in data.keys():
                     print("I AM IN ARRDAT")
-                    1/0
+                    for k, v in data.items():
+                        # if this isn't data that we're expecting, ignore it
+                        if k not in cont_data:
+                            self.logger.warning("continuous data dropped because {} not recognized".format(k))
+                            continue
+
+                        # if we haven't made a table yet, do it
+                        if k not in cont_tables.keys():
+                            # Make it an array if it's not already
+                            varr = np.asarray(v)
+                            
+                            # Special case string
+                            if 'str' in varr.dtype.name:
+                                col_atom = tables.StringAtom(len(v))
+                            else:
+                                col_atom = tables.Atom.from_type(
+                                    varr.dtype.name, varr.shape)
+                                
+                            # should have come in with a timestamp
+                            # TODO: Log if no timestamp is received
+                            try:
+                                varr_timestamp = np.asarray(data['timestamp'])
+                                # Special case string
+                                if 'str' in varr_timestamp.dtype.name:
+                                    timestamp_atom = tables.StringAtom(len(data['timestamp']))
+                                else:
+                                    timestamp_atom = tables.Atom.from_type(
+                                        varr_timestamp.dtype.name, 
+                                        varr_timestamp.shape)
+
+                            except KeyError:
+                                self.logger.warning('no timestamp sent with continuous data')
+                                continue
+
+
+                            cont_tables[k] = h5f.create_table(session_group, k, description={
+                                k: tables.Col.from_atom(col_atom),
+                                'timestamp': tables.Col.from_atom(timestamp_atom)
+                            }, filters=self.continuous_filter)
+
+                            cont_rows[k] = cont_tables[k].row
+                        
+                        # v should be an array, add each
+                        for vitem in v:
+                            cont_rows[k][k] = vitem
+                            cont_rows[k]['timestamp'] = data['timestamp']
+                            cont_rows[k].append()
+
+                    # continue, the rest is for handling trial data
+                    continue
                 
                 # if we get continuous data, this should be simple because we always get a whole row
                 # there must be a more elegant way to check if something is a key and it is true...
