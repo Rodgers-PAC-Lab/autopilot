@@ -332,6 +332,7 @@ class ex_serialize(Task):
             'timestamp': value['timestamp'],
             'arrdat': True,
             'subject': self.subject, # required by terminal.l_data
+            'pilot': value['pilot'], # required by something
             }
         
         test_msg = autopilot.networking.Message(
