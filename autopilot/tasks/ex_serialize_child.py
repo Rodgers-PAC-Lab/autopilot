@@ -125,7 +125,7 @@ class ex_serialize_child(children.Child):
         
         test_msg.serialize()
         
-        self.node2.send(to='rpiparent03', msg=test_msg)
+        #~ self.node2.send(to='rpiparent03', msg=test_msg)
 
 
         # Continue to the next stage (which is this one again)
