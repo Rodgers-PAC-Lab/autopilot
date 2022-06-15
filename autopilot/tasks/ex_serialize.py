@@ -331,6 +331,7 @@ class ex_serialize(Task):
             'audio_times': value['payload'],
             'timestamp': value['timestamp'],
             'arrdat': True,
+            'subject': self.subject, # required by terminal.l_data
             }
         
         test_msg = autopilot.networking.Message(
