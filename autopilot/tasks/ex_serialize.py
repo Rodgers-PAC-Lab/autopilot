@@ -333,7 +333,7 @@ class ex_serialize(Task):
         test_msg.serialize()
 
         # Send to terminal
-        self.node.send(to=prefs.get('NAME'), msg=test_msg)        
+        self.node.send(to='_T', msg=test_msg)        
     
     def end(self, *args, **kwargs):
         """Called when the task is ended by the user.
