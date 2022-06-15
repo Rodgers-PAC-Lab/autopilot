@@ -120,6 +120,7 @@ class ex_serialize_child(children.Child):
             to='rpiparent03', key='ARRDAT', value=message,
             flags={'MINPRINT':True},
             id="test_message", sender="test_sender", 
+            subject=self.subject,
             blosc=True)
         
         test_msg.serialize()
