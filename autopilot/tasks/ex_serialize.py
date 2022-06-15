@@ -73,6 +73,7 @@ class ex_serialize(Task):
     class ContinuousData(tables.IsDescription):
         poked_port = tables.StringCol(64)
         trial = tables.Int32Col()
+        audio_times = tables.Float64Col()
 
 
     ## Set up hardware and children
