@@ -130,7 +130,7 @@ class ex_serialize_child(children.Child):
         
         test_msg.serialize()
         
-        self.node2.send(to='parent_pi', 'ARRDAT', msg=test_msg)
+        self.node2.send('parent_pi', 'ARRDAT', msg=test_msg)
 
 
         # Continue to the next stage (which is this one again)
