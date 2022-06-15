@@ -842,10 +842,10 @@ class Subject(object):
                             
                             # Special case string
                             if 'str' in varr.dtype.name:
-                                col_atom = tables.StringAtom(len(v))
+                                raise ValueError("string not supported for arrdata")
                             else:
                                 col_atom = tables.Atom.from_type(
-                                    varr.dtype.name, varr.shape)
+                                    varr.dtype.name, (1,))
                                 
                             # should have come in with a timestamp
                             # TODO: Log if no timestamp is received
@@ -872,7 +872,9 @@ class Subject(object):
                             cont_rows[k] = cont_tables[k].row
                         
                         # v should be an array, add each
+                        print("I need to add: {}".format(v))
                         for vitem in v:
+                            print("I am adding: {}".format(vitem))
                             cont_rows[k][k] = vitem
                             cont_rows[k]['timestamp'] = data['timestamp']
                             cont_rows[k].append()
