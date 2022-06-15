@@ -321,21 +321,26 @@ class ex_serialize(Task):
     def recv_arrdat(self, value):
         self.logger.debug(
             #"received ARRDAT from child with value {}".format(value)
-            "received ARRDAT from child, passing along".format(value)
+            "received ARRDAT from child, passing along")
             )
-        value['arrdat'] = True
-        value['audio_times'] = value['payload']
         
         # Pass along to terminal for saving
         # `value` should have keys pilot, payload, and timestamp
         # Reserialize it
+        value_to_send = {
+            'audio_times': value['payload'],
+            'timestamp': value['timestamp'],
+            'arrdat': True,
+            }
+        
         test_msg = autopilot.networking.Message(
             to='_T', key='DATA', value=value,
-            arrdat=True,
             flags={'MINPRINT':True},
-            id="test_message", sender="test_sender", 
+            id="test_message", 
+            sender="test_sender", 
             subject=self.subject,
-            blosc=True)
+            blosc=True,
+            )
         test_msg.serialize()
 
         # Send to terminal

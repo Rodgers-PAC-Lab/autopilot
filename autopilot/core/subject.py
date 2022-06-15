@@ -872,9 +872,7 @@ class Subject(object):
                             cont_rows[k] = cont_tables[k].row
                         
                         # v should be an array, add each
-                        print("I need to add: {}".format(v))
                         for vitem in v:
-                            print("I am adding: {}".format(vitem))
                             cont_rows[k][k] = vitem
                             cont_rows[k]['timestamp'] = data['timestamp']
                             cont_rows[k].append()
