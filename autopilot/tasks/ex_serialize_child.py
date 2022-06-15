@@ -50,6 +50,10 @@ class ex_serialize_child(children.Child):
 
         # Set up a logger
         self.logger = autopilot.core.loggers.init_logger(self)
+        
+        # Save subject
+        # This is needed when sending messages
+        self.subject = subject
 
 
         ## Hardware
@@ -121,12 +125,12 @@ class ex_serialize_child(children.Child):
             to='rpiparent03', key='ARRDAT', value=message,
             flags={'MINPRINT':True},
             id="test_message", sender="test_sender", 
-            subject='test_subject',
+            subject=self.subject,
             blosc=True)
         
         test_msg.serialize()
         
-        self.node2.send(to='rpiparent03', msg=test_msg)
+        self.node2.send(to='parent_pi', 'ARRDAT', msg=test_msg)
 
 
         # Continue to the next stage (which is this one again)
