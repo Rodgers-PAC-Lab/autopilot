@@ -830,6 +830,10 @@ class Subject(object):
                 if 'arrdat' in data.keys():
                     print("I AM IN ARRDAT")
                     for k, v in data.items():
+                        # ignore these which are required
+                        if k in ['subject', 'pilot', 'arrdat']:
+                            continue
+                        
                         # if this isn't data that we're expecting, ignore it
                         if k not in cont_data:
                             self.logger.warning("continuous data dropped because {} not recognized".format(k))
@@ -863,10 +867,14 @@ class Subject(object):
                                 self.logger.warning('no timestamp sent with continuous data')
                                 continue
 
+                            # should have come in with a pilot name
+                            varr_pilot = np.asarray(data['pilot'])
+                            pilot_atom = tables.StringAtom(20)
 
                             cont_tables[k] = h5f.create_table(session_group, k, description={
                                 k: tables.Col.from_atom(col_atom),
-                                'timestamp': tables.Col.from_atom(timestamp_atom)
+                                'timestamp': tables.Col.from_atom(timestamp_atom),
+                                'pilot': tables.Col.from_atom(pilot_atom),
                             }, filters=self.continuous_filter)
 
                             cont_rows[k] = cont_tables[k].row
@@ -875,6 +883,7 @@ class Subject(object):
                         for vitem in v:
                             cont_rows[k][k] = vitem
                             cont_rows[k]['timestamp'] = data['timestamp']
+                            cont_rows[k]['pilot'] = data['pilot']
                             cont_rows[k].append()
 
                     # continue, the rest is for handling trial data
