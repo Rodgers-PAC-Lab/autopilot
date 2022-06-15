@@ -319,7 +319,9 @@ class ex_serialize(Task):
 
     def recv_arrdat(self, value):
         self.logger.debug(
-            "received ARRDAT from child with value {}".format(value))
+            #"received ARRDAT from child with value {}".format(value)
+            "received ARRDAT from child, passing along".format(value)
+            )
         
         # Pass along to terminal for saving
         # `value` should have keys pilot, payload, and timestamp
