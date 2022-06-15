@@ -322,6 +322,7 @@ class ex_serialize(Task):
             #"received ARRDAT from child with value {}".format(value)
             "received ARRDAT from child, passing along".format(value)
             )
+        value['arrdat'] = True
         
         # Pass along to terminal for saving
         # `value` should have keys pilot, payload, and timestamp
