@@ -146,7 +146,7 @@ class ex_serialize_child(children.Child):
             sender="dummy_src", # required but I don't think it matters
             key='ARRDAT', # this selects listen method
             to="dummy_dst", # required but I don't think it matters
-            value=message, # the 'value' to send
+            value=value, # the 'value' to send
             flags={
                 'MINPRINT':True, # disable printing of value
                 },
