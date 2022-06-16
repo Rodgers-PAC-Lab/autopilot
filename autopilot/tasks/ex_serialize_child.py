@@ -129,11 +129,14 @@ class ex_serialize_child(children.Child):
         
         # This is the value to send
         # Must be serializable
-        # No constraints on this based on Message, but the constraints
-        # come from save_data thread
+        # Definitely include payload (the data), some kind of locking
+        # timestamp, and the origin (our name). 
+        # When this message is repeated by the Parent to the terminal,
+        # there are additional constraints based on what save_data expects
         value = {
             'pilot': self.name,
             'payload': payload.values,
+            'payload_columns': payload.columns.values,
             'timestamp': timestamp,
         }        
         

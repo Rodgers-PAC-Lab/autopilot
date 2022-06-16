@@ -829,6 +829,16 @@ class Subject(object):
                 # Special case arrdat
                 if 'arrdat' in data.keys():
                     print("I AM IN ARRDAT")
+                    
+                    #~ # Pop data
+                    #~ timestamp = data.pop('timestamp')
+                    #~ payload = data.pop('payload')
+                    #~ subject = data.pop('subject')
+                    #~ pilot = data.pop('pilot')
+                    #~ if len(data.keys()) > 0:
+                        #~ self.logger.warning('ignoring extra keys: {}'.format(data.keys())
+                    
+
                     for k, v in data.items():
                         # ignore these which are required
                         if k in ['subject', 'pilot', 'arrdat']:

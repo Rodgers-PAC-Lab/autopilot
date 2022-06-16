@@ -319,8 +319,8 @@ class ex_serialize(Task):
         self.child_connected[value['from']] = True
 
     def recv_arrdat(self, value):
+        # Log
         self.logger.debug(
-            #"received ARRDAT from child with value {}".format(value)
             "received ARRDAT from child, passing along"
             )
         
@@ -329,13 +329,15 @@ class ex_serialize(Task):
         # Reserialize it
         value_to_send = {
             'payload': value['payload'],
+            'payload_columns': value['payload_columns'],
             'timestamp': value['timestamp'],
             'pilot': value['pilot'], # required by something
             'subject': self.subject, # required by terminal.l_data            
             'arrdat': True, # this triggers processing as array data
             }
         
-        test_msg = autopilot.networking.Message(
+        # Generate the Message
+        msg = autopilot.networking.Message(
             to='_T', # send to terminal
             key='DATA', # choose listen
             value=value_to_send, # the value to send
@@ -345,9 +347,7 @@ class ex_serialize(Task):
                 },
             id="dummy_dst2", 
             sender="dummy_src2", 
-            #~ subject=self.subject, # required again here?
             )
-        test_msg.serialize()
 
         # Send to terminal
         self.node.send('_T', 'DATA', msg=test_msg)        
