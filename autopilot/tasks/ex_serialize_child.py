@@ -153,8 +153,9 @@ class ex_serialize_child(children.Child):
             #blosc=True, # I don't think this matters
             )
         
-        test_msg.serialize()
-        
+        # Sending it will automatically serialize it, which in turn will
+        # automatically compress numpy using blosc
+        # See Node.send and Message.serialize
         self.node2.send('parent_pi', 'ARRDAT', msg=test_msg)
 
         # Increment this counter to keep the message id unique
