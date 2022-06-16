@@ -13,6 +13,8 @@ from . import children
 import numpy as np
 import autopilot.networking
 
+import pandas
+
 class ex_serialize_child(children.Child):
     """Define the child task associated with ex_serialize"""
     # PARAMS to accept
@@ -115,6 +117,8 @@ class ex_serialize_child(children.Child):
         # Create a serialized message
         # Adapted from the bandwidth test
         payload = np.arange(5, dtype=np.float64)
+        payload = pandas.DataFrame(np.array([payload, payload]),
+            columns=['x', 'y'])
         message = {
             'pilot': self.name,
             'payload': payload,
