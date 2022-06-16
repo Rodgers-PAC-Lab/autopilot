@@ -328,20 +328,22 @@ class ex_serialize(Task):
         # `value` should have keys pilot, payload, and timestamp
         # Reserialize it
         value_to_send = {
-            'audio_times': value['payload'],
+            'payload': value['payload'],
             'timestamp': value['timestamp'],
-            'arrdat': True,
             'subject': self.subject, # required by terminal.l_data
             'pilot': value['pilot'], # required by something
+            'arrdat': True, # this triggers processing as array data
             }
         
         test_msg = autopilot.networking.Message(
-            to='_T', key='DATA', value=value_to_send,
-            flags={'MINPRINT':True},
-            id="test_message", 
-            sender="test_sender", 
-            subject=self.subject,
-            blosc=True,
+            to='_T', # send to terminal
+            key='DATA', # choose listen
+            value=value_to_send, # the value to send
+            flags={'MINPRINT':True}, # don't log
+            id="dummy_dst2", 
+            sender="dummy_src2", 
+            subject=self.subject, # required again here?
+            #blosc=True,
             )
         test_msg.serialize()
 

@@ -56,6 +56,7 @@ class ex_serialize_child(children.Child):
         # Save subject
         # This is needed when sending messages
         self.subject = subject
+        self.n_messages_sent = 0
 
 
         ## Hardware
@@ -116,25 +117,48 @@ class ex_serialize_child(children.Child):
 
         # Create a serialized message
         # Adapted from the bandwidth test
-        payload = np.arange(5, dtype=np.float64)
-        payload = pandas.DataFrame(np.transpose([payload, payload]),
-            columns=['x', 'y'])
-        message = {
+        # Use this as timestamp
+        timestamp = datetime.datetime.now().isoformat()
+        
+        # Generate a payload, consisting of a mix of str and floats
+        len_payload = 4 # make this even
+        payload_floats = np.arange(len_payload, dtype=np.float64)
+        payload_strs = ['left', 'right'] * (len_payload // 2)
+        payload = pandas.DataFrame.from_dict({
+            'strvals': payload_strs,
+            'floatvals': payload_floats,
+            })
+        
+        # This is the value to send
+        # Must be serializable
+        # No constraints on this based on Message, but the constraints
+        # come from save_data thread
+        value = {
             'pilot': self.name,
-            'payload': payload,
-            'timestamp': datetime.datetime.now().isoformat(),
+            'payload': payload.values,
+            'timestamp': timestamp,
             'subject': self.subject,
         }        
-        test_msg = autopilot.networking.Message(
-            to='rpiparent03', key='ARRDAT', value=message,
-            flags={'MINPRINT':True},
-            id="test_message", sender="test_sender", 
-            blosc=True)
+        
+        # Construct the message
+        msg = autopilot.networking.Message(
+            id="{}-{}".format(self.name, self.n_messages_sent), # must be unique
+            sender="dummy_src", # required but I don't think it matters
+            key='ARRDAT', # this selects listen method
+            to="dummy_dst", # required but I don't think it matters
+            value=message, # the 'value' to send
+            flags={
+                'MINPRINT':True, # disable printing of value
+                },
+            #blosc=True, # I don't think this matters
+            )
         
         test_msg.serialize()
         
         self.node2.send('parent_pi', 'ARRDAT', msg=test_msg)
 
+        # Increment this counter to keep the message id unique
+        self.n_messages_sent = self.n_messages_sent + 1
 
         # Continue to the next stage (which is this one again)
         self.stage_block.set()
