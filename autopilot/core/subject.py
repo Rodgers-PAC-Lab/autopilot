@@ -812,14 +812,26 @@ class Subject(object):
         cont_tables = {}
         cont_rows = {}
         try:
+            # Get the continuous group, and the one for this session
             continuous_group = h5f.get_node(group_name, 'continuous_data')
-            session_group = h5f.get_node(continuous_group, 'session_{}'.format(self.session))
+            session_group = h5f.get_node(
+                continuous_group, 'session_{}'.format(self.session))
+            
+            # The only thing this is used for is to drop unrecognized values
             cont_data = continuous_group._v_attrs['data']
 
+            # This is used to create a new table for each recognized value
             cont_tables = {}
+            
+            # This is a hook to the last row of each table for appending
             cont_rows = {}
         except (KeyError, AttributeError):
+            # This is not used for anything
             continuous_table = False
+
+        # This is used to persistently keep track of payload_table
+        # It will be created at first use
+        payload_table = None
 
         # start getting data
         # stop when 'END' gets put in the queue
@@ -830,14 +842,57 @@ class Subject(object):
                 if 'arrdat' in data.keys():
                     print("I AM IN ARRDAT")
                     
-                    #~ # Pop data
-                    #~ timestamp = data.pop('timestamp')
-                    #~ payload = data.pop('payload')
-                    #~ subject = data.pop('subject')
-                    #~ pilot = data.pop('pilot')
-                    #~ if len(data.keys()) > 0:
-                        #~ self.logger.warning('ignoring extra keys: {}'.format(data.keys())
+                    # Pop data
+                    timestamp = data.pop('timestamp')
+                    payload = data.pop('payload')
+                    payload_columns = data.pop('payload_columns')
+                    subject = data.pop('subject')
+                    pilot = data.pop('pilot')
+                    if len(data.keys()) > 0:
+                        self.logger.warning('ignoring extra keys: {}'.format(data.keys())
                     
+                    # Reconstruct a DataFrame out of the payload
+                    payload_df = pandas.DataFrame(
+                        payload, columns=payload_columns)
+                    
+                    # Create a payload table if it doesn't exist
+                    if payload_table is None:
+                        # Create the description
+                        for colname in payload_df.columns:
+                            # Get the dtype
+                            dtype = payload_df[colname].dtype
+                            
+                        
+                    if colname not in cont_tables.keys():
+                        # Create an atom for the timestamp
+                        timestamp_atom = tables.StringAtom(
+                            len(data['timestamp']))
+                        
+                        # Create an atom for the pilot
+                        pilot_atom = tables.StringAtom(20)
+                        
+                        # Special case the dtype
+                        if 'str' in varr.dtype.name:
+                            col_atom = tables.StringAtom(len(v) * 2)
+                        else:
+                            col_atom = tables.Atom.from_type(
+                                column.dtype.name)
+
+                        # Create the table
+                        cont_tables['arrdata'] = h5f.create_table(
+                            session_group, 
+                            colname, 
+                            description={
+                                colname: tables.Col.from_atom(col_atom),
+                                'timestamp': tables.Col.from_atom(timestamp_atom),
+                                'pilot': tables.Col.from_atom(pilot_atom),
+                            }, filters=self.continuous_filter)                            
+                        
+                        # Hook for the row
+                        cont_rows[k] = cont_tables[k].row
+                    
+                    
+
 
                     for k, v in data.items():
                         # ignore these which are required
