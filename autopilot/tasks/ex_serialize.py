@@ -330,8 +330,8 @@ class ex_serialize(Task):
         value_to_send = {
             'payload': value['payload'],
             'timestamp': value['timestamp'],
-            'subject': self.subject, # required by terminal.l_data
             'pilot': value['pilot'], # required by something
+            'subject': self.subject, # required by terminal.l_data            
             'arrdat': True, # this triggers processing as array data
             }
         
@@ -339,11 +339,13 @@ class ex_serialize(Task):
             to='_T', # send to terminal
             key='DATA', # choose listen
             value=value_to_send, # the value to send
-            flags={'MINPRINT':True}, # don't log
+            flags={
+                'MINPRINT': True, # disable printing of value
+                'NOREPEAT': True, # disable repeating
+                },
             id="dummy_dst2", 
             sender="dummy_src2", 
-            subject=self.subject, # required again here?
-            #blosc=True,
+            #~ subject=self.subject, # required again here?
             )
         test_msg.serialize()
 

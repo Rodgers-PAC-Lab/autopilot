@@ -53,9 +53,7 @@ class ex_serialize_child(children.Child):
         # Set up a logger
         self.logger = autopilot.core.loggers.init_logger(self)
         
-        # Save subject
         # This is needed when sending messages
-        self.subject = subject
         self.n_messages_sent = 0
 
 
@@ -137,7 +135,6 @@ class ex_serialize_child(children.Child):
             'pilot': self.name,
             'payload': payload.values,
             'timestamp': timestamp,
-            'subject': self.subject,
         }        
         
         # Construct the message
@@ -148,9 +145,9 @@ class ex_serialize_child(children.Child):
             to="dummy_dst", # required but I don't think it matters
             value=value, # the 'value' to send
             flags={
-                'MINPRINT':True, # disable printing of value
+                'MINPRINT': True, # disable printing of value
+                'NOREPEAT': True, # disable repeating
                 },
-            #blosc=True, # I don't think this matters
             )
         
         # Sending it will automatically serialize it, which in turn will
