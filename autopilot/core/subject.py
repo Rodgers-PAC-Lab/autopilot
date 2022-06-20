@@ -909,8 +909,10 @@ class Subject(object):
                             continue
                         
                         # Append the received value and the timestamp
-                        to_append = (v, data.get('timestamp', ''))
-                        cont_tables[k].append([to_append])
+                        cont_tables[k].row[k] = v
+                        cont_tables[k].row['timestamp'] = (
+                            data.get('timestamp', ''))
+                        cont_tables[k].row.append()
 
                     # Continue, the rest assumes trial data
                     continue
