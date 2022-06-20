@@ -119,13 +119,16 @@ class ex_serialize_child(children.Child):
         timestamp = datetime.datetime.now().isoformat()
         
         # Generate a payload, consisting of a mix of str and floats
+        # This has to match task_class.ChunkData
         len_payload = 4 # make this even
         payload_floats = np.arange(len_payload, dtype=np.float64)
         payload_strs = ['left', 'right'] * (len_payload // 2)
         payload = pandas.DataFrame.from_dict({
-            'strvals': payload_strs,
-            'floatvals': payload_floats,
+            'side': payload_strs,
+            'audio_time': payload_floats,
             })
+        payload['pilot'] = self.name
+        payload['locking_timestamp'] = timestamp
         
         # This is the value to send
         # Must be serializable

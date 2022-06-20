@@ -73,7 +73,12 @@ class ex_serialize(Task):
     class ContinuousData(tables.IsDescription):
         poked_port = tables.StringCol(64)
         trial = tables.Int32Col()
-        audio_times = tables.Float64Col()
+    
+    class ChunkData(tables.IsDescription):
+        audio_time = tables.Float64Col()
+        side = tables.StringCol(10)
+        pilot = tables.StringCol(20)
+        locking_timestamp = tables.StringCol(50)
 
 
     ## Set up hardware and children
