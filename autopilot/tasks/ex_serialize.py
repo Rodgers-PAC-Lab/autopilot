@@ -338,7 +338,7 @@ class ex_serialize(Task):
             'timestamp': value['timestamp'],
             'pilot': value['pilot'], # required by something
             'subject': self.subject, # required by terminal.l_data            
-            'arrdat': True, # this triggers processing as array data
+            'chunkdata': True, # this triggers processing as array data
             }
         
         # Generate the Message
