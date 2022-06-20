@@ -796,76 +796,76 @@ class Subject(object):
             queue (:class:`queue.Queue`): passed by :meth:`~.Subject.prepare_run` and used by other
                 objects to pass data to be stored.
         """
-        # The whole thing is contained in a try/except so that h5f is
-        # always closed
+        # Open the HDF5 file where data is stored
+        h5f = self.open_hdf()
+
+        # Get the current task and step
+        task_params = self.current[self.step]
+        step_name = task_params['step_name']
+        
+        # Get task_class
+        # This is used to get the HDF5 datatypes for Continuous Data
+        task_class = autopilot.get_task(task_params['task_type'])
+
+        # Get the trial_table, located within the step group
+        # file structure is '/data/protocol_name/##_step_name/tables'
+        step_group = f"/data/{self.protocol_name}/S{self.step:02d}_{step_name}"
+        trial_table = h5f.get_node(step_group, 'trial_data')
+        trial_keys = trial_table.colnames
+        trial_row = trial_table.row
+
+        # Get the continuous_session_group
+        # If it exists, it is wtihin continuous_group/session_number
         try:
-            # Open the HDF5 file where data is stored
-            h5f = self.open_hdf()
-
-            # Get the current task and step
-            task_params = self.current[self.step]
-            step_name = task_params['step_name']
+            # All continuous data
+            continuous_group = h5f.get_node(step_group, 'continuous_data')
             
-            # Get task_class
-            # This is used to get the HDF5 datatypes for Continuous Data
-            task_class = autopilot.get_task(task_params['task_type'])
+            # Continuous data for this session
+            # This must have been created by something
+            continuous_session_group = h5f.get_node(
+                continuous_group, 'session_{}'.format(self.session))
+        
+        except (KeyError, AttributeError):
+            # Indicate that there is no continuous_group available
+            continuous_group = None
+            continuous_session_group = None
 
-            # Get the trial_table, located within the step group
-            # file structure is '/data/protocol_name/##_step_name/tables'
-            step_group = f"/data/{self.protocol_name}/S{self.step:02d}_{step_name}"
-            trial_table = h5f.get_node(step_group, 'trial_data')
-            trial_keys = trial_table.colnames
-            trial_row = trial_table.row
-
-            # Get the continuous_session_group
-            # If it exists, it is wtihin continuous_group/session_number
-            try:
-                # All continuous data
-                continuous_group = h5f.get_node(step_group, 'continuous_data')
-                
-                # Continuous data for this session
-                # This must have been created by something
-                continuous_session_group = h5f.get_node(
-                    continuous_group, 'session_{}'.format(self.session))
+        # If continuous_session_group exists, create chunk_table within it
+        if continuous_session_group is not None:
+            # Is it possible for this table to already exist?
+            # If so, will get NodeError here
+            # Could just get the existing one, but not sure this ever happens
+            chunk_table = h5f.create_table(
+                continuous_session_group, 
+                'chunk_table', 
+                task_class.ChunkData,
+                filters=self.continuous_filter,
+                )             
             
-            except (KeyError, AttributeError):
-                # Indicate that there is no continuous_group available
-                continuous_group = None
-                continuous_session_group = None
-
-            # If continuous_session_group exists, create chunk_table within it
-            if continuous_session_group is not None:
-                # Is it possible for this table to already exist?
-                # If so, will get NodeError here
-                # Could just get the existing one, but not sure this ever happens
-                chunk_table = h5f.create_table(
+            # Also create a separate table for each column in ContinuousData
+            # That table will have one column for that piece of data,
+            # and a second column called "timestamp" of type StringAtom
+            cont_tables = {}
+            for colname in task_class.ContinuousData.columns.keys():
+                cont_tables[colname] = h5f.create_table(
                     continuous_session_group, 
-                    'chunk_table', 
-                    task_class.ChunkData,
+                    colname,
+                    description={
+                        colname: task_class.ContinuousData.columns[colname],
+                        'timestamp': tables.StringCol(50),
+                    }, 
                     filters=self.continuous_filter,
-                    )             
-                
-                # Also create a separate table for each column in ContinuousData
-                # That table will have one column for that piece of data,
-                # and a second column called "timestamp" of type StringAtom
-                cont_tables = {}
-                for colname in task_class.ContinuousData.columns.keys():
-                    cont_tables[colname] = h5f.create_table(
-                        continuous_session_group, 
-                        colname,
-                        description={
-                            colname: task_class.ContinuousData.columns[colname],
-                            'timestamp': tables.StringCol(50),
-                        }, 
-                        filters=self.continuous_filter,
-                        )
-            else:
-                chunk_table = None
-                cont_tables = {}
+                    )
+        else:
+            chunk_table = None
+            cont_tables = {}
 
-            # start getting data
-            # stop when 'END' gets put in the queue
-            for data in iter(queue.get, 'END'):
+
+        # start getting data
+        # stop when 'END' gets put in the queue
+        for data in iter(queue.get, 'END'):
+            # wrap everything in try because this thread shouldn't crash
+            try:
                 # special case chunk data
                 if 'chunkdata' in data.keys():
                     # Log
@@ -896,23 +896,27 @@ class Subject(object):
 
                 # special case continuous data
                 if 'continuous' in data.keys():
+                    # Iterate over all items in `data
                     for k, v in data.items():
+                        # Store the items we expected to receive
+                        if k in continuous_group._v_attrs['data']:
+                            # Append the received value and the timestamp
+                            cont_tables[k].row[k] = v
+                            cont_tables[k].row['timestamp'] = (
+                                data.get('timestamp', ''))
+                            cont_tables[k].row.append()             
+                        
                         # continue silently for items we expect to ignore
-                        if k in ['timestamp']:
+                        # (unless they were explicitly included in the table)
+                        elif k in ['timestamp', 'subject', 'pilot']:
                             continue
                         
-                        # if this isn't data that we're expecting, ignore it
-                        if k not in continuous_group._v_attrs['data']:
+                        # otherwise warn
+                        else:
                             self.logger.warning(
                                 "continuous data dropped because "
                                 "{} not recognized".format(k))
                             continue
-                        
-                        # Append the received value and the timestamp
-                        cont_tables[k].row[k] = v
-                        cont_tables[k].row['timestamp'] = (
-                            data.get('timestamp', ''))
-                        cont_tables[k].row.append()
 
                     # Continue, the rest assumes trial data
                     continue
@@ -985,12 +989,11 @@ class Subject(object):
 
                 # always flush so that our row iteration routines above will find what they're looking for
                 trial_table.flush()
-        
-        except:
-            raise
-        
-        finally:
-            self.close_hdf(h5f)
+            except Exception as e:
+                # we shouldn't throw any exception in this thread, just log it and move on
+                self.logger.exception(f'exception in data thread: {e}')
+
+        self.close_hdf(h5f)
 
     def save_data(self, data):
         """
