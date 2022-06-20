@@ -908,7 +908,7 @@ class Subject(object):
                         
                         # continue silently for items we expect to ignore
                         # (unless they were explicitly included in the table)
-                        elif k in ['timestamp', 'subject', 'pilot']:
+                        elif k in ['timestamp', 'subject', 'pilot', 'continuous']:
                             continue
                         
                         # otherwise warn
