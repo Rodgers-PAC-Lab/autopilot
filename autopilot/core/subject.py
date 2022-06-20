@@ -795,291 +795,190 @@ class Subject(object):
             queue (:class:`queue.Queue`): passed by :meth:`~.Subject.prepare_run` and used by other
                 objects to pass data to be stored.
         """
+        # Open the HDF5 file where data is stored
         h5f = self.open_hdf()
 
+        # Get the current task and step
         task_params = self.current[self.step]
         step_name = task_params['step_name']
+        
+        # Get task_class
+        # This is used to get the HDF5 datatypes for Continuous Data
+        task_class = autopilot.get_task(task_params['task_type'])
 
+        # Get the trial_table, located within the step group
         # file structure is '/data/protocol_name/##_step_name/tables'
-        group_name = f"/data/{self.protocol_name}/S{self.step:02d}_{step_name}"
-        #try:
-        trial_table = h5f.get_node(group_name, 'trial_data')
+        step_group = f"/data/{self.protocol_name}/S{self.step:02d}_{step_name}"
+        trial_table = h5f.get_node(step_group, 'trial_data')
         trial_keys = trial_table.colnames
         trial_row = trial_table.row
 
-        # try to get continuous data table if any
-        cont_data = tuple()
-        cont_tables = {}
-        cont_rows = {}
+        # Get the continuous_session_group
+        # If it exists, it is wtihin continuous_group/session_number
         try:
-            # Get the continuous group, and the one for this session
-            continuous_group = h5f.get_node(group_name, 'continuous_data')
-            session_group = h5f.get_node(
+            # All continuous data
+            continuous_group = h5f.get_node(step_group, 'continuous_data')
+            
+            # Continuous data for this session
+            # This must have been created by something
+            continuous_session_group = h5f.get_node(
                 continuous_group, 'session_{}'.format(self.session))
-            
-            # The only thing this is used for is to drop unrecognized values
-            cont_data = continuous_group._v_attrs['data']
-
-            # This is used to create a new table for each recognized value
-            cont_tables = {}
-            
-            # This is a hook to the last row of each table for appending
-            cont_rows = {}
+        
         except (KeyError, AttributeError):
-            # This is not used for anything
-            continuous_table = False
+            # Indicate that there is no continuous_group available
+            continuous_group = None
+            continuous_session_group = None
 
-        # This is used to persistently keep track of payload_table
-        # It will be created at first use
-        payload_table = None
+        # If continuous_session_group exists, create chunk_table within it
+        if continuous_session_group is not None:
+            # Is it possible for this table to already exist?
+            # If so, will get NodeError here
+            # Could just get the existing one, but not sure this ever happens
+            chunk_table = h5f.create_table(
+                continuous_session_group, 
+                'chunk_table', 
+                task_class.ChunkData,
+                filters=self.continuous_filter,
+                )             
+            
+            # Also create a separate table for each column in ContinuousData
+            # That table will have one column for that piece of data,
+            # and a second column called "timestamp" of type StringAtom
+            cont_tables = {}
+            for colname in task_class.ContinuousData.columns.keys():
+                cont_tables[colname] = h5f.create_table(
+                    continuous_session_group, 
+                    colname,
+                    description={
+                        colname: task_class.ContinuousData.columns[colname],
+                        'timestamp': tables.StringCol(50),
+                    }, 
+                    filters=self.continuous_filter,
+                    )
+        else:
+            chunk_table = None
+            cont_tables = {}
 
         # start getting data
         # stop when 'END' gets put in the queue
         for data in iter(queue.get, 'END'):
-            # wrap everything in try because this thread shouldn't crash
-            try:
-                # Special case arrdat
-                if 'arrdat' in data.keys():
-                    print("I AM IN ARRDAT")
-                    
-                    # Pop data
-                    timestamp = data.pop('timestamp')
-                    payload = data.pop('payload')
-                    payload_columns = data.pop('payload_columns')
-                    subject = data.pop('subject')
-                    pilot = data.pop('pilot')
-                    if len(data.keys()) > 0:
-                        self.logger.warning('ignoring extra keys: {}'.format(data.keys())
-                    
-                    # Reconstruct a DataFrame out of the payload
-                    payload_df = pandas.DataFrame(
-                        payload, columns=payload_columns)
-                    
-                    # Create a payload table if it doesn't exist
-                    if payload_table is None:
-                        # Create the description
-                        for colname in payload_df.columns:
-                            # Get the dtype
-                            dtype = payload_df[colname].dtype
-                            
-                        
-                    if colname not in cont_tables.keys():
-                        # Create an atom for the timestamp
-                        timestamp_atom = tables.StringAtom(
-                            len(data['timestamp']))
-                        
-                        # Create an atom for the pilot
-                        pilot_atom = tables.StringAtom(20)
-                        
-                        # Special case the dtype
-                        if 'str' in varr.dtype.name:
-                            col_atom = tables.StringAtom(len(v) * 2)
-                        else:
-                            col_atom = tables.Atom.from_type(
-                                column.dtype.name)
-
-                        # Create the table
-                        cont_tables['arrdata'] = h5f.create_table(
-                            session_group, 
-                            colname, 
-                            description={
-                                colname: tables.Col.from_atom(col_atom),
-                                'timestamp': tables.Col.from_atom(timestamp_atom),
-                                'pilot': tables.Col.from_atom(pilot_atom),
-                            }, filters=self.continuous_filter)                            
-                        
-                        # Hook for the row
-                        cont_rows[k] = cont_tables[k].row
-                    
-                    
-
-
-                    for k, v in data.items():
-                        # ignore these which are required
-                        if k in ['subject', 'pilot', 'arrdat']:
-                            continue
-                        
-                        # if this isn't data that we're expecting, ignore it
-                        if k not in cont_data:
-                            self.logger.warning("continuous data dropped because {} not recognized".format(k))
-                            continue
-
-                        # if we haven't made a table yet, do it
-                        if k not in cont_tables.keys():
-                            # Make it an array if it's not already
-                            varr = np.asarray(v)
-                            
-                            # Special case string
-                            if 'str' in varr.dtype.name:
-                                raise ValueError("string not supported for arrdata")
-                            else:
-                                col_atom = tables.Atom.from_type(
-                                    varr.dtype.name, (1,))
-                                
-                            # should have come in with a timestamp
-                            # TODO: Log if no timestamp is received
-                            try:
-                                varr_timestamp = np.asarray(data['timestamp'])
-                                # Special case string
-                                if 'str' in varr_timestamp.dtype.name:
-                                    timestamp_atom = tables.StringAtom(len(data['timestamp']))
-                                else:
-                                    timestamp_atom = tables.Atom.from_type(
-                                        varr_timestamp.dtype.name, 
-                                        varr_timestamp.shape)
-
-                            except KeyError:
-                                self.logger.warning('no timestamp sent with continuous data')
-                                continue
-
-                            # should have come in with a pilot name
-                            varr_pilot = np.asarray(data['pilot'])
-                            pilot_atom = tables.StringAtom(20)
-
-                            cont_tables[k] = h5f.create_table(session_group, k, description={
-                                k: tables.Col.from_atom(col_atom),
-                                'timestamp': tables.Col.from_atom(timestamp_atom),
-                                'pilot': tables.Col.from_atom(pilot_atom),
-                            }, filters=self.continuous_filter)
-
-                            cont_rows[k] = cont_tables[k].row
-                        
-                        # v should be an array, add each
-                        for vitem in v:
-                            cont_rows[k][k] = vitem
-                            cont_rows[k]['timestamp'] = data['timestamp']
-                            cont_rows[k]['pilot'] = data['pilot']
-                            cont_rows[k].append()
-
-                    # continue, the rest is for handling trial data
-                    continue
+            # special case chunk data
+            if 'chunkdata' in data.keys():
+                # Log
+                self.logger.debug('chunk data received')
                 
-                # if we get continuous data, this should be simple because we always get a whole row
-                # there must be a more elegant way to check if something is a key and it is true...
-                # yet here we are
-                if 'continuous' in data.keys():
-                    for k, v in data.items():
-                        # if this isn't data that we're expecting, ignore it
-                        if k not in cont_data:
-                            self.logger.warning("continuous data dropped because {} not recognized".format(k))
-                            continue
+                # Pop payload and payload_columns from `data`
+                # All other items in `data` are ignored
+                payload = data.pop('payload')
+                payload_columns = data.pop('payload_columns')
+                
+                # Reconstruct a DataFrame out of the payload
+                payload_df = pandas.DataFrame(payload, columns=payload_columns)
+                
+                # Include exactly those columns that are in chunk_table
+                # This will insert np.nan for any missing columns
+                # This will cause an error if any of them are supposed to be int
+                sliced_payload_df = payload_df.reindex(
+                    continuous_table.colnames, axis=1)
+                
+                # Convert to list of tuples, as expected by pytables
+                to_append = list(map(tuple, sliced_payload_df.values))
+                
+                # Append
+                chunk_table.append(to_append)
+            
+                # Continue, the rest assumes trial data
+                continue
 
-                        # if we haven't made a table yet, do it
-                        if k not in cont_tables.keys():
-                            # Make it an array if it's not already
-                            varr = np.asarray(v)
-                            
-                            # Special case string
-                            if 'str' in varr.dtype.name:
-                                col_atom = tables.StringAtom(len(v))
-                            else:
-                                col_atom = tables.Atom.from_type(
-                                    varr.dtype.name, varr.shape)
-                                
-                            # should have come in with a timestamp
-                            # TODO: Log if no timestamp is received
-                            try:
-                                varr_timestamp = np.asarray(data['timestamp'])
-                                # Special case string
-                                if 'str' in varr_timestamp.dtype.name:
-                                    timestamp_atom = tables.StringAtom(len(data['timestamp']))
-                                else:
-                                    timestamp_atom = tables.Atom.from_type(
-                                        varr_timestamp.dtype.name, 
-                                        varr_timestamp.shape)
-
-                            except KeyError:
-                                self.logger.warning('no timestamp sent with continuous data')
-                                continue
-
-
-                            cont_tables[k] = h5f.create_table(session_group, k, description={
-                                k: tables.Col.from_atom(col_atom),
-                                'timestamp': tables.Col.from_atom(timestamp_atom)
-                            }, filters=self.continuous_filter)
-
-                            cont_rows[k] = cont_tables[k].row
-
-                        cont_rows[k][k] = v
-                        cont_rows[k]['timestamp'] = data['timestamp']
-                        cont_rows[k].append()
-
-                    # continue, the rest is for handling trial data
-                    continue
-
-
-
-                # Check if this is the same
-                # if we've already recorded a trial number for this row,
-                # and the trial number we just got is not the same,
-                # we edit that row if we already have some data on it or else start a new row
-                if 'trial_num' in data.keys():
-                    if (trial_row['trial_num']) and (trial_row['trial_num'] is None):
-                        trial_row['trial_num'] = data['trial_num']
-
-                    if (trial_row['trial_num']) and (trial_row['trial_num'] != data['trial_num']):
-
-                        # find row with this trial number if it exists
-                        # this will return a list of rows with matching trial_num.
-                        # if it's empty, we didn't receive a TRIAL_END and should create a new row
-                        other_row = [r for r in trial_table.where("trial_num == {}".format(data['trial_num']))]
-
-                        if len(other_row) == 0:
-                            # proceed to fill the row below
-                            trial_row.append()
-
-                        elif len(other_row) == 1:
-                            # update the row and continue so we don't double write
-                            # have to be in the middle of iteration to use update()
-                            for row in trial_table.where("trial_num == {}".format(data['trial_num'])):
-                                for k, v in data.items():
-                                    if k in trial_keys:
-                                        row[k] = v
-                                row.update()
-                            continue
-
-                        else:
-                            # we have more than one row with this trial_num.
-                            # shouldn't happen, but we dont' want to throw any data away
-                            self.logger.warning('Found multiple rows with same trial_num: {}'.format(data['trial_num']))
-                            # continue just for data conservancy's sake
-                            trial_row.append()
-
+            # special case continuous data
+            if 'continuous' in data.keys():
                 for k, v in data.items():
-                    # some bug where some columns are not always detected,
-                    # rather than failing out here, just log error
-                    if k in trial_keys:
-                        try:
-                            trial_row[k] = v
-                        except KeyError:
-                            # TODO: Logging here
-                            self.logger.warning("Data dropped: key: {}, value: {}".format(k, v))
-                    elif k in ['TRIAL_END', 'pilot', 'subject']:
-                        # Silently pass, because these are not expected to be
-                        # in the table anyway
-                        pass
-                    else:
-                        # Warn that we're dropping data. The HDF5 file needs
-                        # a new column appended.
+                    # continue silently for items we expect to ignore
+                    if k in ['timestamp']:
+                        continue
+                    
+                    # if this isn't data that we're expecting, ignore it
+                    if k not in continuous_group._v_attrs['data']:
                         self.logger.warning(
-                            "Data dropped because {} is not a column: key: {}, value: {}".format(k, k, v))
+                            "continuous data dropped because "
+                            "{} not recognized".format(k))
+                        continue
+                    
+                    # Append the received value and the timestamp
+                    to_append = (v, data.get('timestamp', ''))
+                    cont_tables[k].append([to_append])
 
-                # TODO: Or if all the values have been filled, shouldn't need explicit TRIAL_END flags
-                if 'TRIAL_END' in data.keys():
-                    trial_row['session'] = self.session
-                    if self.graduation:
-                        # set our graduation flag, the terminal will get the rest rolling
-                        did_graduate = self.graduation.update(trial_row)
-                        if did_graduate is True:
-                            self.did_graduate.set()
-                    trial_row.append()
-                    trial_table.flush()
+                # Continue, the rest assumes trial data
+                continue
 
-                # always flush so that our row iteration routines above will find what they're looking for
+            # Check if this is the same
+            # if we've already recorded a trial number for this row,
+            # and the trial number we just got is not the same,
+            # we edit that row if we already have some data on it or else start a new row
+            if 'trial_num' in data.keys():
+                if (trial_row['trial_num']) and (trial_row['trial_num'] is None):
+                    trial_row['trial_num'] = data['trial_num']
+
+                if (trial_row['trial_num']) and (trial_row['trial_num'] != data['trial_num']):
+
+                    # find row with this trial number if it exists
+                    # this will return a list of rows with matching trial_num.
+                    # if it's empty, we didn't receive a TRIAL_END and should create a new row
+                    other_row = [r for r in trial_table.where("trial_num == {}".format(data['trial_num']))]
+
+                    if len(other_row) == 0:
+                        # proceed to fill the row below
+                        trial_row.append()
+
+                    elif len(other_row) == 1:
+                        # update the row and continue so we don't double write
+                        # have to be in the middle of iteration to use update()
+                        for row in trial_table.where("trial_num == {}".format(data['trial_num'])):
+                            for k, v in data.items():
+                                if k in trial_keys:
+                                    row[k] = v
+                            row.update()
+                        continue
+
+                    else:
+                        # we have more than one row with this trial_num.
+                        # shouldn't happen, but we dont' want to throw any data away
+                        self.logger.warning('Found multiple rows with same trial_num: {}'.format(data['trial_num']))
+                        # continue just for data conservancy's sake
+                        trial_row.append()
+
+            for k, v in data.items():
+                # some bug where some columns are not always detected,
+                # rather than failing out here, just log error
+                if k in trial_keys:
+                    try:
+                        trial_row[k] = v
+                    except KeyError:
+                        # TODO: Logging here
+                        self.logger.warning("Data dropped: key: {}, value: {}".format(k, v))
+                elif k in ['TRIAL_END', 'pilot', 'subject']:
+                    # Silently pass, because these are not expected to be
+                    # in the table anyway
+                    pass
+                else:
+                    # Warn that we're dropping data. The HDF5 file needs
+                    # a new column appended.
+                    self.logger.warning(
+                        "Data dropped because {} is not a column: key: {}, value: {}".format(k, k, v))
+
+            # TODO: Or if all the values have been filled, shouldn't need explicit TRIAL_END flags
+            if 'TRIAL_END' in data.keys():
+                trial_row['session'] = self.session
+                if self.graduation:
+                    # set our graduation flag, the terminal will get the rest rolling
+                    did_graduate = self.graduation.update(trial_row)
+                    if did_graduate is True:
+                        self.did_graduate.set()
+                trial_row.append()
                 trial_table.flush()
-            except Exception as e:
-                # we shouldn't throw any exception in this thread, just log it and move on
-                self.logger.exception(f'exception in data thread: {e}')
+
+            # always flush so that our row iteration routines above will find what they're looking for
+            trial_table.flush()
 
         self.close_hdf(h5f)
 
