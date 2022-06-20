@@ -737,6 +737,8 @@ class PAFT_Child(children.Child):
         self.empty_queue1()
         self.append_sound_to_queue1_as_needed()
         
+        # This is where to transmit that both_df has recently changed
+        
     def recv_stop(self, value):
         # debug
         self.logger.debug("recv_stop with value: {}".format(value))
