@@ -356,6 +356,20 @@ class ex_serialize(Task):
 
         # Send to terminal
         self.node.send('_T', 'DATA', msg=msg)        
+
+        # Also send continuous data
+        self.node.send(
+            to='_T',
+            key='DATA',
+            value={
+                'subject': self.subject,
+                'pilot': 'rpiXX',
+                'continuous': True,
+                'poked_port': 'left',
+                'timestamp': value['timestamp'],
+                'trial': 11,
+                },
+            )
     
     def end(self, *args, **kwargs):
         """Called when the task is ended by the user.
