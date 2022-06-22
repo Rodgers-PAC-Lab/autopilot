@@ -349,7 +349,7 @@ class Plot(QtWidgets.QWidget):
                 )
 
             # Store
-            self.known_pilot_ports_reward_plot.append(poke_plot)
+            self.known_pilot_ports_reward_plot.append(reward_plot)
             
             # Also keep track of yticks
             ticks_l.append((n_row, self.known_pilot_ports[n_row]))
