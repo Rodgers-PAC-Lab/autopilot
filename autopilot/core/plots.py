@@ -202,9 +202,12 @@ class Plot(QtWidgets.QWidget):
         # These are used to store data we receive over time
         self.known_pilot_ports_poke_data = [
             [] for kpp in self.known_pilot_ports]
+        self.known_pilot_ports_reward_data = [
+            [] for kpp in self.known_pilot_ports]
         
         # These are used to store handles to different graph traces
         self.known_pilot_ports_poke_plot = []
+        self.known_pilot_ports_reward_plot = []
 
         
         ## Init the plots and handles
@@ -326,17 +329,28 @@ class Plot(QtWidgets.QWidget):
         # each port
         ticks_l = []
         for n_row in range(len(self.known_pilot_ports)):
-            # Create the plot handle
+            # Create a plot handle for pokes
             poke_plot = self.timecourse_plot.plot(
                 x=[],
                 y=np.array([]),
                 pen=None, symbolBrush=(255, 0, 0), 
                 symbolPen=None, symbol='arrow_down',
                 )
-            
+
             # Store
             self.known_pilot_ports_poke_plot.append(poke_plot)
 
+            # Create a plot handle for rewards
+            reward_plot = self.timecourse_plot.plot(
+                x=[],
+                y=np.array([]),
+                pen=None, symbolBrush=(0, 255, 0), 
+                symbolPen=None, symbol='arrow_up',
+                )
+
+            # Store
+            self.known_pilot_ports_reward_plot.append(poke_plot)
+            
             # Also keep track of yticks
             ticks_l.append((n_row, self.known_pilot_ports[n_row]))
 
@@ -449,14 +463,13 @@ class Plot(QtWidgets.QWidget):
                 else:
                     opp.setSymbolBrush('w')
         
-        # This would be used to store the timestamps of rewards
+        # Handle a reward by incrementing N_Rewards
         if 'timestamp_reward' in value.keys():
-            # TODO: Plot green arrows
             self.n_rewards += 1
             self.infobox_items['N Rewards'].setText(str(self.n_rewards))
         
-        # A port was just poked
-        # Log this, mark the port red, plot the poke time
+        # A port was just poked, or a reward was delivered
+        # Log this, mark the port red or blue, plot the poke time in red or green
         if 'poked_port' in value.keys():
             # Reset poke timer
             self.infobox_items['Last poke'].start_time = time.time()
@@ -474,18 +487,36 @@ class Plot(QtWidgets.QWidget):
             
             # Store the time and update the plot
             if kpp_idx is not None:
-                # Store the time
-                kpp_data = self.known_pilot_ports_poke_data[kpp_idx]
-                kpp_data.append(timestamp_sec)
+                # The same message is used for all pokes, and then also
+                # for rewards delivered
+                if 'reward_delivered' in value:
+                    # This is for plotting a green tick
+                    # Store the time
+                    kpp_data = self.known_pilot_ports_reward_data[kpp_idx]
+                    kpp_data.append(timestamp_sec)
+                    
+                    # Update the plot
+                    self.known_pilot_ports_reward_plot[kpp_idx].setData(
+                        x=kpp_data,
+                        y=np.array([kpp_idx] * len(kpp_data)),
+                        )                
+                    
+                    # Turn the correspond poke circle blue
+                    self.octagon_port_plot_l[kpp_idx].setSymbolBrush('b')
                 
-                # Update the plot
-                self.known_pilot_ports_poke_plot[kpp_idx].setData(
-                    x=kpp_data,
-                    y=np.array([kpp_idx] * len(kpp_data)),
-                    )
-                
-                # Turn the correspond poke circle red
-                self.octagon_port_plot_l[kpp_idx].setSymbolBrush('r')
+                else:
+                    # Store the time
+                    kpp_data = self.known_pilot_ports_poke_data[kpp_idx]
+                    kpp_data.append(timestamp_sec)
+                    
+                    # Update the plot
+                    self.known_pilot_ports_poke_plot[kpp_idx].setData(
+                        x=kpp_data,
+                        y=np.array([kpp_idx] * len(kpp_data)),
+                        )
+                    
+                    # Turn the correspond poke circle red
+                    self.octagon_port_plot_l[kpp_idx].setSymbolBrush('r')
 
         # If we received a trial_in_session, then update the N_trials counter
         if 'trial_in_session' in value.keys():

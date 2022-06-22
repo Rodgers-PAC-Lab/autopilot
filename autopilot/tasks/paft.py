@@ -1003,7 +1003,7 @@ class PAFT(Task):
                 'pilot': prefs.get('NAME'),
                 'poked_port': poked_port,
                 'reward_delivered': True,
-                'timestamp': poke_timestamp.isoformat(),
+                'timestamp': reward_timestamp.isoformat(),
                 'trial': self.counter_trials_in_session,
                 },
             )          
