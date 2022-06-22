@@ -222,7 +222,7 @@ class PAFT(Task):
         pilot = tables.StringCol(20)
         locking_timestamp = tables.StringCol(50)        
         gap = tables.Float64Col()
-        gap_chunks = tables.IntegerCol()
+        gap_chunks = tables.IntCol()
     
 
     ## Set up hardware and children
