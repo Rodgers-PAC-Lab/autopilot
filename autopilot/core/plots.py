@@ -521,7 +521,7 @@ class Plot(QtWidgets.QWidget):
                     # Turn the correspond poke circle blue
                     self.octagon_port_plot_l[kpp_idx].setSymbolBrush('b')                    
                     
-                elif 'reward_delivered' in value:
+                elif value['reward_delivered']:
                     # It was rewarded but it was not a correct trial, so
                     # they must have poked the wrong port earlier
                     # Store the time in the GREEN trace
