@@ -918,14 +918,39 @@ class PAFT(Task):
         # inferring it here
         poke_timestamp = datetime.datetime.now()
 
+        # Form poked_port
+        poked_port = '{}_{}'.format(value['from'], value['poke'])
+
+        # Infer whether this is the first poke of the current trial
+        this_is_first_poke = False
+        if self.counter_trials_in_session != self.trial_of_last_poke:
+            # It is the first poke of the trial, update the memory
+            self.trial_of_last_poke = self.counter_trials_in_session
+            this_is_first_poke = True
+        
+        # Infer whether this is a correct poke
+        this_is_rewarded_poke = False
+        if poked_port == self.rewarded_port:
+            this_is_rewarded_poke = True
+        
+        # Infer whether trial was correct
+        this_is_correct_trial = False
+        if this_is_rewarded_poke and this_is_first_poke:
+            this_is_correct_trial = True
+
         # Announce
         self.logger.debug(
             "[{}] received POKE from child with value {}".format(
             poke_timestamp.isoformat(), value))
+        self.logger.debug(
+            "[{}] {} poked; {}; {}; {}".format(
+                poke_timestamp.isoformat(), 
+                poked_port,
+                'trial correct' if this_is_correct_trial else 'trial wrong',
+                'first of trial' if this_is_first_poke else 'not first',
+                'rewarded' if this_is_rewarded_poke else 'not rewarded',
+                value))
 
-        # Form poked_port
-        poked_port = '{}_{}'.format(value['from'], value['poke'])
-        
         # Directly report continuous data to terminal (aka _T)
         # Otherwise it can be encoded in the returned data, but that is only
         # once per stage
@@ -942,6 +967,9 @@ class PAFT(Task):
                 'pilot': prefs.get('NAME'),
                 'continuous': True,
                 'poked_port': poked_port,
+                'first_poke': this_is_first_poke,
+                'reward_delivered': this_is_rewarded_poke,
+                'trial_correct': this_is_correct_trial,
                 'timestamp': poke_timestamp.isoformat(),
                 'trial': self.counter_trials_in_session,
                 },
@@ -955,6 +983,9 @@ class PAFT(Task):
                 'subject': self.subject,
                 'pilot': prefs.get('NAME'),
                 'poked_port': poked_port,
+                'first_poke': this_is_first_poke,
+                'reward_delivered': this_is_rewarded_poke,
+                'trial_correct': this_is_correct_trial,
                 'timestamp': poke_timestamp.isoformat(),
                 'trial': self.counter_trials_in_session,
                 },
@@ -992,21 +1023,21 @@ class PAFT(Task):
         # Store the time of the reward
         self.timestamp_of_last_reward = reward_timestamp
 
-        # Also send to plot
-        # This is the same as the poke message, except this one also includes
-        # 'reward_delivered'
-        self.node.send(
-            to='P_{}'.format(prefs.get('NAME')),
-            key='DATA',
-            value={
-                'subject': self.subject,
-                'pilot': prefs.get('NAME'),
-                'poked_port': poked_port,
-                'reward_delivered': True,
-                'timestamp': reward_timestamp.isoformat(),
-                'trial': self.counter_trials_in_session,
-                },
-            )          
+        #~ # Also send to plot
+        #~ # This is the same as the poke message, except this one also includes
+        #~ # 'reward_delivered'
+        #~ self.node.send(
+            #~ to='P_{}'.format(prefs.get('NAME')),
+            #~ key='DATA',
+            #~ value={
+                #~ 'subject': self.subject,
+                #~ 'pilot': prefs.get('NAME'),
+                #~ 'poked_port': poked_port,
+                #~ 'reward_delivered': True,
+                #~ 'timestamp': reward_timestamp.isoformat(),
+                #~ 'trial': self.counter_trials_in_session,
+                #~ },
+            #~ )          
 
     def end(self, *args, **kwargs):
         """Called when the task is ended by the user.
