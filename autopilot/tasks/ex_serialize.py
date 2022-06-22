@@ -73,7 +73,9 @@ class ex_serialize(Task):
     class ContinuousData(tables.IsDescription):
         poked_port = tables.StringCol(64)
         trial = tables.Int32Col()
-    
+
+    # Define chunk data
+    # This is like ContinuousData, but each row is sent together, as a chunk
     class ChunkData(tables.IsDescription):
         audio_time = tables.Float64Col()
         side = tables.StringCol(10)
