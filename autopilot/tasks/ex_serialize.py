@@ -280,7 +280,7 @@ class ex_serialize(Task):
             router_port=5001,
             listens={
                 'HELLO': self.recv_hello,
-                'ARRDAT': self.recv_arrdat,
+                'CHUNK': self.recv_chunk,
                 },
             instance=False,
             )
@@ -323,22 +323,37 @@ class ex_serialize(Task):
         # Set this flag
         self.child_connected[value['from']] = True
 
-    def recv_arrdat(self, value):
+    def recv_chunk(self, value):
+        """Forwards a chunk of data from a child to the terminal.
+        
+        value : dict, with keys:
+            'payload' : 2d array
+            'payload_columns' : list of strings
+                These become the names of the columns of `payload`, so they
+                should be the same length.
+            'timestamp' : the time of the message
+            'pilot' : the name of the child
+        
+        Any other items in `value` are ignored. 
+        
+        Those items in `value`, plus {'subject': self.subject, 'chunk': True},
+        are put into a new Message and sent to _T with key 'DATA' and
+        flags to disable printing and repeating.
+        """
         # Log
         self.logger.debug(
-            "received ARRDAT from child, passing along"
+            "received CHUNK from child, passing along"
             )
         
         # Pass along to terminal for saving
         # `value` should have keys pilot, payload, and timestamp
-        # Reserialize it
         value_to_send = {
             'payload': value['payload'],
             'payload_columns': value['payload_columns'],
             'timestamp': value['timestamp'],
             'pilot': value['pilot'], # required by something
             'subject': self.subject, # required by terminal.l_data            
-            'chunkdata': True, # this triggers processing as array data
+            'chunk': True, # this triggers processing as array data
             }
         
         # Generate the Message
@@ -350,12 +365,12 @@ class ex_serialize(Task):
                 'MINPRINT': True, # disable printing of value
                 'NOREPEAT': True, # disable repeating
                 },
-            id="dummy_dst2", 
-            sender="dummy_src2", 
+            id=value['id'],
+            sender=value['sender'],
             )
 
         # Send to terminal
-        self.node.send('_T', 'DATA', msg=msg)        
+        self.node.send('_T', 'DATA', msg=msg)
 
         # Also send continuous data
         self.node.send(
