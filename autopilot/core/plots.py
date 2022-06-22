@@ -204,10 +204,13 @@ class Plot(QtWidgets.QWidget):
             [] for kpp in self.known_pilot_ports]
         self.known_pilot_ports_reward_data = [
             [] for kpp in self.known_pilot_ports]
+        self.known_pilot_ports_correct_reward_data = [
+            [] for kpp in self.known_pilot_ports]
         
         # These are used to store handles to different graph traces
         self.known_pilot_ports_poke_plot = []
         self.known_pilot_ports_reward_plot = []
+        self.known_pilot_ports_correct_reward_plot = []
 
         
         ## Init the plots and handles
@@ -350,6 +353,18 @@ class Plot(QtWidgets.QWidget):
 
             # Store
             self.known_pilot_ports_reward_plot.append(reward_plot)
+
+            # Create a plot handle for "correct rewards", which is if the
+            # rewarded port was poked first
+            reward_plot = self.timecourse_plot.plot(
+                x=[],
+                y=np.array([]),
+                pen=None, symbolBrush=(0, 0, 255), 
+                symbolPen=None, symbol='arrow_up',
+                )
+
+            # Store
+            self.known_pilot_ports_correct_reward_plot.append(reward_plot)
             
             # Also keep track of yticks
             ticks_l.append((n_row, self.known_pilot_ports[n_row]))
@@ -459,7 +474,7 @@ class Plot(QtWidgets.QWidget):
             # Make all ports white, except rewarded port green
             for opp_idx, opp in enumerate(self.octagon_port_plot_l):
                 if opp_idx == kpp_idx:
-                    opp.setSymbolBrush('g')
+                    opp.setSymbolBrush('purple')
                 else:
                     opp.setSymbolBrush('w')
         
@@ -468,8 +483,8 @@ class Plot(QtWidgets.QWidget):
             self.n_rewards += 1
             self.infobox_items['N Rewards'].setText(str(self.n_rewards))
         
-        # A port was just poked, or a reward was delivered
-        # Log this, mark the port red or blue, plot the poke time in red or green
+        # A port was just poked
+        # Log this, mark the port red or blue, plot the poke time 
         if 'poked_port' in value.keys():
             # Reset poke timer
             self.infobox_items['Last poke'].start_time = time.time()
@@ -487,11 +502,29 @@ class Plot(QtWidgets.QWidget):
             
             # Store the time and update the plot
             if kpp_idx is not None:
-                # The same message is used for all pokes, and then also
-                # for rewards delivered
-                if 'reward_delivered' in value:
-                    # This is for plotting a green tick
-                    # Store the time
+                # If correct_trial, plot as blue tick
+                # elif reward_delivered, plot as green tick
+                # else plot as red tick
+                if value['trial_correct']:
+                    # This only happens if it was correct and the first poke
+                    # of the trial
+                    # Store the time in the BLUE trace
+                    kpp_data = self.known_pilot_ports_correct_reward_data[kpp_idx]
+                    kpp_data.append(timestamp_sec)
+                    
+                    # Update the plot
+                    self.known_pilot_ports_correct_reward_plot[kpp_idx].setData(
+                        x=kpp_data,
+                        y=np.array([kpp_idx] * len(kpp_data)),
+                        )                
+                    
+                    # Turn the correspond poke circle blue
+                    self.octagon_port_plot_l[kpp_idx].setSymbolBrush('b')                    
+                    
+                elif 'reward_delivered' in value:
+                    # It was rewarded but it was not a correct trial, so
+                    # they must have poked the wrong port earlier
+                    # Store the time in the GREEN trace
                     kpp_data = self.known_pilot_ports_reward_data[kpp_idx]
                     kpp_data.append(timestamp_sec)
                     
@@ -501,10 +534,11 @@ class Plot(QtWidgets.QWidget):
                         y=np.array([kpp_idx] * len(kpp_data)),
                         )                
                     
-                    # Turn the correspond poke circle blue
-                    self.octagon_port_plot_l[kpp_idx].setSymbolBrush('b')
+                    # Turn the correspond poke circle green
+                    self.octagon_port_plot_l[kpp_idx].setSymbolBrush('g')
                 
                 else:
+                    # Incorrect poke
                     # Store the time
                     kpp_data = self.known_pilot_ports_poke_data[kpp_idx]
                     kpp_data.append(timestamp_sec)

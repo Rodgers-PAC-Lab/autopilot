@@ -415,6 +415,8 @@ class PAFT(Task):
         self.rewarded_port = None
         self.previously_rewarded_port = None
         
+        # This is used to infer the first poke of each trial
+        self.trial_of_last_poke = None
         
         ## Init hardware -- this sets self.hardware, self.pin_id, and
         ## assigns self.handle_trigger to gpio callbacks
