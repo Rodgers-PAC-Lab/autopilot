@@ -365,8 +365,8 @@ class ex_serialize(Task):
                 'MINPRINT': True, # disable printing of value
                 'NOREPEAT': True, # disable repeating
                 },
-            id=value['id'],
-            sender=value['sender'],
+            id=value.id,
+            sender=value.sender,
             )
 
         # Send to terminal
