@@ -954,7 +954,6 @@ class PAFT(Task):
             value={
                 'subject': self.subject,
                 'pilot': prefs.get('NAME'),
-                'continuous': True,
                 'poked_port': poked_port,
                 'timestamp': poke_timestamp.isoformat(),
                 'trial': self.counter_trials_in_session,
@@ -992,6 +991,22 @@ class PAFT(Task):
 
         # Store the time of the reward
         self.timestamp_of_last_reward = reward_timestamp
+
+        # Also send to plot
+        # This is the same as the poke message, except this one also includes
+        # 'reward_delivered'
+        self.node.send(
+            to='P_{}'.format(prefs.get('NAME')),
+            key='DATA',
+            value={
+                'subject': self.subject,
+                'pilot': prefs.get('NAME'),
+                'poked_port': poked_port,
+                'reward_delivered': True,
+                'timestamp': poke_timestamp.isoformat(),
+                'trial': self.counter_trials_in_session,
+                },
+            )          
 
     def end(self, *args, **kwargs):
         """Called when the task is ended by the user.
