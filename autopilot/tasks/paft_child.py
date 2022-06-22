@@ -708,11 +708,25 @@ class PAFT_Child(children.Child):
 
     def recv_play(self, value):
         """On receiving a PLAY command, set sounds and fill queues"""
-        # Log 
-        self.logger.debug("recv_play with value: {}".format(value))
-        
+        # Log the time of the flash
+        timestamp = datetime.datetime.now().isoformat()
+        self.logger.debug(
+            "[{}] synchronization_flash; ".format(timestamp) +
+            "recv_play with value: {}".format(value)
+            )
+
         # Whether to do a synchronization flash
         synchronization_flash = value.pop('synchronization_flash', False)
+
+        # Blink an LED to serve as synchronization cue
+        # Do this BEFORE processing any sounds, otherwise the latency varies
+        # with the number of sounds to play
+        if synchronization_flash:
+            self.hardware['LEDS']['L'].set((255, 0, 0))
+            self.hardware['LEDS']['R'].set((255, 0, 0))
+            time.sleep(.050)
+            self.hardware['LEDS']['L'].set((0, 0, 0))
+            self.hardware['LEDS']['R'].set((0, 0, 0))
         
         # Pop out the punish and reward values
         left_punish = value.pop('left_punish')
@@ -757,14 +771,6 @@ class PAFT_Child(children.Child):
         
         # Inform terminal
         self.send_chunk_of_sound_data()
-        
-        # Blink a light to serve as synchronization cue
-        if synchronization_flash:
-            self.hardware['LEDS']['L'].set((0, 255, 0))
-            self.hardware['LEDS']['R'].set((0, 255, 0))
-            time.sleep(.050)
-            self.hardware['LEDS']['L'].set((0, 0, 0))
-            self.hardware['LEDS']['R'].set((0, 0, 0))
 
     def send_chunk_of_sound_data(self):
         ## Create a serialized message
