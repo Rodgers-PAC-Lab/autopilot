@@ -711,6 +711,9 @@ class PAFT_Child(children.Child):
         # Log 
         self.logger.debug("recv_play with value: {}".format(value))
         
+        # Whether to do a synchronization flash
+        synchronization_flash = value.pop('synchronization_flash', False)
+        
         # Pop out the punish and reward values
         left_punish = value.pop('left_punish')
         right_punish = value.pop('right_punish')
@@ -756,11 +759,12 @@ class PAFT_Child(children.Child):
         self.send_chunk_of_sound_data()
         
         # Blink a light to serve as synchronization cue
-        self.hardware['LEDS']['L'].set((0, 255, 0))
-        self.hardware['LEDS']['R'].set((0, 255, 0))
-        time.sleep(.050)
-        self.hardware['LEDS']['L'].set((0, 0, 0))
-        self.hardware['LEDS']['R'].set((0, 0, 0))
+        if synchronization_flash:
+            self.hardware['LEDS']['L'].set((0, 255, 0))
+            self.hardware['LEDS']['R'].set((0, 255, 0))
+            time.sleep(.050)
+            self.hardware['LEDS']['L'].set((0, 0, 0))
+            self.hardware['LEDS']['R'].set((0, 0, 0))
 
     def send_chunk_of_sound_data(self):
         ## Create a serialized message

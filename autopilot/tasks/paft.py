@@ -536,15 +536,20 @@ class PAFT(Task):
                 'left_on': False, 'right_on': False,
                 'left_punish': left_punish, 'right_punish': right_punish,
                 'left_reward': False, 'right_reward': False,
+                'synchronization_flash': False,
                 },
             )              
 
-    def send_acoustic_params(self, port_params, stim_params_to_send):
+    def send_acoustic_params(self, port_params, stim_params_to_send, 
+        synchronization_flash):
         """Send params to each pi
         
         port_params : DataFrame of port-specific params
         
         stim_params_to_send : dict of global params
+        
+        synchronization_flash : bool
+            Whether to also send a synchronization request
 
         """
         # Iterate over pilots
@@ -566,6 +571,12 @@ class PAFT(Task):
             
             # Add on global params
             kwargs.update(stim_params_to_send)
+            
+            # Sync
+            if synchronization_flash:
+                kwargs['synchronization_flash'] = True
+            else:
+                kwargs['synchronization_flash'] = False
 
             # Send the message
             self.node2.send(to=which_pi, key='PLAY', value=kwargs)
@@ -691,11 +702,14 @@ class PAFT(Task):
         
         
         ## Send the play and silence messages
-        # Tell those to play
+        # Debug
         self.logger.debug('chose port_params:\n{}'.format(port_params))
         self.logger.debug('chose stim_params_to_send:\n{}'.format(
             stim_params_to_send))
-        self.send_acoustic_params(port_params, stim_params_to_send)
+        
+        # Send those parameters, and also request a synchronization flash
+        self.send_acoustic_params(
+            port_params, stim_params_to_send, synchronization_flash=True)
     
 
         ## Continue to the next stage
