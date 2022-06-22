@@ -923,22 +923,36 @@ class PAFT(Task):
         # Form poked_port
         poked_port = '{}_{}'.format(value['from'], value['poke'])
 
-        # Infer whether this is the first poke of the current trial
-        this_is_first_poke = False
-        if self.counter_trials_in_session != self.trial_of_last_poke:
-            # It is the first poke of the trial, update the memory
-            self.trial_of_last_poke = self.counter_trials_in_session
-            this_is_first_poke = True
+        # Special case previously rewarded port
+        if poked_port == self.previously_rewarded_port:
+            # Don't count these pokes
+            this_is_first_poke = False
+            this_is_rewarded_poke = False
+            this_is_correct_trial = False
+            this_poke_rank = -1
         
-        # Infer whether this is a correct poke
-        this_is_rewarded_poke = False
-        if poked_port == self.rewarded_port:
-            this_is_rewarded_poke = True
-        
-        # Infer whether trial was correct
-        this_is_correct_trial = False
-        if this_is_rewarded_poke and this_is_first_poke:
-            this_is_correct_trial = True
+        else:
+            # Infer whether this is the first poke of the current trial
+            this_is_first_poke = False
+            if self.counter_trials_in_session != self.trial_of_last_poke:
+                # It is the first poke of the trial, update the memory
+                self.trial_of_last_poke = self.counter_trials_in_session
+                this_is_first_poke = True
+            
+            # Infer whether this is a correct poke
+            this_is_rewarded_poke = False
+            if poked_port == self.rewarded_port:
+                this_is_rewarded_poke = True
+            
+            # Infer whether trial was correct
+            this_is_correct_trial = False
+            if this_is_rewarded_poke and this_is_first_poke:
+                this_is_correct_trial = True
+            
+            # Keep track of rank
+            this_poke_rank = len(self.ports_poked_on_this_trial)
+            if poked_port not in self.ports_poked_on_this_trial:
+                self.ports_poked_on_this_trial.append(poked_port)
 
         # Announce
         self.logger.debug(

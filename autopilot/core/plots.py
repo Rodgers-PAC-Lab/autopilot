@@ -260,15 +260,29 @@ class Plot(QtWidgets.QWidget):
         self.infobox = QtWidgets.QFormLayout()
         self.infobox_items = {
             'N Trials': QtWidgets.QLabel(),
+            'N Correct Trials': QtWidgets.QLabel(),
             'N Rewards': QtWidgets.QLabel(),
+            'FC': QtWidgets.QLabel(),
+            'RCP': QtWidgets.QLabel(),
             'Runtime' : Timer(),
             'Last poke': Timer(),
         }
         
-        # This is a counter for N Rewards
+        # Keep track of N Rewards
         self.n_rewards = 0
         self.infobox_items['N Rewards'].setText(str(self.n_rewards))
+
+        # Keep track of N Trials
+        self.n_trials = 0
+        self.infobox_items['N Trials'].setText(str(self.n_rewards))
         
+        # Keep track of N Correct Trials
+        self.n_correct_trials = 0
+        self.infobox_items['N Correct Trials'].setText(str(self.n_rewards))
+
+        # This is for calculating rcp
+        self.rcp_by_trial = []
+
         # Add rows to infobox
         for k, v in self.infobox_items.items():
             self.infobox.addRow(k, v)
@@ -396,6 +410,9 @@ class Plot(QtWidgets.QWidget):
         
         # Set reward counter to 0
         self.n_rewards = 0
+        self.n_trials = 0
+        self.n_correct_trials = 0
+        self.rcp_by_trial = []
         
         # Set time
         self.start_time = None
@@ -519,7 +536,12 @@ class Plot(QtWidgets.QWidget):
                         )                
                     
                     # Turn the correspond poke circle blue
-                    self.octagon_port_plot_l[kpp_idx].setSymbolBrush('b')                    
+                    self.octagon_port_plot_l[kpp_idx].setSymbolBrush('b')              
+
+                    # Counter
+                    self.n_correct_trials += 1
+                    self.infobox_items['N Correct Trials'].setText(
+                        str(self.n_correct_trials))                    
                     
                 elif value['reward_delivered']:
                     # It was rewarded but it was not a correct trial, so
@@ -557,6 +579,11 @@ class Plot(QtWidgets.QWidget):
             # Set the textbox
             self.infobox_items['N Trials'].setText(
                 str(value['trial_in_session']))
+
+            # Update FC
+            if self.n_trials > 0:
+                self.infobox_items['FC'].setText(
+                    str(self.n_correct_trials / self.n_trials))
 
     @gui_event
     def l_stop(self, value):
