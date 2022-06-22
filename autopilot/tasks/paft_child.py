@@ -767,43 +767,46 @@ class PAFT_Child(children.Child):
         # This has to match task_class.ChunkData
         payload = self.current_audio_times_df
         
-        # Store these additional values, which are the same for all rows
-        payload['pilot'] = self.name
-        payload['locking_timestamp'] = timestamp
-        
-        # This is the value to send
-        # Must be serializable
-        # Definitely include payload (the data), some kind of locking
-        # timestamp, and the origin (our name). 
-        # When this message is repeated by the Parent to the terminal,
-        # there are additional constraints based on what save_data expects
-        value = {
-            'pilot': self.name,
-            'payload': payload.values,
-            'payload_columns': payload.columns.values,
-            'timestamp': timestamp,
-        }        
-        
-        # Construct the message
-        msg = autopilot.networking.Message(
-            id="{}-{}".format(self.name, self.n_messages_sent), # must be unique
-            sender="dummy_src", # required but I don't think it matters
-            key='CHUNK', # this selects listen method. required for encoding
-            to="dummy_dst", # required but I don't think it matters
-            value=value, # the 'value' to send
-            flags={
-                'MINPRINT': True, # disable printing of value
-                'NOREPEAT': True, # disable repeating
-                },
-            )
-        
-        # Sending it will automatically serialize it, which in turn will
-        # automatically compress numpy using blosc
-        # See Node.send and Message.serialize
-        self.node2.send('parent_pi', msg=msg)
+        # Only send data if there are rows of data
+        # Otherwise, no sound playing, and nothing to report
+        if len(payload) > 0:
+            # Store these additional values, which are the same for all rows
+            payload['pilot'] = self.name
+            payload['locking_timestamp'] = timestamp
+            
+            # This is the value to send
+            # Must be serializable
+            # Definitely include payload (the data), some kind of locking
+            # timestamp, and the origin (our name). 
+            # When this message is repeated by the Parent to the terminal,
+            # there are additional constraints based on what save_data expects
+            value = {
+                'pilot': self.name,
+                'payload': payload.values,
+                'payload_columns': payload.columns.values,
+                'timestamp': timestamp,
+            }        
+            
+            # Construct the message
+            msg = autopilot.networking.Message(
+                id="{}-{}".format(self.name, self.n_messages_sent), # must be unique
+                sender="dummy_src", # required but I don't think it matters
+                key='CHUNK', # this selects listen method. required for encoding
+                to="dummy_dst", # required but I don't think it matters
+                value=value, # the 'value' to send
+                flags={
+                    'MINPRINT': True, # disable printing of value
+                    'NOREPEAT': True, # disable repeating
+                    },
+                )
+            
+            # Sending it will automatically serialize it, which in turn will
+            # automatically compress numpy using blosc
+            # See Node.send and Message.serialize
+            self.node2.send('parent_pi', msg=msg)
 
-        # Increment this counter to keep the message id unique
-        self.n_messages_sent = self.n_messages_sent + 1        
+            # Increment this counter to keep the message id unique
+            self.n_messages_sent = self.n_messages_sent + 1        
         
     def recv_stop(self, value):
         # debug
