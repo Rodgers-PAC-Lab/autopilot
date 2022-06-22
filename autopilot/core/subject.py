@@ -867,7 +867,7 @@ class Subject(object):
             # wrap everything in try because this thread shouldn't crash
             try:
                 # special case chunk data
-                if 'chunkdata' in data.keys():
+                if 'chunk' in data.keys():
                     # Log
                     self.logger.debug('chunk data received')
                     
