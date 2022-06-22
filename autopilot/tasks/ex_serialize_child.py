@@ -147,6 +147,7 @@ class ex_serialize_child(children.Child):
         msg = autopilot.networking.Message(
             id="{}-{}".format(self.name, self.n_messages_sent), # must be unique
             sender="dummy_src", # required but I don't think it matters
+            key='CHUNK', # this selects listen method. required for encoding
             to="dummy_dst", # required but I don't think it matters
             value=value, # the 'value' to send
             flags={
@@ -158,7 +159,7 @@ class ex_serialize_child(children.Child):
         # Sending it will automatically serialize it, which in turn will
         # automatically compress numpy using blosc
         # See Node.send and Message.serialize
-        self.node2.send('parent_pi', 'CHUNK', msg=msg)
+        self.node2.send('parent_pi', msg=msg)
 
         # Increment this counter to keep the message id unique
         self.n_messages_sent = self.n_messages_sent + 1
