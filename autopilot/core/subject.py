@@ -871,13 +871,18 @@ class Subject(object):
                     # Log
                     self.logger.debug('chunk data received')
                     
-                    # Pop payload and payload_columns from `data`
-                    # All other items in `data` are ignored
+                    # Pop payload from `data`, continuing if no rows to add
                     payload = data.pop('payload')
+                    if len(payload) == 0:
+                        continue
+
+                    # Pop payload_columns
+                    # All other items in `data` are ignored
                     payload_columns = data.pop('payload_columns')
                     
                     # Reconstruct a DataFrame out of the payload
-                    payload_df = pandas.DataFrame(payload, columns=payload_columns)
+                    payload_df = pandas.DataFrame(
+                        payload, columns=payload_columns)
                     
                     # Include exactly those columns that are in chunk_table
                     # This will insert np.nan for any missing columns
@@ -889,7 +894,13 @@ class Subject(object):
                     to_append = list(map(tuple, sliced_payload_df.values))
                     
                     # Append
-                    chunk_table.append(to_append)
+                    try:
+                        chunk_table.append(to_append)
+                    except ValueError:
+                        self.logger.debug('error: failed to append chunk data!')
+                        self.logger.debug('payload_df: {}'.format(payload_df))
+                        self.logger.debug(
+                            'sliced_payload_df: {}'.format(sliced_payload_df))
                 
                     # Continue, the rest assumes trial data
                     continue
