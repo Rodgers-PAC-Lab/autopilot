@@ -754,6 +754,13 @@ class PAFT_Child(children.Child):
         
         # Inform terminal
         self.send_chunk_of_sound_data()
+        
+        # Blink a light to serve as synchronization cue
+        self.hardware['LEDS']['L'].set((0, 255, 0))
+        self.hardware['LEDS']['R'].set((0, 255, 0))
+        time.sleep(.050)
+        self.hardware['LEDS']['L'].set((0, 0, 0))
+        self.hardware['LEDS']['R'].set((0, 0, 0))
 
     def send_chunk_of_sound_data(self):
         ## Create a serialized message
