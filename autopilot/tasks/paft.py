@@ -213,6 +213,17 @@ class PAFT(Task):
         poked_port = tables.StringCol(64)
         trial = tables.Int32Col()
 
+    # Define chunk data
+    # This is like ContinuousData, but each row is sent together, as a chunk
+    class ChunkData(tables.IsDescription):
+        relative_time = tables.Float64Col()
+        side = tables.StringCol(10)
+        sound = tables.StringCol(10)
+        pilot = tables.StringCol(20)
+        locking_timestamp = tables.StringCol(50)        
+        gap = tables.Float64Col()
+        gap_chunks = tables.IntegerCol()
+    
 
     ## Set up hardware and children
     # Per https://docs.auto-pi-lot.com/en/latest/guide/task.html:
@@ -490,6 +501,7 @@ class PAFT(Task):
                 'HELLO': self.recv_hello,
                 'POKE': self.recv_poke,
                 'REWARD': self.recv_reward,
+                'CHUNK': self.recv_chunk,                
                 },
             instance=False,
             )
@@ -837,6 +849,55 @@ class PAFT(Task):
         
         # Set this flag
         self.child_connected[value['from']] = True
+
+    def recv_chunk(self, value):
+        """Forwards a chunk of data from a child to the terminal.
+        
+        value : dict, with keys:
+            'payload' : 2d array
+            'payload_columns' : list of strings
+                These become the names of the columns of `payload`, so they
+                should be the same length.
+            'timestamp' : the time of the message
+            'pilot' : the name of the child
+        
+        Any other items in `value` are ignored. 
+        
+        Those items in `value`, plus {'subject': self.subject, 'chunk': True},
+        are put into a new Message and sent to _T with key 'DATA' and
+        flags to disable printing and repeating.
+        """
+        # Log
+        self.logger.debug(
+            "received CHUNK from child, passing along"
+            )
+        
+        # Pass along to terminal for saving
+        # `value` should have keys pilot, payload, and timestamp
+        value_to_send = {
+            'payload': value['payload'],
+            'payload_columns': value['payload_columns'],
+            'timestamp': value['timestamp'],
+            'pilot': value['pilot'], # required by something
+            'subject': self.subject, # required by terminal.l_data            
+            'chunk': True, # this triggers processing as array data
+            }
+        
+        # Generate the Message
+        msg = autopilot.networking.Message(
+            to='_T', # send to terminal
+            key='DATA', # choose listen
+            value=value_to_send, # the value to send
+            flags={
+                'MINPRINT': True, # disable printing of value
+                'NOREPEAT': True, # disable repeating
+                },
+            id="dummy_dst2", # does nothing (?), but required
+            sender="dummy_src2", # does nothing (?), but required 
+            )
+
+        # Send to terminal
+        self.node.send('_T', 'DATA', msg=msg)
     
     def recv_poke(self, value):
         # TODO: get the timestamp directly from the child rpi instead of 

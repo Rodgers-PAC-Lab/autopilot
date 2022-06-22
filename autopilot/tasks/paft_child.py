@@ -47,6 +47,9 @@ class PAFT_Child(children.Child):
 
         # Set up a logger
         self.logger = autopilot.core.loggers.init_logger(self)
+        
+        # This is needed when sending messages
+        self.n_messages_sent = 0
 
 
         ## Hardware
@@ -96,6 +99,12 @@ class PAFT_Child(children.Child):
         # Sounds aren't initialized till the trial starts
         # Using False here should work even without sounds initialized yet
         self.set_sound_cycle(params={'left_on': False, 'right_on': False})
+
+        # Use this to keep track of generated sounds
+        self.current_audio_times_df = None
+
+        # This is needed when sending messages about generated sounds
+        self.n_messages_sent = 0
 
 
         ## Set up NET_Node to communicate with Parent
@@ -159,7 +168,8 @@ class PAFT_Child(children.Child):
                 left_mean_interval
                 right_mean_interval
         """
-        print(params)
+        # Log
+        self.logger.debug('set_sound_cycle: received params: {}'.format(params))
         
         # This is just a left sound, gap, then right sound, then gap
         # And use a cycle to repeat forever
@@ -309,6 +319,11 @@ class PAFT_Child(children.Child):
         # Log
         self.logger.debug("generated both_df: {}".format(both_df))
         
+        # Save
+        self.current_audio_times_df = both_df.copy()
+        self.current_audio_times_df = self.current_audio_times_df.rename(
+            columns={'time': 'relative_time'})
+
         
         ## Depends on how long both_df is
         # If both_df has a nonzero but short length, results will be weird,
@@ -737,7 +752,58 @@ class PAFT_Child(children.Child):
         self.empty_queue1()
         self.append_sound_to_queue1_as_needed()
         
-        # This is where to transmit that both_df has recently changed
+        # Inform terminal
+        self.send_chunk_of_sound_data()
+
+    def send_chunk_of_sound_data(self):
+        ## Create a serialized message
+        # Adapted from the bandwidth test
+        
+        # Use this as locking_timestamp, to which all `audio_time` timestamps
+        # are relative
+        timestamp = datetime.datetime.now().isoformat()
+        
+        # Get the payload, which was saved when the audio times were generated
+        # This has to match task_class.ChunkData
+        payload = self.current_audio_times_df
+        
+        # Store these additional values, which are the same for all rows
+        payload['pilot'] = self.name
+        payload['locking_timestamp'] = timestamp
+        
+        # This is the value to send
+        # Must be serializable
+        # Definitely include payload (the data), some kind of locking
+        # timestamp, and the origin (our name). 
+        # When this message is repeated by the Parent to the terminal,
+        # there are additional constraints based on what save_data expects
+        value = {
+            'pilot': self.name,
+            'payload': payload.values,
+            'payload_columns': payload.columns.values,
+            'timestamp': timestamp,
+        }        
+        
+        # Construct the message
+        msg = autopilot.networking.Message(
+            id="{}-{}".format(self.name, self.n_messages_sent), # must be unique
+            sender="dummy_src", # required but I don't think it matters
+            key='CHUNK', # this selects listen method. required for encoding
+            to="dummy_dst", # required but I don't think it matters
+            value=value, # the 'value' to send
+            flags={
+                'MINPRINT': True, # disable printing of value
+                'NOREPEAT': True, # disable repeating
+                },
+            )
+        
+        # Sending it will automatically serialize it, which in turn will
+        # automatically compress numpy using blosc
+        # See Node.send and Message.serialize
+        self.node2.send('parent_pi', msg=msg)
+
+        # Increment this counter to keep the message id unique
+        self.n_messages_sent = self.n_messages_sent + 1        
         
     def recv_stop(self, value):
         # debug
