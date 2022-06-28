@@ -232,7 +232,7 @@ class PAFT(Task):
         trial_correct = tables.Int32Col()
         poke_rank = tables.Int32Col()
     
-    CHUNKDATA_CLASSES = [ChunkData_Trials, ChunkData_Pokes]
+    CHUNKDATA_CLASSES = [ChunkData_Sounds, ChunkData_Pokes]
     
     ## Set up hardware and children
     # Per https://docs.auto-pi-lot.com/en/latest/guide/task.html:
