@@ -212,6 +212,10 @@ class PAFT(Task):
     class ContinuousData(tables.IsDescription):
         poked_port = tables.StringCol(64)
         trial = tables.Int32Col()
+        first_poke = tables.Int32Col()
+        reward_delivered = tables.Int32Col()
+        trial_correct = tables.Int32Col()
+        poke_rank = tables.Int32Col()
 
     # Define chunk data
     # This is like ContinuousData, but each row is sent together, as a chunk
@@ -1007,6 +1011,7 @@ class PAFT(Task):
                 'first_poke': this_is_first_poke,
                 'reward_delivered': this_is_rewarded_poke,
                 'trial_correct': this_is_correct_trial,
+                'poke_rank': this_poke_rank,
                 'timestamp': poke_timestamp.isoformat(),
                 'trial': self.counter_trials_in_session,
                 },
