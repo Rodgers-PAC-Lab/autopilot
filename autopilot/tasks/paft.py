@@ -1056,6 +1056,21 @@ class PAFT(Task):
 
         # Send to terminal
         self.node.send('_T', 'DATA', msg=msg)
+    
+    
+        ## Also send to plot
+        self.node.send(
+            to='P_{}'.format(prefs.get('NAME')),
+            key='DATA',
+            value={
+                'subject': self.subject,
+                'pilot': prefs.get('NAME'),
+                'poked_port': [poked_port],
+                'first_poke': [this_is_first_poke],
+                'reward_delivered': [this_is_rewarded_poke],
+                'poke_rank': [this_poke_rank],
+                },
+            )            
 
     def recv_reward(self, value):
         """Log reward and advance stage block"""
