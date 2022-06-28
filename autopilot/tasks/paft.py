@@ -418,6 +418,10 @@ class PAFT(Task):
         # This is used to infer the first poke of each trial
         self.trial_of_last_poke = None
         
+        # This is used to calculate performance metrics
+        self.ports_poked_on_this_trial = []
+        
+        
         ## Init hardware -- this sets self.hardware, self.pin_id, and
         ## assigns self.handle_trigger to gpio callbacks
         self.init_hardware()
@@ -986,6 +990,7 @@ class PAFT(Task):
                 'first_poke': this_is_first_poke,
                 'reward_delivered': this_is_rewarded_poke,
                 'trial_correct': this_is_correct_trial,
+                'poke_rank': this_poke_rank,
                 'timestamp': poke_timestamp.isoformat(),
                 'trial': self.counter_trials_in_session,
                 },

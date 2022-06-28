@@ -206,6 +206,7 @@ class Plot(QtWidgets.QWidget):
             [] for kpp in self.known_pilot_ports]
         self.known_pilot_ports_correct_reward_data = [
             [] for kpp in self.known_pilot_ports]
+        self.rank_of_poke_by_trial = []
         
         # These are used to store handles to different graph traces
         self.known_pilot_ports_poke_plot = []
@@ -558,6 +559,9 @@ class Plot(QtWidgets.QWidget):
                     
                     # Turn the correspond poke circle green
                     self.octagon_port_plot_l[kpp_idx].setSymbolBrush('g')
+                    
+                    # Store the rank
+                    self.rank_of_poke_by_trial.append(value['poke_rank'])
                 
                 else:
                     # Incorrect poke
