@@ -848,7 +848,7 @@ class Subject(object):
                 # Could just get existing one, but not sure this ever happens
 
                 # Store
-                chunk_table_d = {}
+                chunk_table_d[chunk_class.__name__] = chunk_table
             
             # Also create a separate table for each column in ContinuousData
             # That table will have one column for that piece of data,
@@ -879,9 +879,15 @@ class Subject(object):
             # wrap everything in try because this thread shouldn't crash
             try:
                 # special case chunk data
-                if 'chunk' in data.keys():
+                if 'chunkclass_name' in data.keys():
                     # Log
-                    self.logger.debug('chunk data received')
+                    chunkclass_name = data['chunkclass_name']
+                    self.logger.debug('chunk data received of type {}'.format(
+                        chunkclass_name))
+                    
+                    # Get the appropriate chunk_table
+                    self.logger.debug('chunktable_d keys: {}'.format(chunk_table_d.keys()))
+                    chunk_table = chunk_table_d[chunkclass_name]
                     
                     # Pop payload from `data`, continuing if no rows to add
                     payload = data.pop('payload')
