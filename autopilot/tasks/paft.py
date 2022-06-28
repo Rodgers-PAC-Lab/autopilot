@@ -976,19 +976,24 @@ class PAFT(Task):
         else:
             # Infer whether this is the first poke of the current trial
             if self.counter_trials_in_session != self.trial_of_last_poke:
+                this_is_first_poke = True
+
                 # It is the first poke of the trial, update the memory
                 self.trial_of_last_poke = self.counter_trials_in_session
-                this_is_first_poke = True
             else:
                 this_is_first_poke = False
             
             # Infer whether reward delivered
-            if poked_port == self.rewarded_port and self.reward_delivered_on_this_trial:
+            if (
+                    poked_port == self.rewarded_port and 
+                    not self.reward_delivered_on_this_trial
+                    ):
                 this_is_rewarded_poke = True
-            else:
+                
                 # Setting this flag ensures consummation pokes are not counted
                 # again
-                self.reward_delivered_on_this_trial = True
+                self.reward_delivered_on_this_trial = True                
+            else:
                 this_is_rewarded_poke = False
             
             # Keep track of rank of poke on this trial
