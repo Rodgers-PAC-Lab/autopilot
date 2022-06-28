@@ -1120,7 +1120,7 @@ class PAFT(Task):
                 'subject': self.subject,
                 'pilot': prefs.get('NAME'),
                 'continuous': True,
-                'reward_timestamp': reward_timestamp,
+                'reward_timestamp': reward_timestamp.isoformat(),
                 'trial': self.counter_trials_in_session,
                 },
             )
