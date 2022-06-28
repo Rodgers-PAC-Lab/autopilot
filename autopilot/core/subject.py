@@ -832,15 +832,23 @@ class Subject(object):
 
         # If continuous_session_group exists, create chunk_table within it
         if continuous_session_group is not None:
-            # Is it possible for this table to already exist?
-            # If so, will get NodeError here
-            # Could just get the existing one, but not sure this ever happens
-            chunk_table = h5f.create_table(
-                continuous_session_group, 
-                'chunk_table', 
-                task_class.ChunkData,
-                filters=self.continuous_filter,
-                )             
+            # Iterate over any defined CHUNKDATA_CLASSES in task_class
+            chunk_table_d = {}
+            for chunk_class in task_class.CHUNKDATA_CLASSES:
+                # Create a chunk_table for this chunk_class
+                chunk_table = h5f.create_table(
+                    continuous_session_group, 
+                    chunk_class.__name__,
+                    chunk_class,
+                    filters=self.continuous_filter,
+                    )
+                
+                # Is it possible for this table to already exist in the HDF5?
+                # If so, will get NodeError here
+                # Could just get existing one, but not sure this ever happens
+
+                # Store
+                chunk_table_d = {}
             
             # Also create a separate table for each column in ContinuousData
             # That table will have one column for that piece of data,

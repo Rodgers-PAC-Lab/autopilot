@@ -210,16 +210,12 @@ class PAFT(Task):
     # Actually, no I think that is extracted automatically from the 
     # networked message, and should not be defined here
     class ContinuousData(tables.IsDescription):
-        poked_port = tables.StringCol(64)
+        reward_timestamp = tables.StringCol(64)
         trial = tables.Int32Col()
-        first_poke = tables.Int32Col()
-        reward_delivered = tables.Int32Col()
-        trial_correct = tables.Int32Col()
-        poke_rank = tables.Int32Col()
 
     # Define chunk data
     # This is like ContinuousData, but each row is sent together, as a chunk
-    class ChunkData(tables.IsDescription):
+    class ChunkData_Sounds(tables.IsDescription):
         relative_time = tables.Float64Col()
         side = tables.StringCol(10)
         sound = tables.StringCol(10)
@@ -228,7 +224,16 @@ class PAFT(Task):
         gap = tables.Float64Col()
         gap_chunks = tables.IntCol()
     
-
+    class ChunkData_Pokes(tables.IsDescription):
+        poked_port = tables.StringCol(64)
+        trial = tables.Int32Col()
+        first_poke = tables.Int32Col()
+        reward_delivered = tables.Int32Col()
+        trial_correct = tables.Int32Col()
+        poke_rank = tables.Int32Col()
+    
+    CHUNKDATA_CLASSES = [ChunkData_Trials, ChunkData_Pokes]
+    
     ## Set up hardware and children
     # Per https://docs.auto-pi-lot.com/en/latest/guide/task.html:
     # The HARDWARE dictionary maps a hardware type (eg. POKES) and 
@@ -913,7 +918,7 @@ class PAFT(Task):
             'timestamp': value['timestamp'],
             'pilot': value['pilot'], # required by something
             'subject': self.subject, # required by terminal.l_data            
-            'chunk': True, # this triggers processing as array data
+            'chunkclass_name': value['chunkclass_name'], # which chunk
             }
         
         # Generate the Message
@@ -1014,32 +1019,43 @@ class PAFT(Task):
                 'rewarded' if this_is_rewarded_poke else 'not rewarded',
                 value))
 
-        # Directly report continuous data to terminal (aka _T)
-        # Otherwise it can be encoded in the returned data, but that is only
-        # once per stage
-        # subject is needed by core.terminal.Terminal.l_data
-        # pilot is needed by networking.station.Terminal_Station.l_data
-        # timestamp and continuous are needed by subject.Subject.data_thread
-        # `trial` is for convenience, but note it will be wrong for pokes
-        # that occur during the "choose_stimulus" function
-        self.node.send(
-            to='_T',
-            key='DATA',
-            value={
-                'subject': self.subject,
-                'pilot': prefs.get('NAME'),
-                'continuous': True,
-                'poked_port': poked_port,
-                'first_poke': this_is_first_poke,
-                'reward_delivered': this_is_rewarded_poke,
-                'poke_rank': this_poke_rank,
-                'timestamp': poke_timestamp.isoformat(),
-                'trial': self.counter_trials_in_session,
-                },
-            )
         
-        # Previously I was also sending data to the plot at P_{name}
-        # but this does not appear to be necessary
+        ## Chunk and send to terminal for saving
+        # Convert to Series
+        payload_df = pandas.DataFrame.from_dict({
+            'poked_port': [poked_port],
+            'first_poke': [this_is_first_poke],
+            'reward_delivered': [this_is_rewarded_poke],
+            'poke_rank': [this_poke_rank],
+            'timestamp': [poke_timestamp.isoformat()],
+            'trial': [self.counter_trials_in_session],
+            })
+            
+        # `value` should have keys pilot, payload, and timestamp
+        value_to_send = {
+            'payload': payload_df.values,
+            'payload_columns': payload_df.columns.values,
+            'timestamp': poke_timestamp.isoformat(),
+            'pilot': self.name, # required by something
+            'subject': self.subject, # required by terminal.l_data            
+            'chunkclass_name': 'ChunkClass_Pokes', # which chunk
+            }
+        
+        # Generate the Message
+        msg = autopilot.networking.Message(
+            to='_T', # send to terminal
+            key='DATA', # choose listen
+            value=value_to_send, # the value to send
+            flags={
+                'MINPRINT': True, # disable printing of value
+                'NOREPEAT': True, # disable repeating
+                },
+            id="dummy_dst2", # does nothing (?), but required
+            sender="dummy_src2", # does nothing (?), but required 
+            )
+
+        # Send to terminal
+        self.node.send('_T', 'DATA', msg=msg)
 
     def recv_reward(self, value):
         """Log reward and advance stage block"""
@@ -1071,23 +1087,27 @@ class PAFT(Task):
                 )
 
         # Store the time of the reward
-        self.timestamp_of_last_reward = reward_timestamp
+        self.timestamp_of_last_reward = reward_timestamp   
 
-        #~ # Also send to plot
-        #~ # This is the same as the poke message, except this one also includes
-        #~ # 'reward_delivered'
-        #~ self.node.send(
-            #~ to='P_{}'.format(prefs.get('NAME')),
-            #~ key='DATA',
-            #~ value={
-                #~ 'subject': self.subject,
-                #~ 'pilot': prefs.get('NAME'),
-                #~ 'poked_port': poked_port,
-                #~ 'reward_delivered': True,
-                #~ 'timestamp': reward_timestamp.isoformat(),
-                #~ 'trial': self.counter_trials_in_session,
-                #~ },
-            #~ )          
+        # Directly report continuous data to terminal (aka _T)
+        # Otherwise it can be encoded in the returned data, but that is only
+        # once per stage
+        # subject is needed by core.terminal.Terminal.l_data
+        # pilot is needed by networking.station.Terminal_Station.l_data
+        # timestamp and continuous are needed by subject.Subject.data_thread
+        # `trial` is for convenience, but note it will be wrong for pokes
+        # that occur during the "choose_stimulus" function
+        self.node.send(
+            to='_T',
+            key='DATA',
+            value={
+                'subject': self.subject,
+                'pilot': prefs.get('NAME'),
+                'continuous': True,
+                'reward_timestamp': reward_timestamp,
+                'trial': self.counter_trials_in_session,
+                },
+            )
 
     def end(self, *args, **kwargs):
         """Called when the task is ended by the user.

@@ -801,6 +801,7 @@ class PAFT_Child(children.Child):
                 'pilot': self.name,
                 'payload': payload.values,
                 'payload_columns': payload.columns.values,
+                'chunkclass_name': 'ChunkData_Sounds', 
                 'timestamp': timestamp,
             }        
             
