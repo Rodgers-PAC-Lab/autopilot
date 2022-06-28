@@ -1036,7 +1036,7 @@ class PAFT(Task):
             'payload': payload_df.values,
             'payload_columns': payload_df.columns.values,
             'timestamp': poke_timestamp.isoformat(),
-            'pilot': self.name, # required by something
+            'pilot': prefs.get('name'), # required by something
             'subject': self.subject, # required by terminal.l_data            
             'chunkclass_name': 'ChunkClass_Pokes', # which chunk
             }
