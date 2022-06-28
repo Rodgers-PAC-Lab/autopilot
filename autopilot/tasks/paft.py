@@ -1000,22 +1000,22 @@ class PAFT(Task):
                 },
             )
 
-        # Also send to plot
-        self.node.send(
-            to='P_{}'.format(prefs.get('NAME')),
-            key='DATA',
-            value={
-                'subject': self.subject,
-                'pilot': prefs.get('NAME'),
-                'poked_port': poked_port,
-                'first_poke': this_is_first_poke,
-                'reward_delivered': this_is_rewarded_poke,
-                'trial_correct': this_is_correct_trial,
-                'poke_rank': this_poke_rank,
-                'timestamp': poke_timestamp.isoformat(),
-                'trial': self.counter_trials_in_session,
-                },
-            )  
+        #~ # Also send to plot
+        #~ self.node.send(
+            #~ to='P_{}'.format(prefs.get('NAME')),
+            #~ key='DATA',
+            #~ value={
+                #~ 'subject': self.subject,
+                #~ 'pilot': prefs.get('NAME'),
+                #~ 'poked_port': poked_port,
+                #~ 'first_poke': this_is_first_poke,
+                #~ 'reward_delivered': this_is_rewarded_poke,
+                #~ 'trial_correct': this_is_correct_trial,
+                #~ 'poke_rank': this_poke_rank,
+                #~ 'timestamp': poke_timestamp.isoformat(),
+                #~ 'trial': self.counter_trials_in_session,
+                #~ },
+            #~ )  
 
     def recv_reward(self, value):
         """Log reward and advance stage block"""
