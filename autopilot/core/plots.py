@@ -271,18 +271,18 @@ class Plot(QtWidgets.QWidget):
         
         # Keep track of N Rewards
         self.n_rewards = 0
-        self.infobox_items['N Rewards'].setText(str(self.n_rewards))
+        self.infobox_items['N Rewards'].setText('')
 
         # Keep track of N Trials
         self.n_trials = 0
-        self.infobox_items['N Trials'].setText(str(self.n_rewards))
+        self.infobox_items['N Trials'].setText('')
         
         # Keep track of N Correct Trials
         self.n_correct_trials = 0
-        self.infobox_items['N Correct Trials'].setText(str(self.n_rewards))
+        self.infobox_items['N Correct Trials'].setText('')
 
         # This is for calculating rcp
-        self.rcp_by_trial = []
+        self.rank_of_poke_by_trial = []
 
         # Add rows to infobox
         for k, v in self.infobox_items.items():
@@ -413,7 +413,7 @@ class Plot(QtWidgets.QWidget):
         self.n_rewards = 0
         self.n_trials = 0
         self.n_correct_trials = 0
-        self.rcp_by_trial = []
+        self.rank_of_poke_by_trial = []
         
         # Set time
         self.start_time = None
@@ -496,11 +496,6 @@ class Plot(QtWidgets.QWidget):
                 else:
                     opp.setSymbolBrush('w')
         
-        # Handle a reward by incrementing N_Rewards
-        if 'timestamp_reward' in value.keys():
-            self.n_rewards += 1
-            self.infobox_items['N Rewards'].setText(str(self.n_rewards))
-        
         # A port was just poked
         # Log this, mark the port red or blue, plot the poke time 
         if 'poked_port' in value.keys():
@@ -539,12 +534,39 @@ class Plot(QtWidgets.QWidget):
                     # Turn the correspond poke circle blue
                     self.octagon_port_plot_l[kpp_idx].setSymbolBrush('b')              
 
-                    # Counter
+                    # Increment rewards and trials
+                    self.n_rewards += 1
+                    self.n_trials += 1
                     self.n_correct_trials += 1
+                    self.infobox_items['N Rewards'].setText(str(self.n_rewards))
+                    self.infobox_items['N Trials'].setText(str(self.n_trials))
                     self.infobox_items['N Correct Trials'].setText(
                         str(self.n_correct_trials))                    
-                    
+
+                    # Store the rank
+                    self.rank_of_poke_by_trial.append(value['poke_rank'])
+
+                    # Update FC and RCP
+                    if self.n_trials > 0:
+                        # FC
+                        self.infobox_items['FC'].setText(
+                            str(self.n_correct_trials / self.n_trials))
+                        
+                        # RCP
+                        self.infobox_items['RCP'].setText(
+                            '{:0.3f}'.format(
+                            np.mean(self.rank_of_poke_by_trial)))
+
                 elif value['reward_delivered']:
+                    # This only happens if it is the end of a trial, but
+                    # the trial contained previous pokes, so it is an error
+                    
+                    # Increment rewards and trials
+                    self.n_rewards += 1
+                    self.n_trials += 1
+                    self.infobox_items['N Rewards'].setText(str(self.n_rewards))
+                    self.infobox_items['N Trials'].setText(str(self.n_trials))
+
                     # It was rewarded but it was not a correct trial, so
                     # they must have poked the wrong port earlier
                     # Store the time in the GREEN trace
@@ -562,6 +584,17 @@ class Plot(QtWidgets.QWidget):
                     
                     # Store the rank
                     self.rank_of_poke_by_trial.append(value['poke_rank'])
+
+                    # Update FC and RCP
+                    if self.n_trials > 0:
+                        # FC
+                        self.infobox_items['FC'].setText(
+                            str(self.n_correct_trials / self.n_trials))
+                        
+                        # RCP
+                        self.infobox_items['RCP'].setText(
+                            '{:0.3f}'.format(
+                            np.mean(self.rank_of_poke_by_trial)))
                 
                 else:
                     # Incorrect poke
@@ -577,17 +610,6 @@ class Plot(QtWidgets.QWidget):
                     
                     # Turn the correspond poke circle red
                     self.octagon_port_plot_l[kpp_idx].setSymbolBrush('r')
-
-        # If we received a trial_in_session, then update the N_trials counter
-        if 'trial_in_session' in value.keys():
-            # Set the textbox
-            self.infobox_items['N Trials'].setText(
-                str(value['trial_in_session']))
-
-            # Update FC
-            if self.n_trials > 0:
-                self.infobox_items['FC'].setText(
-                    str(self.n_correct_trials / self.n_trials))
 
     @gui_event
     def l_stop(self, value):
