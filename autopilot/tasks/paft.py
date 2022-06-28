@@ -225,11 +225,11 @@ class PAFT(Task):
         gap_chunks = tables.IntCol()
     
     class ChunkData_Pokes(tables.IsDescription):
+        timestamp = tables.StringCol(64)
         poked_port = tables.StringCol(64)
         trial = tables.Int32Col()
         first_poke = tables.Int32Col()
         reward_delivered = tables.Int32Col()
-        trial_correct = tables.Int32Col()
         poke_rank = tables.Int32Col()
     
     CHUNKDATA_CLASSES = [ChunkData_Sounds, ChunkData_Pokes]
