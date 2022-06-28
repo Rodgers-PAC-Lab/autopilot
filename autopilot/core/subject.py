@@ -845,6 +845,10 @@ class Subject(object):
             # Also create a separate table for each column in ContinuousData
             # That table will have one column for that piece of data,
             # and a second column called "timestamp" of type StringAtom
+            # Previously this was only done for items in 
+            # step_group['continuous_data']._v_attrs['data']
+            # But that is only set at the time of protocol assignment
+            # This way, it is refreshed each time the task is changed
             cont_tables = {}
             for colname in task_class.ContinuousData.columns.keys():
                 cont_tables[colname] = h5f.create_table(
@@ -907,10 +911,10 @@ class Subject(object):
 
                 # special case continuous data
                 if 'continuous' in data.keys():
-                    # Iterate over all items in `data
+                    # Iterate over all items in `data`
                     for k, v in data.items():
                         # Store the items we expected to receive
-                        if k in continuous_group._v_attrs['data']:
+                        if k in cont_tables.keys():
                             # Append the received value and the timestamp
                             cont_tables[k].row[k] = v
                             cont_tables[k].row['timestamp'] = (
