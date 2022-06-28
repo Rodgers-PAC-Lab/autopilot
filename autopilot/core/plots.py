@@ -359,10 +359,11 @@ class Plot(QtWidgets.QWidget):
             self.known_pilot_ports_poke_plot.append(poke_plot)
 
             # Create a plot handle for rewards
+            # This will be blue, because water was given
             reward_plot = self.timecourse_plot.plot(
                 x=[],
                 y=np.array([]),
-                pen=None, symbolBrush=(0, 255, 0), 
+                pen=None, symbolBrush=(0, 0, 255), 
                 symbolPen=None, symbol='arrow_up',
                 )
 
@@ -371,10 +372,11 @@ class Plot(QtWidgets.QWidget):
 
             # Create a plot handle for "correct rewards", which is if the
             # rewarded port was poked first
+            # This will be green, because it was correct
             reward_plot = self.timecourse_plot.plot(
                 x=[],
                 y=np.array([]),
-                pen=None, symbolBrush=(0, 0, 255), 
+                pen=None, symbolBrush=(0, 255, 0), 
                 symbolPen=None, symbol='arrow_up',
                 )
 
@@ -475,24 +477,36 @@ class Plot(QtWidgets.QWidget):
             self.line_of_current_time.setData(
                 x=[timestamp_sec, timestamp_sec], y=[-1, 9])
         
-        # A new "rewarded_port" was just chosen. Mark it green.
+        # A new "rewarded_port" was just chosen. Mark it purple.
         # This means it is the beginning of a new trial.
         if 'rewarded_port' in value.keys():
-            # Extract data
-            poked_port = value['rewarded_port']
+            # Use this flag to keep track of whether reward has been delivered
+            # on this trial yet or not
+            self.reward_delivered_on_this_trial = False
             
-            # Find the matching kpp_idx
+            # Find the matching kpp_idx for the rewarded_port
             try:
-                kpp_idx = self.known_pilot_ports.index(poked_port)
+                rp_kpp_idx = self.known_pilot_ports.index(
+                    value['rewarded_port'])
             except ValueError:
-                self.logger.debug(
-                    'unknown poke received: {}'.format(poked_port))
-                kpp_idx = None
+                # This shouldn't happen
+                rp_kpp_idx = None
             
-            # Make all ports white, except rewarded port green
+            # Find the matching kpp_idx for the previously_rewarded_port
+            try:
+                prp_kpp_idx = self.known_pilot_ports.index(
+                    value['previously_rewarded_port'])
+            except ValueError:
+                # This shouldn't happen
+                prp_kpp_idx = None
+                
+            # Make all ports white, except rewarded port purple, and
+            # previously rewarded port black
             for opp_idx, opp in enumerate(self.octagon_port_plot_l):
-                if opp_idx == kpp_idx:
+                if opp_idx == rp_kpp_idx:
                     opp.setSymbolBrush('purple')
+                elif opp_idx == prp_kpp_idx:
+                    opp.setSymbolBrush('black')
                 else:
                     opp.setSymbolBrush('w')
         
@@ -517,9 +531,9 @@ class Plot(QtWidgets.QWidget):
             if kpp_idx is not None:
                 # If reward_delivered, then this poke ended the trial
                 #    If first_poke, then the trial was correct
-                #       Plot as blue tick and turn circle blue
-                #    Else, then the trial was incorrect
                 #       Plot as green tick and turn circle green
+                #    Else, then the trial was incorrect
+                #       Plot as blue tick and turn circle blue
                 # Else, then the trial is not over
                 #    Plot as red tick and turn circle red (unless it is
                 #    already blue or green)
@@ -527,6 +541,7 @@ class Plot(QtWidgets.QWidget):
                 ## Test whether this poke ended the trial
                 if value['reward_delivered']:
                     # This poke ended the trial by delivering a reward
+                    self.reward_delivered_on_this_trial = True
 
                     # Increment rewards and trials
                     self.n_rewards += 1
@@ -547,7 +562,7 @@ class Plot(QtWidgets.QWidget):
                         self.infobox_items['N Correct Trials'].setText(
                             str(self.n_correct_trials))                
                         
-                        # Store the time in the BLUE trace
+                        # Store the time in the GREEN trace (correct trial)
                         kpp_data = self.known_pilot_ports_correct_reward_data[kpp_idx]
                         kpp_data.append(timestamp_sec)
                         
@@ -557,15 +572,15 @@ class Plot(QtWidgets.QWidget):
                             y=np.array([kpp_idx] * len(kpp_data)),
                             )                
 
-                        # Turn the correspond poke circle blue
-                        self.octagon_port_plot_l[kpp_idx].setSymbolBrush('b')
+                        # Turn the correspond poke circle GREEN (correct trial)
+                        self.octagon_port_plot_l[kpp_idx].setSymbolBrush('g')
                     
                     else:
                         # This was not the first poke
                         # So this poke was correct, but a mistake was made
                         # on this trial
                         
-                        # Store the time in the GREEN trace
+                        # Store the time in the BLUE trace (water given)
                         kpp_data = self.known_pilot_ports_reward_data[kpp_idx]
                         kpp_data.append(timestamp_sec)
                         
@@ -575,14 +590,15 @@ class Plot(QtWidgets.QWidget):
                             y=np.array([kpp_idx] * len(kpp_data)),
                             )                
                         
-                        # Turn the correspond poke circle green
-                        self.octagon_port_plot_l[kpp_idx].setSymbolBrush('g')                        
+                        # Turn the correspond poke circle BLUE (water given)
+                        self.octagon_port_plot_l[kpp_idx].setSymbolBrush('b')                        
 
                     # Update FC and RCP
                     if self.n_trials > 0:
                         # FC
                         self.infobox_items['FC'].setText(
-                            str(self.n_correct_trials / self.n_trials))
+                            '{:0.3f}'.format(
+                            self.n_correct_trials / self.n_trials))
                         
                         # RCP
                         self.infobox_items['RCP'].setText(
@@ -592,20 +608,30 @@ class Plot(QtWidgets.QWidget):
                 else:
                     # This poke was unrewarded and did not end the trial
                     # Either it was incorrect, or the reward was already given
-
-                    # Store the time in the RED trace
-                    kpp_data = self.known_pilot_ports_poke_data[kpp_idx]
-                    kpp_data.append(timestamp_sec)
                     
-                    # Update the plot
-                    self.known_pilot_ports_poke_plot[kpp_idx].setData(
-                        x=kpp_data,
-                        y=np.array([kpp_idx] * len(kpp_data)),
-                        )
+                    # Test whether it was a previously_rewarded_port
+                    if value['poke_rank'] == -1:
+                        # This was probably a consummation lick from the
+                        # previous trial. Do nothing
+                        pass
                     
-                    # Turn the correspond poke circle red,
-                    # (TODO) unless it was already blue or green
-                    self.octagon_port_plot_l[kpp_idx].setSymbolBrush('r')
+                    else:
+                        # Store the time in the RED trace
+                        kpp_data = self.known_pilot_ports_poke_data[kpp_idx]
+                        kpp_data.append(timestamp_sec)
+                        
+                        # Update the plot
+                        self.known_pilot_ports_poke_plot[kpp_idx].setData(
+                            x=kpp_data,
+                            y=np.array([kpp_idx] * len(kpp_data)),
+                            )
+                        
+                        # Turn the correspond poke circle red,
+                        # unless reward has already been delivered, in which
+                        # case this is almost certainly consummation
+                        if not self.reward_delivered_on_this_trial:
+                            self.octagon_port_plot_l[kpp_idx].setSymbolBrush(
+                                'r')
 
     @gui_event
     def l_stop(self, value):
