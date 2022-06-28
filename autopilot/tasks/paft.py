@@ -367,7 +367,9 @@ class PAFT(Task):
         self.counter_trials_across_sessions = int(current_trial)
 
         # This is used to count the trials for the "trial_in_session" HDF5 column
-        self.counter_trials_in_session = 0
+        # Initialize to -1, because the first thing that happens is that
+        # it is incremented upon choosing the first stimulus
+        self.counter_trials_in_session = -1
 
         # A dict of hardware triggers
         self.triggers = {}
@@ -1121,6 +1123,7 @@ class PAFT(Task):
                 'pilot': prefs.get('NAME'),
                 'continuous': True,
                 'reward_timestamp': reward_timestamp.isoformat(),
+                'timestamp': reward_timestamp.isoformat(),
                 'trial': self.counter_trials_in_session,
                 },
             )
