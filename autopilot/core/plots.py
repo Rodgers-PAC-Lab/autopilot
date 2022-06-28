@@ -515,75 +515,68 @@ class Plot(QtWidgets.QWidget):
             
             # Store the time and update the plot
             if kpp_idx is not None:
-                # If correct_trial, plot as blue tick
-                # elif reward_delivered, plot as green tick
-                # else plot as red tick
-                if value['trial_correct']:
-                    # This only happens if it was correct and the first poke
-                    # of the trial
-                    # Store the time in the BLUE trace
-                    kpp_data = self.known_pilot_ports_correct_reward_data[kpp_idx]
-                    kpp_data.append(timestamp_sec)
-                    
-                    # Update the plot
-                    self.known_pilot_ports_correct_reward_plot[kpp_idx].setData(
-                        x=kpp_data,
-                        y=np.array([kpp_idx] * len(kpp_data)),
-                        )                
-                    
-                    # Turn the correspond poke circle blue
-                    self.octagon_port_plot_l[kpp_idx].setSymbolBrush('b')              
+                # If reward_delivered, then this poke ended the trial
+                #    If first_poke, then the trial was correct
+                #       Plot as blue tick and turn circle blue
+                #    Else, then the trial was incorrect
+                #       Plot as green tick and turn circle green
+                # Else, then the trial is not over
+                #    Plot as red tick and turn circle red (unless it is
+                #    already blue or green)
+                
+                ## Test whether this poke ended the trial
+                if value['reward_delivered']:
+                    # This poke ended the trial by delivering a reward
 
                     # Increment rewards and trials
                     self.n_rewards += 1
                     self.n_trials += 1
-                    self.n_correct_trials += 1
                     self.infobox_items['N Rewards'].setText(str(self.n_rewards))
                     self.infobox_items['N Trials'].setText(str(self.n_trials))
-                    self.infobox_items['N Correct Trials'].setText(
-                        str(self.n_correct_trials))                    
-
+                    
                     # Store the rank
                     self.rank_of_poke_by_trial.append(value['poke_rank'])
 
-                    # Update FC and RCP
-                    if self.n_trials > 0:
-                        # FC
-                        self.infobox_items['FC'].setText(
-                            str(self.n_correct_trials / self.n_trials))
+                    # Test whether it was the first poke of the trial
+                    if value['first_poke']:
+                        # This poke was the first one
+                        # So this was the poke that made it a correct trial
                         
-                        # RCP
-                        self.infobox_items['RCP'].setText(
-                            '{:0.3f}'.format(
-                            np.mean(self.rank_of_poke_by_trial)))
+                        # Increment counter
+                        self.n_correct_trials += 1
+                        self.infobox_items['N Correct Trials'].setText(
+                            str(self.n_correct_trials))                
+                        
+                        # Store the time in the BLUE trace
+                        kpp_data = self.known_pilot_ports_correct_reward_data[kpp_idx]
+                        kpp_data.append(timestamp_sec)
+                        
+                        # Update the plot
+                        self.known_pilot_ports_correct_reward_plot[kpp_idx].setData(
+                            x=kpp_data,
+                            y=np.array([kpp_idx] * len(kpp_data)),
+                            )                
 
-                elif value['reward_delivered']:
-                    # This only happens if it is the end of a trial, but
-                    # the trial contained previous pokes, so it is an error
+                        # Turn the correspond poke circle blue
+                        self.octagon_port_plot_l[kpp_idx].setSymbolBrush('b')
                     
-                    # Increment rewards and trials
-                    self.n_rewards += 1
-                    self.n_trials += 1
-                    self.infobox_items['N Rewards'].setText(str(self.n_rewards))
-                    self.infobox_items['N Trials'].setText(str(self.n_trials))
-
-                    # It was rewarded but it was not a correct trial, so
-                    # they must have poked the wrong port earlier
-                    # Store the time in the GREEN trace
-                    kpp_data = self.known_pilot_ports_reward_data[kpp_idx]
-                    kpp_data.append(timestamp_sec)
-                    
-                    # Update the plot
-                    self.known_pilot_ports_reward_plot[kpp_idx].setData(
-                        x=kpp_data,
-                        y=np.array([kpp_idx] * len(kpp_data)),
-                        )                
-                    
-                    # Turn the correspond poke circle green
-                    self.octagon_port_plot_l[kpp_idx].setSymbolBrush('g')
-                    
-                    # Store the rank
-                    self.rank_of_poke_by_trial.append(value['poke_rank'])
+                    else:
+                        # This was not the first poke
+                        # So this poke was correct, but a mistake was made
+                        # on this trial
+                        
+                        # Store the time in the GREEN trace
+                        kpp_data = self.known_pilot_ports_reward_data[kpp_idx]
+                        kpp_data.append(timestamp_sec)
+                        
+                        # Update the plot
+                        self.known_pilot_ports_reward_plot[kpp_idx].setData(
+                            x=kpp_data,
+                            y=np.array([kpp_idx] * len(kpp_data)),
+                            )                
+                        
+                        # Turn the correspond poke circle green
+                        self.octagon_port_plot_l[kpp_idx].setSymbolBrush('g')                        
 
                     # Update FC and RCP
                     if self.n_trials > 0:
@@ -597,8 +590,10 @@ class Plot(QtWidgets.QWidget):
                             np.mean(self.rank_of_poke_by_trial)))
                 
                 else:
-                    # Incorrect poke
-                    # Store the time
+                    # This poke was unrewarded and did not end the trial
+                    # Either it was incorrect, or the reward was already given
+
+                    # Store the time in the RED trace
                     kpp_data = self.known_pilot_ports_poke_data[kpp_idx]
                     kpp_data.append(timestamp_sec)
                     
@@ -608,7 +603,8 @@ class Plot(QtWidgets.QWidget):
                         y=np.array([kpp_idx] * len(kpp_data)),
                         )
                     
-                    # Turn the correspond poke circle red
+                    # Turn the correspond poke circle red,
+                    # (TODO) unless it was already blue or green
                     self.octagon_port_plot_l[kpp_idx].setSymbolBrush('r')
 
     @gui_event
