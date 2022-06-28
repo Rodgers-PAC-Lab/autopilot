@@ -916,9 +916,9 @@ class Subject(object):
                         chunk_table.append(to_append)
                     except ValueError:
                         self.logger.debug('error: failed to append chunk data!')
-                        self.logger.debug('payload_df: {}'.format(payload_df))
+                        self.logger.debug('payload_df:\n{}'.format(payload_df))
                         self.logger.debug(
-                            'sliced_payload_df: {}'.format(sliced_payload_df))
+                            'sliced_payload_df:\n{}'.format(sliced_payload_df))
                 
                     # Continue, the rest assumes trial data
                     continue
