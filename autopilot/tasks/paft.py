@@ -422,6 +422,9 @@ class PAFT(Task):
         # This is used to infer the first poke of each trial
         self.trial_of_last_poke = None
         
+        # This is used to infer whether reward was delivered
+        self.reward_delivered_on_this_trial = False
+        
         # This is used to calculate performance metrics
         self.ports_poked_on_this_trial = []
         
@@ -624,6 +627,9 @@ class PAFT(Task):
         
         # This is used to keep track of rank of each poke
         self.ports_poked_on_this_trial = []
+        
+        # This is used to keep track of whether a reward was delivered
+        self.reward_delivered_on_this_trial = False
         
         
         ## Choose params
@@ -927,6 +933,32 @@ class PAFT(Task):
         self.node.send('_T', 'DATA', msg=msg)
     
     def recv_poke(self, value):
+        """A poke was received. Send info to terminal.
+
+            poked_port : which port was poked
+            
+            first_poke : True only on the very first poke of the trial
+                (excluding previously rewarded port)
+                This is used to determine if the trial was correct
+                This happens exactly once per trial
+            
+            reward_delivered : True if a reward was delivered on this very
+                poke. This is used to determine if the trial is over
+                This happens exactly once per trial
+            
+            poke_rank : rank of the poked port on this trial
+                (excluding previously rewarded port)
+                This must be 0 if (first_poke and reward_delivered),
+                which happens once on correct trials 
+                and never on incorrect trials.                
+                The value of this on the single poke per trial when 
+                reward_delivered is True is used to calculate RCP and FC
+        
+        If poked_port == previously_rewarded_port:
+            first_poke is False
+            reward_delivered is False
+            poke_rank is -1
+        """
         # TODO: get the timestamp directly from the child rpi instead of 
         # inferring it here
         poke_timestamp = datetime.datetime.now()
@@ -939,28 +971,27 @@ class PAFT(Task):
             # Don't count these pokes
             this_is_first_poke = False
             this_is_rewarded_poke = False
-            this_is_correct_trial = False
             this_poke_rank = -1
         
         else:
             # Infer whether this is the first poke of the current trial
-            this_is_first_poke = False
             if self.counter_trials_in_session != self.trial_of_last_poke:
                 # It is the first poke of the trial, update the memory
                 self.trial_of_last_poke = self.counter_trials_in_session
                 this_is_first_poke = True
+            else:
+                this_is_first_poke = False
             
-            # Infer whether this is a correct poke
-            this_is_rewarded_poke = False
-            if poked_port == self.rewarded_port:
+            # Infer whether reward delivered
+            if poked_port == self.rewarded_port and self.reward_delivered_on_this_trial:
                 this_is_rewarded_poke = True
+            else:
+                # Setting this flag ensures consummation pokes are not counted
+                # again
+                self.reward_delivered_on_this_trial = True
+                this_is_rewarded_poke = False
             
-            # Infer whether trial was correct
-            this_is_correct_trial = False
-            if this_is_rewarded_poke and this_is_first_poke:
-                this_is_correct_trial = True
-            
-            # Keep track of rank
+            # Keep track of rank of poke on this trial
             this_poke_rank = len(self.ports_poked_on_this_trial)
             if poked_port not in self.ports_poked_on_this_trial:
                 self.ports_poked_on_this_trial.append(poked_port)
@@ -973,7 +1004,7 @@ class PAFT(Task):
             "[{}] {} poked; {}; {}; {}".format(
                 poke_timestamp.isoformat(), 
                 poked_port,
-                'trial correct' if this_is_correct_trial else 'trial wrong',
+                'reward delivered' if this_is_rewarded_poke else 'unrewarded',
                 'first of trial' if this_is_first_poke else 'not first',
                 'rewarded' if this_is_rewarded_poke else 'not rewarded',
                 value))
@@ -996,7 +1027,6 @@ class PAFT(Task):
                 'poked_port': poked_port,
                 'first_poke': this_is_first_poke,
                 'reward_delivered': this_is_rewarded_poke,
-                'trial_correct': this_is_correct_trial,
                 'poke_rank': this_poke_rank,
                 'timestamp': poke_timestamp.isoformat(),
                 'trial': self.counter_trials_in_session,
