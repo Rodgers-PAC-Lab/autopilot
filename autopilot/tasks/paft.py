@@ -1038,7 +1038,7 @@ class PAFT(Task):
             'timestamp': poke_timestamp.isoformat(),
             'pilot': prefs.get('name'), # required by something
             'subject': self.subject, # required by terminal.l_data            
-            'chunkclass_name': 'ChunkClass_Pokes', # which chunk
+            'chunkclass_name': 'ChunkData_Pokes', # which chunk
             }
         
         # Generate the Message
