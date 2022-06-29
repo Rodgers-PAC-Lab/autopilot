@@ -425,6 +425,10 @@ class Plot(QtWidgets.QWidget):
         # previous session
         for poke_plot in self.known_pilot_ports_poke_plot:
             poke_plot.setData(x=[], y=[])
+        for poke_plot in self.known_pilot_ports_reward_plot:
+            poke_plot.setData(x=[], y=[])
+        for poke_plot in self.known_pilot_ports_correct_reward_plot:
+            poke_plot.setData(x=[], y=[])
         
         # Update every so often
         self.update_timer = pg.QtCore.QTimer()
@@ -638,18 +642,10 @@ class Plot(QtWidgets.QWidget):
         """Set all contained objects back to defaults before the next session
 
         """
-        # Clear the plots
-        #~ self.plot_octagon.clear()
-        #~ self.timecourse_plot.clear()
-        
         # Stop the timer
         self.infobox_items['Runtime'].stop_timer()
         self.infobox_items['Last poke'].stop_timer()
         self.update_timer.stop()
-        
-        # Clear the data
-        # Otherwise the next session will be using the same ones
-        #~ self.known_pilot_ports_poke_plot = []
         
         # Clear the data
         self.known_pilot_ports_poke_data = [
