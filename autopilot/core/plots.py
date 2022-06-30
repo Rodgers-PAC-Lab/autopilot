@@ -421,8 +421,15 @@ class Plot(QtWidgets.QWidget):
         self.start_time = None
         self.local_start_time = None
         
-        # Update each poke plot, mostly to remove residual pokes from
-        # previous session
+        # Remove residual pokes from previous session
+        self.known_pilot_ports_poke_data = [
+            [] for kpp in self.known_pilot_ports]
+        self.known_pilot_ports_reward_data = [
+            [] for kpp in self.known_pilot_ports]
+        self.known_pilot_ports_correct_reward_data = [
+            [] for kpp in self.known_pilot_ports]
+        
+        # Update each poke plot to start empty
         for poke_plot in self.known_pilot_ports_poke_plot:
             poke_plot.setData(x=[], y=[])
         for poke_plot in self.known_pilot_ports_reward_plot:
@@ -678,10 +685,6 @@ class Plot(QtWidgets.QWidget):
         self.infobox_items['Runtime'].stop_timer()
         self.infobox_items['Last poke'].stop_timer()
         self.update_timer.stop()
-        
-        # Clear the data
-        self.known_pilot_ports_poke_data = [
-            [] for kpp in self.known_pilot_ports]
         
         # Don't close the Net_Node socket now or we can't receive again
         # Although find a way to close it when the user closes the Terminal
