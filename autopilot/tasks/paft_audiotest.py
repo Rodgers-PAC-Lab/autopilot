@@ -1,9 +1,7 @@
-"""This module defines PAFT_With_Multisound.
+"""This module defines PAFT_audiotest.
 
-All this does is play sounds from left and right speakers, with occasional
-error sounds interspersed. This is to test / demonstrate a new way
-to add sounds to jackclient directly instead of going through the Sound
-class. This enables playing multiple queues of sounds at the same time.
+This is used to play sounds from the pi, for testing the hifiberry.
+No children are used.
 """
 
 import threading
@@ -107,20 +105,7 @@ class PAFT_audiotest(Task):
     # must match (ie. there must be a prefs.PINS['POKES']['L'] entry in 
     # prefs for a task that has a task.HARDWARE['POKES']['L'] object).
     HARDWARE = {
-        'POKES':{
-            'L': autopilot.hardware.gpio.Digital_In,
-            'R': autopilot.hardware.gpio.Digital_In,
-        },
-        'LEDS':{
-            'L': autopilot.hardware.gpio.LED_RGB,
-            'R': autopilot.hardware.gpio.LED_RGB,
-        },
-        'PORTS':{
-            'L': autopilot.hardware.gpio.Solenoid,
-            'R': autopilot.hardware.gpio.Solenoid,
-        }
     }
-    
 
     
     ## Define the class methods
@@ -178,32 +163,16 @@ class PAFT_audiotest(Task):
         # it to advance to the next stage.
         self.stage_block = stage_block
         
-        # This is needed for sending Node messages
-        self.subject = subject
-        
-        # This is used to count the trials for the "trial_num" HDF5 column
-        self.counter_trials_across_sessions = int(current_trial)
-
-        # This is used to count the trials for the "trial_in_session" HDF5 column
-        # Initialize to -1, because the first thing that happens is that
-        # it is incremented upon choosing the first stimulus
-        self.counter_trials_in_session = -1
-
     
         ## Define the stages
         # Stage list to iterate
         stage_list = [self.play]
-        self.num_stages = len(stage_list)
         self.stages = itertools.cycle(stage_list)        
         
         
         ## Init hardware -- this sets self.hardware and self.pin_id
         self.triggers = {}
         self.init_hardware()
-        
-
-
-        
         
         
         ## Initialize sounds
@@ -216,90 +185,29 @@ class PAFT_audiotest(Task):
         self.n_frames = 0
         self.n_error_counter = 0        
 
-        # Initialize these to None, in case they don't get defined later
-        # (e.g., poketrain)
-        self.left_error_sound = None
-        self.right_error_sound = None
+        # Initialize sounds
+        self.initalize_sounds()
 
         # Fill the queue with empty frames
-        # Sounds aren't initialized till the trial starts
-        # Using False here should work even without sounds initialized yet
-        self.set_sound_cycle(params={'left_on': False, 'right_on': False})
+        self.set_sound_cycle()
 
-        # Use this to keep track of generated sounds
-        self.current_audio_times_df = None
-
-        # This is needed when sending messages about generated sounds
-        self.n_messages_sent = 0
-
-
-        ## Set up NET_Node to communicate with Parent
-        # Do this after initializing the sounds, otherwise we won't be
-        # ready to play yet
-        self.create_inter_pi_communication_node()
-
-    def initalize_sounds(self,             
-        target_highpass, target_amplitude, target_lowpass,
-        distracter_highpass, distracter_amplitude, distracter_lowpass,
-        ):
+    def initalize_sounds(self):
         """Defines sounds that will be played during the task"""
-        ## Define sounds
         # Left and right target noise bursts
         self.left_target_stim = autopilot.stim.sound.sounds.Noise(
-            duration=10, amplitude=target_amplitude, channel=0, 
-            lowpass=target_lowpass, highpass=target_highpass)       
+            duration=1000, amplitude=target_amplitude, channel=0, 
+            lowpass=1000, highpass=50000)       
 
         self.right_target_stim = autopilot.stim.sound.sounds.Noise(
-            duration=10, amplitude=target_amplitude, channel=1, 
-            lowpass=target_lowpass, highpass=target_highpass)        
-
-        # Left and right distracter noise bursts
-        self.left_distracter_stim = autopilot.stim.sound.sounds.Noise(
-            duration=10, amplitude=distracter_amplitude, channel=0, 
-            lowpass=distracter_lowpass, highpass=distracter_highpass)       
-
-        self.right_distracter_stim = autopilot.stim.sound.sounds.Noise(
-            duration=10, amplitude=distracter_amplitude, channel=1, 
-            lowpass=distracter_lowpass, highpass=distracter_highpass)  
-            
-        # Left and right tritone error noises
-        self.left_error_sound = autopilot.stim.sound.sounds.Tritone(
-            frequency=8000, duration=250, amplitude=.003, channel=0)
-
-        self.right_error_sound = autopilot.stim.sound.sounds.Tritone(
-            frequency=8000, duration=250, amplitude=.003, channel=1)
-        
-        # Chunk the sounds into frames
-        if not self.left_target_stim.chunks:
-            self.left_target_stim.chunk()
-        if not self.right_target_stim.chunks:
-            self.right_target_stim.chunk()
-        if not self.left_distracter_stim.chunks:
-            self.left_distracter_stim.chunk()
-        if not self.right_distracter_stim.chunks:
-            self.right_distracter_stim.chunk()
-        if not self.left_error_sound.chunks:
-            self.left_error_sound.chunk()
-        if not self.right_error_sound.chunks:
-            self.right_error_sound.chunk()
+            duration=1000, amplitude=target_amplitude, channel=1, 
+            lowpass=1000, highpass=50000)       
     
-    def set_sound_cycle(self, params):
+    def set_sound_cycle(self):
         """Define self.sound_cycle, to go through sounds
-        
-        params : dict
-            This comes from a message on the net node.
-            Possible keys:
-                left_on
-                right_on
-                left_mean_interval
-                right_mean_interval
+
         """
-        # Log
-        self.logger.debug('set_sound_cycle: received params: {}'.format(params))
-        
-        # This is just a left sound, gap, then right sound, then gap
-        # And use a cycle to repeat forever
-        # But this could be made more complex
+        ## Generate self.sound_block
+        # This is where sounds go
         self.sound_block = []
 
         # Helper function
@@ -310,242 +218,69 @@ class PAFT_audiotest(Task):
                     np.zeros(autopilot.stim.sound.jackclient.BLOCKSIZE, 
                     dtype='float32'))
 
-        # Extract params or use defaults
-        left_on = params.get('left_on', False)
-        right_on = params.get('right_on', False)
-        left_target_rate = params.get('left_target_rate', 0)
-        right_target_rate = params.get('right_target_rate', 0)
-        left_distracter_rate = params.get('left_distracter_rate', 0)
-        right_distracter_rate = params.get('right_distracter_rate', 0)
+        # Append left target
+        for frame in self.left_target_stim.chunks:
+            self.sound_block.append(frame) 
+
+        # Append gap
+        append_gap(100)        
         
-        # Global params
-        target_temporal_std = 10 ** params.get(
-            'stim_target_temporal_log_std', -2)
-        distracter_temporal_std = 10 ** params.get(
-            'stim_distracter_temporal_log_std', -2)
-       
-        
-        ## Generate intervals 
-        # left target
-        if left_on and left_target_rate > 1e-3:
-            # Change of basis
-            mean_interval = 1 / left_target_rate
-            var_interval = target_temporal_std ** 2
+        # Append right target
+        for frame in self.right_target_stim.chunks:
+            self.sound_block.append(frame) 
 
-            # Change of basis
-            gamma_shape = (mean_interval ** 2) / var_interval
-            gamma_scale = var_interval / mean_interval
-
-            # Draw
-            left_target_intervals = np.random.gamma(
-                gamma_shape, gamma_scale, 100)
-        else:
-            left_target_intervals = np.array([])
-
-        # right target
-        if right_on and right_target_rate > 1e-3:
-            # Change of basis
-            mean_interval = 1 / right_target_rate
-            var_interval = target_temporal_std ** 2
-
-            # Change of basis
-            gamma_shape = (mean_interval ** 2) / var_interval
-            gamma_scale = var_interval / mean_interval
-
-            # Draw
-            right_target_intervals = np.random.gamma(
-                gamma_shape, gamma_scale, 100)
-        else:
-            right_target_intervals = np.array([])     
-
-        # left distracter
-        if left_on and left_distracter_rate > 1e-3:
-            # Change of basis
-            mean_interval = 1 / left_distracter_rate
-            var_interval = distracter_temporal_std ** 2
-
-            # Change of basis
-            gamma_shape = (mean_interval ** 2) / var_interval
-            gamma_scale = var_interval / mean_interval
-
-            # Draw
-            left_distracter_intervals = np.random.gamma(
-                gamma_shape, gamma_scale, 100)
-        else:
-            left_distracter_intervals = np.array([])
-
-        # right distracter
-        if right_on and right_distracter_rate > 1e-3:
-            # Change of basis
-            mean_interval = 1 / right_distracter_rate
-            var_interval = distracter_temporal_std ** 2
-
-            # Change of basis
-            gamma_shape = (mean_interval ** 2) / var_interval
-            gamma_scale = var_interval / mean_interval
-
-            # Draw
-            right_distracter_intervals = np.random.gamma(
-                gamma_shape, gamma_scale, 100)
-        else:
-            right_distracter_intervals = np.array([])               
-        
-        
-        ## Sort all the drawn intervals together
-        # Turn into series
-        left_target_df = pandas.DataFrame.from_dict({
-            'time': np.cumsum(left_target_intervals),
-            'side': ['left'] * len(left_target_intervals),
-            'sound': ['target'] * len(left_target_intervals),
-            })
-        right_target_df = pandas.DataFrame.from_dict({
-            'time': np.cumsum(right_target_intervals),
-            'side': ['right'] * len(right_target_intervals),
-            'sound': ['target'] * len(right_target_intervals),
-            })
-        left_distracter_df = pandas.DataFrame.from_dict({
-            'time': np.cumsum(left_distracter_intervals),
-            'side': ['left'] * len(left_distracter_intervals),
-            'sound': ['distracter'] * len(left_distracter_intervals),
-            })
-        right_distracter_df = pandas.DataFrame.from_dict({
-            'time': np.cumsum(right_distracter_intervals),
-            'side': ['right'] * len(right_distracter_intervals),
-            'sound': ['distracter'] * len(right_distracter_intervals),
-            })
-        
-        # Concatenate them all together and resort by time
-        both_df = pandas.concat([
-            left_target_df, right_target_df, 
-            left_distracter_df, right_distracter_df,
-            ], axis=0).sort_values('time')
-
-        # Calculate the gap between sounds
-        both_df['gap'] = both_df['time'].diff().shift(-1)
-        
-        # Drop the last row which has a null gap
-        both_df = both_df.loc[~both_df['gap'].isnull()].copy()
-
-        # Keep only those below the sound cycle length
-        both_df = both_df.loc[both_df['time'] < 10].copy()
-        
-        # Nothing should be null
-        assert not both_df.isnull().any().any() 
-
-        # Calculate gap size in chunks
-        both_df['gap_chunks'] = (both_df['gap'] *
-            autopilot.stim.sound.jackclient.FS / 
-            autopilot.stim.sound.jackclient.BLOCKSIZE)
-        both_df['gap_chunks'] = both_df['gap_chunks'].round().astype(np.int)
-        
-        # Floor gap_chunks at 1 chunk, the minimal gap size
-        # This is to avoid distortion
-        both_df.loc[both_df['gap_chunks'] < 1, 'gap_chunks'] = 1
-        
-        # Log
-        self.logger.debug("generated both_df: {}".format(both_df))
-        
-        # Save
-        self.current_audio_times_df = both_df.copy()
-        self.current_audio_times_df = self.current_audio_times_df.rename(
-            columns={'time': 'relative_time'})
-
-        
-        ## Depends on how long both_df is
-        # If both_df has a nonzero but short length, results will be weird,
-        # because it might just be one noise burst repeating every ten seconds
-        # This only happens with low rates ~0.1Hz
-        if len(both_df) == 0:
-            # If no sound, then just put gaps
-            append_gap(100)
-        else:
-            # Iterate through the rows, adding the sound and the gap
-            # TODO: the gap should be shorter by the duration of the sound,
-            # and simultaneous sounds should be possible
-            for bdrow in both_df.itertuples():
-                # Append the sound
-                if bdrow.side == 'left' and bdrow.sound == 'target':
-                    for frame in self.left_target_stim.chunks:
-                        self.sound_block.append(frame) 
-                elif bdrow.side == 'left' and bdrow.sound == 'distracter':
-                    for frame in self.left_distracter_stim.chunks:
-                        self.sound_block.append(frame)                         
-                elif bdrow.side == 'right' and bdrow.sound == 'target':
-                    for frame in self.right_target_stim.chunks:
-                        self.sound_block.append(frame) 
-                elif bdrow.side == 'right' and bdrow.sound == 'distracter':
-                    for frame in self.right_distracter_stim.chunks:
-                        self.sound_block.append(frame)       
-                else:
-                    raise ValueError(
-                        "unrecognized side and sound: {} {}".format(
-                        bdrow.side, bdrow.sound))
-                
-                # Append the gap
-                append_gap(bdrow.gap_chunks)
-        
         
         ## Cycle so it can repeat forever
         self.sound_cycle = itertools.cycle(self.sound_block)        
 
     def play(self):
-        """A single stage that repeats forever and plays sound.
-        
-        On each call, jackclient.QUEUE is loaded to a target size with
-        the current data in self.sound_cycle.
-        
-        On occasion, jackclient.QUEUE2 is loaded with an error sound.
-        """
-        ## Keep the stimulus queue minimum this length
-        # Each block/frame is about 5 ms, so this is about 5 s of data
-        # Longer is more buffer against unexpected delays
-        target_qsize = 1000
+        """A single stage"""
+        # Don't want to do a "while True" here, because we need to exit
+        # this method eventually, so that it can respond to END
+        # But also don't want to change stage too frequently or the debug
+        # messages are overwhelming
+        for n in range(10):
+            # Add stimulus sounds to queue 1 as needed
+            self.append_sound_to_queue1_as_needed()
 
-        
-        ## Load queue with stimulus, if needed
-        print("before loading: {}".format(jackclient.QUEUE.qsize()))            
-        
+            # Don't want to iterate too quickly, but rather add chunks
+            # in a controlled fashion every so often
+            time.sleep(.1)
+
+        # Continue to the next stage (which is this one again)
+        # If it is cleared, then nothing happens until the next message
+        # from the Parent (not sure why)
+        # If we never end this function, then it won't respond to END
+        self.stage_block.set()
+
+    def append_sound_to_queue1_as_needed(self):
+        """Dump frames from `self.sound_cycle` into queue
+
+        The queue is filled until it reaches `self.target_qsize`
+
+        This function should be called often enough that the queue is never
+        empty.
+        """        
+        # TODO: as a figure of merit, keep track of how empty the queue gets
+        # between calls. If it's getting too close to zero, then target_qsize
+        # needs to be increased.
+        # Get the size of QUEUE1 now
+        qsize = autopilot.stim.sound.jackclient.QUEUE.qsize()
+        if qsize == 0:
+            self.logger.debug('warning: queue1 was empty')
+
         # Add frames until target size reached
-        qsize = jackclient.QUEUE.qsize()
-        while qsize < target_qsize:
-            with jackclient.Q_LOCK:
+        while qsize < self.target_qsize:
+            with autopilot.stim.sound.jackclient.Q_LOCK:
                 # Add a frame from the sound cycle
                 frame = next(self.sound_cycle)
-                jackclient.QUEUE.put_nowait(frame)
+                autopilot.stim.sound.jackclient.QUEUE.put_nowait(frame)
                 
                 # Keep track of how many frames played
                 self.n_frames = self.n_frames + 1
-                
-            qsize = jackclient.QUEUE.qsize()
-        print("after loading: {}".format(jackclient.QUEUE.qsize()))
-
-        
-        ## Loade queue2 with error sound, if needed
-        # Only do this after an initial pause
-        if self.n_frames > 3000:
-            # Only do this on every third call to this function
-            if np.mod(self.n_error_counter, 3) == 0:
-                print("before loading 2: {}".format(jackclient.QUEUE2.qsize()))            
-                with jackclient.Q2_LOCK:
-                    # Add frames from error sound
-                    for frame in self.left_error_sound.chunks:
-                        jackclient.QUEUE2.put_nowait(frame)
-                qsize = jackclient.QUEUE2.qsize()
-                print("after loading 2: {}".format(jackclient.QUEUE2.qsize()))        
             
-            # Keep track of how many calls to this function
-            self.n_error_counter = self.n_error_counter + 1
-
-        # Start it playing
-        # The play event is cleared if it ever runs out of sound, which
-        # ideally doesn't happen
-        jackclient.PLAY.set()
-        
-        # Sleep so we don't go crazy
-        time.sleep(1)
-        
-        # Continue to the next stage (which is this one again)
-        self.stage_block.set()
+            # Update qsize
+            qsize = autopilot.stim.sound.jackclient.QUEUE.qsize()
 
     def init_hardware(self, *args, **kwargs):
         """Placeholder to init hardware
