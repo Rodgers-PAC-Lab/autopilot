@@ -196,22 +196,22 @@ class PAFT_audiotest(Task):
         # Left and right target noise bursts
         self.noise_bursts = [
             autopilot.stim.sound.sounds.Noise(
-                duration=2000, amplitude=.01, channel=None, 
+                duration=2000, amplitude=.03, channel=None, 
                 lowpass=1000, highpass=50000),
             autopilot.stim.sound.sounds.Noise(
-                duration=2000, amplitude=.01, channel=None, 
+                duration=2000, amplitude=.03, channel=None, 
                 lowpass=5000, highpass=10000),
             autopilot.stim.sound.sounds.Noise(
-                duration=2000, amplitude=.01, channel=None, 
+                duration=2000, amplitude=.03, channel=None, 
                 lowpass=10000, highpass=15000),
             autopilot.stim.sound.sounds.Noise(
-                duration=2000, amplitude=.01, channel=None, 
+                duration=2000, amplitude=.03, channel=None, 
                 lowpass=15000, highpass=20000),
             autopilot.stim.sound.sounds.Noise(
-                duration=2000, amplitude=.01, channel=None, 
+                duration=2000, amplitude=.03, channel=None, 
                 lowpass=20000, highpass=25000),
             autopilot.stim.sound.sounds.Noise(
-                duration=2000, amplitude=.01, channel=None, 
+                duration=2000, amplitude=.03, channel=None, 
                 lowpass=25000, highpass=30000),
             ] 
     
@@ -237,7 +237,7 @@ class PAFT_audiotest(Task):
                 self.sound_block.append(frame) 
 
         # Append gap
-        append_gap(100)        
+        append_gap(300)        
 
         
         ## Cycle so it can repeat forever
