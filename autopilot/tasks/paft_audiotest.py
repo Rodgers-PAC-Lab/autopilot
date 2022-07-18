@@ -309,21 +309,6 @@ class PAFT_audiotest(Task):
         """
         self.logger.debug('end: entering function')
         
-        # Tell the child to end the task
-        self.node.send(to=prefs.get('NAME'), key='CHILD', value={'KEY': 'STOP'})
-
-        # Sometimes it seems like the children don't get the message,
-        # maybe wait?
-        time.sleep(1)
-
-        # This sock.close seems to be necessary to be able to communicate again
-        self.node.sock.close()
-        self.node.release()
-
-        # This router.close() prevents ZMQError on the next start
-        self.node2.router.close()
-        self.node2.release() 
-
         # Let the superclass end handle releasing hardware
         super().end(*args, **kwargs)
 
