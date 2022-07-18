@@ -194,13 +194,26 @@ class PAFT_audiotest(Task):
     def initalize_sounds(self):
         """Defines sounds that will be played during the task"""
         # Left and right target noise bursts
-        self.left_target_stim = autopilot.stim.sound.sounds.Noise(
-            duration=1000, amplitude=target_amplitude, channel=0, 
-            lowpass=1000, highpass=50000)       
-
-        self.right_target_stim = autopilot.stim.sound.sounds.Noise(
-            duration=1000, amplitude=target_amplitude, channel=1, 
-            lowpass=1000, highpass=50000)       
+        self.noise_bursts = [
+            autopilot.stim.sound.sounds.Noise(
+                duration=2000, amplitude=.01, channel=None, 
+                lowpass=1000, highpass=50000),
+            autopilot.stim.sound.sounds.Noise(
+                duration=2000, amplitude=.01, channel=None, 
+                lowpass=5000, highpass=10000),
+            autopilot.stim.sound.sounds.Noise(
+                duration=2000, amplitude=.01, channel=None, 
+                lowpass=10000, highpass=15000),
+            autopilot.stim.sound.sounds.Noise(
+                duration=2000, amplitude=.01, channel=None, 
+                lowpass=15000, highpass=20000),
+            autopilot.stim.sound.sounds.Noise(
+                duration=2000, amplitude=.01, channel=None, 
+                lowpass=20000, highpass=25000),
+            autopilot.stim.sound.sounds.Noise(
+                duration=2000, amplitude=.01, channel=None, 
+                lowpass=25000, highpass=30000),
+            ] 
     
     def set_sound_cycle(self):
         """Define self.sound_cycle, to go through sounds
@@ -218,16 +231,13 @@ class PAFT_audiotest(Task):
                     np.zeros(autopilot.stim.sound.jackclient.BLOCKSIZE, 
                     dtype='float32'))
 
-        # Append left target
-        for frame in self.left_target_stim.chunks:
-            self.sound_block.append(frame) 
+        # Append long noise burst
+        for noise burst in self.noise_bursts:
+            for frame in noise_burst.chunks:
+                self.sound_block.append(frame) 
 
         # Append gap
         append_gap(100)        
-        
-        # Append right target
-        for frame in self.right_target_stim.chunks:
-            self.sound_block.append(frame) 
 
         
         ## Cycle so it can repeat forever
