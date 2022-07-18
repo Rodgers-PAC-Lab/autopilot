@@ -232,7 +232,7 @@ class PAFT_audiotest(Task):
                     dtype='float32'))
 
         # Append long noise burst
-        for noise burst in self.noise_bursts:
+        for noise_burst in self.noise_bursts:
             for frame in noise_burst.chunks:
                 self.sound_block.append(frame) 
 
