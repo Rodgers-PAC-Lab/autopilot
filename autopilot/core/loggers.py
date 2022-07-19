@@ -7,7 +7,7 @@ from pathlib import Path
 from logging.handlers import RotatingFileHandler
 from threading import Lock
 import warnings
-
+from rich.logging import RichHandler
 from autopilot import prefs
 
 _LOGGERS = [] # type: list
@@ -17,6 +17,14 @@ List of instantiated loggers, used in :func:`.init_logger` to return existing lo
 
 _INIT_LOCK = Lock() # type: Lock
 
+def _rich_handler() -> RichHandler:
+    rich_handler = RichHandler(rich_tracebacks=True, markup=True)
+    rich_formatter = logging.Formatter(
+        "[bold green]\[%(name)s][/bold green] %(message)s",
+        datefmt='[%y-%m-%dT%H:%M:%S]'
+    )
+    rich_handler.setFormatter(rich_formatter)
+    return rich_handler
 
 def init_logger(instance=None, module_name=None, class_name=None, object_name=None) -> logging.Logger:
     """
@@ -165,6 +173,11 @@ def init_logger(instance=None, module_name=None, class_name=None, object_name=No
             fh.setLevel(loglevel)
             fh.setFormatter(log_formatter)
             parent_logger.addHandler(fh)
+            parent_logger.addHandler(_rich_handler())
+
+            # if our parent is the rootlogger, disable propagation to avoid printing to stdout
+            if isinstance(parent_logger.parent, logging.RootLogger):
+                parent_logger.propagate = False
 
             ## log creation
             globals()['_LOGGERS'].append(module_name)
