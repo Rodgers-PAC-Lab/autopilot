@@ -138,6 +138,9 @@ class PAFT(Task):
         ('distracter_log_amplitude', 
             'log(amplitude of distracter sound)', 'float'),
         ],
+        ('n_distracters',
+            'number of ports playing distracters at distracter_rate (int)',
+            'int'),
         columns=['key', 'tag', 'type'],
         )
     
@@ -202,6 +205,7 @@ class PAFT(Task):
         stim_distracter_center_freq = tables.Float32Col()
         stim_distracter_bandwidth = tables.Float32Col()
         stim_distracter_amplitude = tables.Float32Col()
+        stim_n_distracters = tables.Int32Col()
 
     # Define continuous data
     # https://docs.auto-pi-lot.com/en/latest/guide/task.html
@@ -400,6 +404,17 @@ class PAFT(Task):
                     task_params[param_min],
                     task_params[param_max],
                     task_params[param_n_choices])
+                
+                # Special case this one, which must be int
+                # Could also test for param.type == 'int', though it's 
+                # ambiguous whether this means min and max must be int,
+                # or all choices in between
+                if param.key == 'n_distracters':
+                    orig = self.stim_choosing_params[param.key]
+                    casted = orig.astype(int)
+                    if (casted != orig).any(): 
+                        raise ValueError("cannot convert n_distracters to int")
+                    self.stim_choosing_params[param.key] = casted
 
         # Log
         self.logger.debug('received task_params:\n{}'.format(task_params))
@@ -666,6 +681,8 @@ class PAFT(Task):
             self.stim_choosing_params['distracter_bandwidth'])
         stim_distracter_log_amplitude = random.choice(
             self.stim_choosing_params['distracter_log_amplitude'])
+        stim_n_distracters = random.choice(
+            self.stim_choosing_params['n_distracters'])
         
         # Put the ones that don't vary with port in a dict
         # The ones that do vary with port are captured by port_params
@@ -723,10 +740,15 @@ class PAFT(Task):
         port_params.loc[port_params['target_rate'] < 0, 'target_rate'] = 0
         
         # Calculate distracter rate
-        port_params.loc[:, 'distracter_rate'] = (
-            stim_distracter_rate - port_params.loc[:, 'target_rate'])
+        # Previously this was stim_distracter_rate - target rate
+        # Now, fill N randomly chosen speakers with distracters
+        potential_distracter_idxs = [
+            idx for idx in port_params.index if idx != rewarded_idx]
+        chosen_distracter_idxs = random.sample(
+            potential_distracter_idxs, k=stim_n_distracters)
+        port_params['distracter_rate'] = 0
         port_params.loc[
-            port_params['distracter_rate'] < 0, 'distracter_rate'] = 0
+            chosen_distracter_idxs, 'distracter_rate'] = stim_distracter_rate
         
         
         ## Send the play and silence messages
