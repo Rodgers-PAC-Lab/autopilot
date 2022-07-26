@@ -137,10 +137,10 @@ class PAFT(Task):
             'bandwidth (high-low) of distracter sound (Hz)', 'float'),
         ('distracter_log_amplitude', 
             'log(amplitude of distracter sound)', 'float'),
-        ],
         ('n_distracters',
             'number of ports playing distracters at distracter_rate (int)',
             'int'),
+        ],
         columns=['key', 'tag', 'type'],
         )
     
