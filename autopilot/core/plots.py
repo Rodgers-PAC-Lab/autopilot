@@ -197,7 +197,9 @@ class Plot(QtWidgets.QWidget):
                 'rpi04_R', 
                 ]
         else:
-            raise ValueError("unrecognized parent name: {}".format(pilot))
+            print("unrecognized parent name: {}".format(pilot))
+            self.known_pilot_ports = [
+                ]                
             
         # These are used to store data we receive over time
         self.known_pilot_ports_poke_data = [
