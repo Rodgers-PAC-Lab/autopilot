@@ -195,42 +195,66 @@ class PAFT_audiotest(Task):
         """Defines sounds that will be played during the task"""
         # Left and right target noise bursts
         self.noise_bursts = [
-            autopilot.stim.sound.sounds.Noise(
-                duration=2000, amplitude=.1, channel=None, 
-                lowpass=1000, highpass=50000),
-            autopilot.stim.sound.sounds.Noise(
-                duration=2000, amplitude=.1, channel=None, 
-                lowpass=5000, highpass=10000),
-            autopilot.stim.sound.sounds.Noise(
-                duration=2000, amplitude=.1, channel=None, 
-                lowpass=10000, highpass=15000),
-            autopilot.stim.sound.sounds.Noise(
-                duration=2000, amplitude=.1, channel=None, 
-                lowpass=15000, highpass=20000),
-            autopilot.stim.sound.sounds.Noise(
-                duration=2000, amplitude=.1, channel=None, 
-                lowpass=20000, highpass=25000),
-            autopilot.stim.sound.sounds.Noise(
-                duration=2000, amplitude=.1, channel=None, 
-                lowpass=25000, highpass=30000),
-            autopilot.stim.sound.sounds.Noise(
-                duration=10, amplitude=.1, channel=None, 
-                lowpass=1000, highpass=50000),
-            autopilot.stim.sound.sounds.Noise(
-                duration=10, amplitude=.1, channel=None, 
-                lowpass=5000, highpass=10000),
-            autopilot.stim.sound.sounds.Noise(
-                duration=10, amplitude=.1, channel=None, 
-                lowpass=10000, highpass=15000),
-            autopilot.stim.sound.sounds.Noise(
-                duration=10, amplitude=.1, channel=None, 
-                lowpass=15000, highpass=20000),
-            autopilot.stim.sound.sounds.Noise(
-                duration=10, amplitude=.1, channel=None, 
-                lowpass=20000, highpass=25000),
-            autopilot.stim.sound.sounds.Noise(
-                duration=10, amplitude=.1, channel=None, 
-                lowpass=25000, highpass=30000),                
+            autopilot.stim.sound.sounds.Tone(
+                frequency=100, amplitude=1, duration=2000),
+            autopilot.stim.sound.sounds.Tone(
+                frequency=1000, amplitude=1, duration=2000),
+            autopilot.stim.sound.sounds.Tone(
+                frequency=3000, amplitude=1, duration=2000),
+            autopilot.stim.sound.sounds.Tone(
+                frequency=6000, amplitude=1, duration=2000),
+            autopilot.stim.sound.sounds.Tone(
+                frequency=10000, amplitude=1, duration=2000),
+            autopilot.stim.sound.sounds.Tone(
+                frequency=30000, amplitude=1, duration=2000),
+            autopilot.stim.sound.sounds.Tone(
+                frequency=40000, amplitude=1, duration=2000),                
+            autopilot.stim.sound.sounds.Tone(
+                frequency=50000, amplitude=1, duration=2000),                                
+            autopilot.stim.sound.sounds.Tone(
+                frequency=60000, amplitude=1, duration=2000),                
+            autopilot.stim.sound.sounds.Tone(
+                frequency=70000, amplitude=1, duration=2000),                
+            autopilot.stim.sound.sounds.Tone(
+                frequency=80000, amplitude=1, duration=2000),                
+            autopilot.stim.sound.sounds.Tone(
+                frequency=90000, amplitude=1, duration=2000),                
+            #~ autopilot.stim.sound.sounds.Noise(
+                #~ duration=2000, amplitude=.1, channel=None, 
+                #~ lowpass=1000, highpass=50000),
+            #~ autopilot.stim.sound.sounds.Noise(
+                #~ duration=2000, amplitude=.1, channel=None, 
+                #~ lowpass=5000, highpass=10000),
+            #~ autopilot.stim.sound.sounds.Noise(
+                #~ duration=2000, amplitude=.1, channel=None, 
+                #~ lowpass=10000, highpass=15000),
+            #~ autopilot.stim.sound.sounds.Noise(
+                #~ duration=2000, amplitude=.1, channel=None, 
+                #~ lowpass=15000, highpass=20000),
+            #~ autopilot.stim.sound.sounds.Noise(
+                #~ duration=2000, amplitude=.1, channel=None, 
+                #~ lowpass=20000, highpass=25000),
+            #~ autopilot.stim.sound.sounds.Noise(
+                #~ duration=2000, amplitude=.1, channel=None, 
+                #~ lowpass=25000, highpass=30000),
+            #~ autopilot.stim.sound.sounds.Noise(
+                #~ duration=10, amplitude=.1, channel=None, 
+                #~ lowpass=1000, highpass=50000),
+            #~ autopilot.stim.sound.sounds.Noise(
+                #~ duration=10, amplitude=.1, channel=None, 
+                #~ lowpass=5000, highpass=10000),
+            #~ autopilot.stim.sound.sounds.Noise(
+                #~ duration=10, amplitude=.1, channel=None, 
+                #~ lowpass=10000, highpass=15000),
+            #~ autopilot.stim.sound.sounds.Noise(
+                #~ duration=10, amplitude=.1, channel=None, 
+                #~ lowpass=15000, highpass=20000),
+            #~ autopilot.stim.sound.sounds.Noise(
+                #~ duration=10, amplitude=.1, channel=None, 
+                #~ lowpass=20000, highpass=25000),
+            #~ autopilot.stim.sound.sounds.Noise(
+                #~ duration=10, amplitude=.1, channel=None, 
+                #~ lowpass=25000, highpass=30000),                
             ] 
     
     def set_sound_cycle(self):
@@ -255,7 +279,7 @@ class PAFT_audiotest(Task):
                 self.sound_block.append(frame) 
 
             # Append gap
-            append_gap(300)        
+            append_gap(50)        
 
         
         ## Cycle so it can repeat forever
