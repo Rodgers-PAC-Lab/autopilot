@@ -1,21 +1,30 @@
 """Classes to plot data in the GUI."""
+from functools import wraps
+from itertools import count
 
-# Classes for plots
+# CR
 import datetime
 import time
 import logging
 import os
-import numpy as np
-import PySide2 # have to import to tell pyqtgraph to use it
-from PySide2 import QtCore
-from PySide2 import QtWidgets
-import pyqtgraph as pg
-from functools import wraps
-import autopilot
-from ..utils.invoker import InvokeEvent, get_invoker
 
+# Upstream
+import numpy as np
+import pyqtgraph as pg
+from PySide2 import QtCore, QtWidgets
+
+import autopilot
+from autopilot import prefs
+from autopilot.utils.loggers import init_logger
+from autopilot.gui.plots.video import Video
+from autopilot.gui.plots.info import Timer
+from autopilot.gui.plots.geom import Roll_Mean, HLine, PLOT_LIST
+from autopilot.networking import Net_Node
+from autopilot.utils.invoker import get_invoker, InvokeEvent
+
+# CR: check this no longer needed
 # pg config
-pg.setConfigOptions(antialias=True, imageAxisOrder='row-major')
+# pg.setConfigOptions(antialias=True, imageAxisOrder='row-major')
 
 def gui_event(fn):
     """
@@ -31,8 +40,8 @@ def gui_event(fn):
         """
 
         Args:
-            *args (): 
-            **kwargs (): 
+            *args ():
+            **kwargs ():
         """
         QtCore.QCoreApplication.postEvent(get_invoker(), InvokeEvent(fn, *args, **kwargs))
     return wrapper_gui_event
@@ -54,7 +63,7 @@ class Plot_Widget(QtWidgets.QWidget):
         # type: () -> None
         QtWidgets.QWidget.__init__(self)
 
-        self.logger = autopilot.core.loggers.init_logger(self)
+        self.logger = init_logger(self)
 
 
         # We should get passed a list of pilots to keep ourselves in order after initing
@@ -124,8 +133,39 @@ class Plot(QtWidgets.QWidget):
     +-------------+------------------------+-------------------------+
     | **'STOP'**  | :meth:`~.Plot.l_stop`  | stop the task           |
     +-------------+------------------------+-------------------------+
-    | **'STATE'** | :meth:`~.Plot.l_state` | TBD                     |
+    | **'PARAM'** | :meth:`~.Plot.l_param` | change some parameter   |
     +-------------+------------------------+-------------------------+
+
+    **Plot Parameters**
+
+    The plot is built from the ``PLOT={data:plot_element}`` mappings described in the :class:`~autopilot.tasks.task.Task` class.
+    Additional parameters can be specified in the ``PLOT`` dictionary. Currently:
+
+    * **continuous** (bool): whether the data should be plotted against the trial number (False or NA) or against time (True)
+    * **chance_bar** (bool): Whether to draw a red horizontal line at chance level (default: 0.5)
+    * **chance_level** (float): The position in the y-axis at which the ``chance_bar`` should be drawn
+    * **roll_window** (int): The number of trials :class:`~.Roll_Mean` take the average over.
+
+    Attributes:
+        pilot (str): The name of our pilot, used to set the identity of our socket, specifically::
+
+            'P_{pilot}'
+
+        infobox (:class:`QtWidgets.QFormLayout`): Box to plot basic task information like trial number, etc.
+        info (dict): Widgets in infobox:
+
+            * 'N Trials': :class:`QtWidgets.QLabel`,
+            * 'Runtime' : :class:`.Timer`,
+            * 'Session' : :class:`QtWidgets.QLabel`,
+            * 'Protocol': :class:`QtWidgets.QLabel`,
+            * 'Step'    : :class:`QtWidgets.QLabel`
+
+        plot (:class:`pyqtgraph.PlotWidget`): The widget where we draw our plots
+        plot_params (dict): A dictionary of plot parameters we receive from the Task class
+        data (dict): A dictionary of the data we've received
+        plots (dict): The collection of plots we instantiate based on `plot_params`
+        node (:class:`.Net_Node`): Our local net node where we listen for data.
+        state (str): state of the pilot, used to keep plot synchronized.
     """
 
     def __init__(self, pilot, parent=None):
@@ -144,7 +184,7 @@ class Plot(QtWidgets.QWidget):
         super(Plot, self).__init__()
         
         # Init logger
-        self.logger = autopilot.core.loggers.init_logger(self)
+        self.logger = init_logger(self)
 
         # Capture these arguments
         self.parent = parent
@@ -221,13 +261,13 @@ class Plot(QtWidgets.QWidget):
 
         
         ## Station
-        # Define listens to be called on each message
+        # Start the listener, subscribes to terminal_networking that will broadcast data
         self.listens = {
-            'START' : self.l_start,
-            'DATA' : self.l_data,
+            'START' : self.l_start, # Receiving a new task
+            'DATA' : self.l_data, # Receiving a new datapoint
             'CONTINUOUS': self.l_data,
             'STOP' : self.l_stop,
-            #'PARAM': self.l_param,
+            'PARAM': self.l_param, # changing some param
             'STATE': self.l_state
         }
         
@@ -235,7 +275,7 @@ class Plot(QtWidgets.QWidget):
         self.node = autopilot.networking.Net_Node(
             id='P_{}'.format(self.pilot),
             upstream="T",
-            port=autopilot.prefs.get('MSGPORT'),
+            port=prefs.get('MSGPORT'),
             listens=self.listens,
             instance=True)
 
@@ -693,6 +733,16 @@ class Plot(QtWidgets.QWidget):
 
         self.state = 'IDLE'
 
+    def l_param(self, value):
+        """
+        Warning:
+            Not implemented
+
+        Args:
+            value:
+        """
+        pass
+
     def l_state(self, value):
         """
         Pilot letting us know its state has changed. Mostly for the case where
@@ -700,189 +750,9 @@ class Plot(QtWidgets.QWidget):
 
         Args:
             value (:attr:`.Pilot.state`): the state of our pilot
+
         """
+
         if (value in ('STOPPING', 'IDLE')) and self.state == 'RUNNING':
             #self.l_stop({})
             pass
-
-class Timer(QtWidgets.QLabel):
-    """
-    A simple timer that counts... time...
-
-    Uses a :class:`QtCore.QTimer` connected to :meth:`.Timer.update_time` .
-    """
-    def __init__(self):
-        # type: () -> None
-        super(Timer, self).__init__()
-
-        self.timer = QtCore.QTimer()
-        self.timer.timeout.connect(self.update_time)
-
-        self.start_time = None
-
-    def start_timer(self, update_interval=1000):
-        """
-        Args:
-            update_interval (float): How often (in ms) the timer should be updated.
-        """
-        self.start_time = time.time()
-        self.timer.start(update_interval)
-
-    def stop_timer(self):
-        """
-        you can read the sign ya punk
-        """
-        self.timer.stop()
-        self.setText("")
-
-    def update_time(self):
-        """
-        Called every (update_interval) milliseconds to set the text of the timer.
-
-        """
-        secs_elapsed = int(np.floor(time.time()-self.start_time))
-        self.setText("{:02d}:{:02d}:{:02d}".format(
-            int(secs_elapsed/3600), int((secs_elapsed/60))%60, secs_elapsed%60))
-
-class Video(QtWidgets.QWidget):
-    def __init__(self, videos, fps=None):
-        """
-        Display Video data as it is collected.
-
-        Uses the :class:`ImageItem_TimedUpdate` class to do timed frame updates.
-
-        Args:
-            videos (list, tuple): Names of video streams that will be displayed
-            fps (int): if None, draw according to ``prefs.get('DRAWFPS')``. Otherwise frequency of widget update
-
-        Attributes:
-            videos (list, tuple): Names of video streams that will be displayed
-            fps (int): if None, draw according to ``prefs.get('DRAWFPS')``. Otherwise frequency of widget update
-            ifps (int): 1/fps, duration of frame in s
-            qs (dict): Dictionary of :class:`~queue.Queue`s in which frames will be dumped
-            quitting (:class:`threading.Event`): Signal to quit drawing
-            update_thread (:class:`threading.Thread`): Thread with target=:meth:`~.Video._update_frame`
-            layout (:class:`PySide2.QtWidgets.QGridLayout`): Widget layout
-            vid_widgets (dict): dict containing widgets for each of the individual video streams.
-        """
-        super(Video, self).__init__()
-
-        self.videos = videos
-
-        if fps is None:
-            if prefs.get( 'DRAWFPS'):
-                self.fps = prefs.get('DRAWFPS')
-            else:
-                self.fps = 10
-        else:
-            self.fps = fps
-
-        self.ifps = 1.0/self.fps
-
-        self.layout = None
-        self.vid_widgets = {}
-
-
-        #self.q = Queue(maxsize=1)
-        self.qs = {}
-        self.quitting = Event()
-        self.quitting.clear()
-
-
-        self.init_gui()
-
-        self.update_thread = Thread(target=self._update_frame)
-        self.update_thread.setDaemon(True)
-        self.update_thread.start()
-
-    def init_gui(self):
-        self.layout = QtWidgets.QGridLayout()
-        self.vid_widgets = {}
-
-
-        for i, vid in enumerate(self.videos):
-            vid_label = QtWidgets.QLabel(vid)
-
-            # https://github.com/pyqtgraph/pyqtgraph/blob/3d3d0a24590a59097b6906d34b7a43d54305368d/examples/VideoSpeedTest.py#L51
-            graphicsView= pg.GraphicsView(self)
-            vb = pg.ViewBox()
-            graphicsView.setCentralItem(vb)
-            vb.setAspectLocked()
-            #img = pg.ImageItem()
-            img = ImageItem_TimedUpdate()
-            vb.addItem(img)
-
-            self.vid_widgets[vid] = (graphicsView, vb, img)
-
-            # 3 videos in a row
-            row = np.floor(i/3.)*2
-            col = i%3
-
-            self.layout.addWidget(vid_label, row,col, 1,1)
-            self.layout.addWidget(self.vid_widgets[vid][0],row+1,col,5,1)
-
-            # make queue for vid
-            self.qs[vid] = Queue(maxsize=1)
-
-
-
-        self.setLayout(self.layout)
-        self.resize(600,700)
-        self.show()
-
-    def _update_frame(self):
-        """
-        Pulls frames from :attr:`.Video.qs` and feeds them to the video widgets.
-
-        Internal method, run in thread.
-        """
-        last_time = 0
-        this_time = 0
-        while not self.quitting.is_set():
-
-            for vid, q in self.qs.items():
-                data = None
-                try:
-                    data = q.get_nowait()
-                    self.vid_widgets[vid][2].setImage(data)
-
-                except Empty:
-                    pass
-                except KeyError:
-                    pass
-
-            this_time = time()
-            sleep(max(self.ifps-(this_time-last_time), 0))
-            last_time = this_time
-
-    def update_frame(self, video, data):
-        """
-        Put a frame for a video stream into its queue.
-
-        If there is a waiting frame, pull it from the queue first -- it's old now.
-
-        Args:
-            video (str): name of video stream
-            data (:class:`numpy.ndarray`): video frame
-        """
-        #pdb.set_trace()
-        # cur_time = time()
-
-        try:
-            # if there's a waiting frame, it's old now so pull it.
-            _ = self.qs[video].get_nowait()
-        except Empty:
-            pass
-
-        try:
-            # put the new frame in there.
-            self.qs[video].put_nowait(data)
-        except Full:
-            return
-        except KeyError:
-            return
-
-    def release(self):
-        self.quitting.set()
-
-    

@@ -80,9 +80,9 @@ from ctypes import c_bool
 from enum import Enum, auto
 import warnings
 
-#from autopilot.core.loggers import init_logger
 from collections import OrderedDict as odict
 from autopilot.exceptions import DefaultPrefWarning
+from autopilot.root import Autopilot_Pref
 
 class Scopes(Enum):
     """
@@ -154,15 +154,61 @@ else:
 
 _LOGGER = None # type: typing.Union[logging.Logger, None]
 """
-Logger used by prefs initialized by :func:`.core.loggers.init_logger`
+Logger used by prefs initialized by :func:`.utils.loggers.init_logger`
 
 Initially None, created once prefs are populated because init_logger requires some prefs to be set (uh the logdir and level and stuff)
 """
 
-
 # not documenting, just so that the full function doesn't need to be put in for each directory
 # lol at this literal reanimated fossil halfway evolved between os.path and pathlib
 _basedir = Path(os.path.join(os.path.expanduser("~"), "autopilot"))
+
+class Common_Prefs(Autopilot_Pref):
+    """
+    Prefs common to all autopilot agents
+    """
+
+class Directory_Prefs(Autopilot_Pref):
+    """
+    Directories and paths that define the contents of the user directory.
+
+    In general, all paths should be beneath the `USER_DIR`
+    """
+
+    class Config:
+        env_prefix = "AUTOPILOT_DIRECTORY_"
+
+class Agent_Prefs(Autopilot_Pref):
+    """
+    Abstract prefs class for prefs that are specific to agents
+    """
+
+
+class Terminal_Prefs(Agent_Prefs):
+    """
+    Prefs for the :class:`~autopilot.agents.terminal.Terminal`
+    """
+
+    class Config:
+        env_prefix = "AUTOPILOT_TERMINAL_"
+
+class Pilot_Prefs(Agent_Prefs):
+    """
+    Prefs for the :class:`~autopilot.agents.pilot.Pilot`
+    """
+
+    class Config:
+        env_prefix = "AUTOPILOT_PILOT_"
+
+class Audio_Prefs(Autopilot_Pref):
+    """
+    Prefs to configure the audio server
+    """
+
+class Hardware_Pref(Autopilot_Pref):
+    """
+    Abstract class for hardware objects,
+    """
 
 
 _DEFAULTS = odict({
@@ -199,7 +245,7 @@ _DEFAULTS = odict({
     'LOGSIZE': {
         'type': 'int',
         "text": "Size of individual log file (in bytes)",
-        "default": 5 * (2 ** 20),  # 50MB
+        "default": 5 * (2 ** 20),  # 5MB
         "scope": Scopes.COMMON
     },
     'LOGNUM': {
@@ -286,6 +332,12 @@ _DEFAULTS = odict({
         'text': 'Location of calibration files for solenoids, etc.',
         'default': str(_basedir / 'calibration'),
         'scope': Scopes.DIRECTORY
+    },
+    'PIGPIO': {
+        'type': 'bool',
+        'text': 'Launch pigpio daemon on start?',
+        'default': True,
+        'scope': Scopes.PILOT
     },
     'PIGPIOMASK': {
         'type': 'str',
@@ -566,7 +618,7 @@ def init(fn=None):
     Todo:
 
         This function may be deprecated in the future -- in its current form it serves to allow the sorta janky launch
-        methods in the headers/footers of autopilot/core/pilot.py and autopilot/core/terminal.py that will eventually
+        methods in the headers/footers of autopilot/agents/pilot.py and autopilot/agents/terminal.py that will eventually
         be transformed into a unified agent framework to make launching easier. Ideally one would be able to just
         import prefs without having to explicitly initialize it, but we need to formalize the full launch process
         before we make the full lurch to that model.
@@ -768,3 +820,6 @@ else:
     if not _INITIALIZED:
         init()
 
+_COMPATIBILITY_MAP = {
+
+}
