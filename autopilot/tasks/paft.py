@@ -248,20 +248,10 @@ class PAFT(Task):
     # instantiate each of the hardware objects, so their naming system 
     # must match (ie. there must be a prefs.PINS['POKES']['L'] entry in 
     # prefs for a task that has a task.HARDWARE['POKES']['L'] object).
-    HARDWARE = {
-        'POKES':{
-            'L': autopilot.hardware.gpio.Digital_In,
-            'R': autopilot.hardware.gpio.Digital_In,
-        },
-        'LEDS':{
-            'L': autopilot.hardware.gpio.LED_RGB,
-            'R': autopilot.hardware.gpio.LED_RGB,
-        },
-        'PORTS':{
-            'L': autopilot.hardware.gpio.Solenoid,
-            'R': autopilot.hardware.gpio.Solenoid,
-        }
-    }
+    # 
+    # Because this runs on the parent, we don't have any hardware to 
+    # instantiate
+    HARDWARE = {}
     
     # This defines the child rpis to connect to
     children_names = prefs.get('CHILDID')
