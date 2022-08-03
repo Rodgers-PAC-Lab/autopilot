@@ -23,7 +23,7 @@ from autopilot.tasks.task import Task
 from autopilot.networking import Net_Node
 from autopilot import prefs
 from autopilot.hardware import BCM_TO_BOARD
-from autopilot.core.loggers import init_logger
+from autopilot.utils.loggers import init_logger
 from autopilot.stim.sound import jackclient
 
 
