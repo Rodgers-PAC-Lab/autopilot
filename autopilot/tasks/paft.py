@@ -44,6 +44,8 @@ import tables
 import numpy as np
 import pandas
 import autopilot.hardware.gpio
+from pydantic import Field
+from autopilot.data.models.protocol import Trial_Data
 from autopilot.stim.sound import sounds
 from autopilot.tasks.task import Task
 from autopilot.networking import Net_Node
@@ -174,38 +176,58 @@ class PAFT(Task):
     # to be set properly here.
     # If they are left unspecified on any given trial, they receive 
     # a default value, such as 0 for Int32Col.
-    class TrialData(tables.IsDescription):
+    #
+    # An updated version using pydantic
+    class TrialData(Trial_Data):
         # The trial within this session
         # Unambigously label this
-        trial_in_session = tables.Int32Col()
+        trial_in_session: int = Field(
+            description='The 0-based trial number within the session')
         
         # If this isn't specified here, it will be added anyway
-        trial_num = tables.Int32Col()
+        trial_num: int = Field(
+            description='The trial number aggregating over sessions')
         
         # The rewarded_port
         # Must specify the max length of the string, we use 64 to be safe
-        previously_rewarded_port = tables.StringCol(64)
-        rewarded_port = tables.StringCol(64)
+        previously_rewarded_port: str = Field(
+            description='the port that was rewarded on the previous trial')
+        rewarded_port: str = Field(
+            description='the port that is rewarded on this trial')
         
         # The timestamps
-        timestamp_trial_start = tables.StringCol(64)
-        timestamp_reward = tables.StringCol(64)
+        timestamp_trial_start: str = Field(
+            description='The time that the trial began, as a string')
+        timestamp_reward: str = Field(
+            description='The time that the reward was delivered, as a string')
         
         # A bunch of stimulus parameters
         # TODO: generate this programmatically from helper
         # TODO: add "log" to the names of the log-spaced params
-        stim_target_rate = tables.Float32Col()
-        stim_target_temporal_std = tables.Float32Col()
-        stim_target_spatial_extent = tables.Float32Col()
-        stim_distracter_rate = tables.Float32Col()
-        stim_distracter_temporal_std = tables.Float32Col()
-        stim_target_center_freq = tables.Float32Col()
-        stim_target_bandwidth = tables.Float32Col()
-        stim_target_amplitude = tables.Float32Col()
-        stim_distracter_center_freq = tables.Float32Col()
-        stim_distracter_bandwidth = tables.Float32Col()
-        stim_distracter_amplitude = tables.Float32Col()
-        stim_n_distracters = tables.Int32Col()
+        stim_target_rate: float = Field(
+            description='The rate of the target sound at the goal')
+        stim_target_temporal_std: float = Field(
+            description='The temporal variability of the target sound')
+        stim_target_spatial_extent: float = Field(
+            description='The spatial extent of the target sounds')
+        stim_distracter_rate: float = Field(
+            description='The rate of the distractor sounds')
+        stim_distracter_temporal_std: float = Field(
+            description='The temporal variability of the distracter sounds')
+        stim_target_center_freq: float = Field(
+            description='The center frequency of the target noise bursts')
+        stim_target_bandwidth: float = Field(
+            description='The bandwidth of the target noise bursts')
+        stim_target_amplitude: float = Field(
+            description='The amplitude of the target noise bursts')
+        stim_distracter_center_freq: float = Field(
+            description='The center frequency of the distracter noise bursts')
+        stim_distracter_bandwidth: float = Field(
+            description='The bandwidth of the distracter noise bursts')
+        stim_distracter_amplitude: float = Field(
+            description='The amplitude of the distracter noise bursts')
+        stim_n_distracters: int = Field(
+            description='The number of distracter ports')
 
     # Define continuous data
     # https://docs.auto-pi-lot.com/en/latest/guide/task.html
