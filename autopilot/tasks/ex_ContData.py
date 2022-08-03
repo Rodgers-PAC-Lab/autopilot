@@ -40,11 +40,11 @@ class ex_ContData(Task):
     returns ContinuousData.
     
     To understand the stage progression logic, see:
-    * autopilot.core.pilot.Pilot.run_task - the main loop
+    * autopilot.agents.pilot.Pilot.run_task - the main loop
     * autopilot.tasks.task.Task.handle_trigger - set stage trigger
     
     To understand the data saving logic, see:
-    * autopilot.core.terminal.Terminal.l_data - what happens when data is sent
+    * autopilot.agents.terminal.Terminal.l_data - what happens when data is sent
     * autopilot.core.subject.Subject.data_thread - how data is saved
     """
     

@@ -46,7 +46,7 @@ class PAFT_Child(children.Child):
         self.name = prefs.get('NAME')
 
         # Set up a logger
-        self.logger = autopilot.core.loggers.init_logger(self)
+        self.logger = autopilot.utils.loggers.init_logger(self)
         
         # This is needed when sending messages
         self.n_messages_sent = 0
