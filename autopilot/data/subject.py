@@ -176,17 +176,12 @@ class Subject(object):
         # def _h5f_context() -> tables.file.File:
         if lock:
             with self._lock:
-                h5f = None
                 try:
                     h5f = tables.open_file(str(self.file), mode="r+")
                     yield h5f
                 finally:
-                    if h5f is not None:
-                        # This happens if an error happened when opening file
-                        # Without this guard, we would get UnboundLocalError
-                        # here, because h5f doesn't exist in that case.
-                        h5f.flush()
-                        h5f.close()
+                    h5f.flush()
+                    h5f.close()
 
         else:
             try:
