@@ -33,6 +33,8 @@ if typing.TYPE_CHECKING:
 # suppress pytables natural name warnings
 warnings.simplefilter('ignore', category=tables.NaturalNameWarning)
 
+import pandas
+
 
 class Subject(object):
     """
@@ -858,24 +860,149 @@ class Subject(object):
             queue (:class:`queue.Queue`): passed by :meth:`~.Subject.prepare_run` and used by other
                 objects to pass data to be stored.
         """
+        # Open the HDF5 file where data is stored
         with self._h5f() as h5f:
 
+            ## CR
+            # Get the current task and step
+            task_params = self.current[self.step]
+            # step_name = task_params['step_name']
+            
+            # Get task_class
+            # This is used to get the HDF5 datatypes for Continuous Data
+            task_class = autopilot.get_task(task_params['task_type'])
+
+            # I think this now irrelevant 
+            # because we have continuous_group_path
+            # step_group = f"/data/{self.protocol_name}/S{self.step:02d}_{step_name}"
+            
+            # Get the trial_table, located within the step group
+            # file structure is '/data/protocol_name/##_step_name/tables'
+
+            # Upstream
             trial_table = h5f.get_node(trial_table_path)
             trial_row = trial_table.row
 
-            # try to get continuous data table if any
-            cont_tables = {}
-            cont_rows = {}
+            # CR
+            trial_keys = trial_table.colnames
+
+            # Get the continuous_session_group
+            # If it exists, it is wtihin continuous_group/session_number
+            try:
+                # All continuous data
+                # continuous_group = h5f.get_node(step_group, 'continuous_data')
+                
+                # Continuous data for this session
+                # This must have been created by something
+                # continuous_session_group = h5f.get_node(
+                #    continuous_group, 'session_{}'.format(self.session))
+                
+                # CR: I think (?) this is right?
+                # What happens if this group does not exist?
+                continuous_session_group = h5f.get_node(continuous_group_path)
+            
+            except (KeyError, AttributeError):
+                # Indicate that there is no continuous_group available
+                # continuous_group = None
+                continuous_session_group = None
+
+            # If continuous_session_group exists, create chunk_table within it
+            if continuous_session_group is not None:
+                # Iterate over any defined CHUNKDATA_CLASSES in task_class
+                chunk_table_d = {}
+                for chunk_class in task_class.CHUNKDATA_CLASSES:
+                    # Create a chunk_table for this chunk_class
+                    chunk_table = h5f.create_table(
+                        continuous_session_group, 
+                        chunk_class.__name__,
+                        chunk_class,
+                        filters=self.continuous_filter,
+                        )
+                    
+                    # Is it possible for this table to already exist in the HDF5?
+                    # If so, will get NodeError here
+                    # Could just get existing one, but not sure this ever happens
+
+                    # Store
+                    chunk_table_d[chunk_class.__name__] = chunk_table
+                
+                # Also create a separate table for each column in ContinuousData
+                # That table will have one column for that piece of data,
+                # and a second column called "timestamp" of type StringAtom
+                # Previously this was only done for items in 
+                # step_group['continuous_data']._v_attrs['data']
+                # But that is only set at the time of protocol assignment
+                # This way, it is refreshed each time the task is changed
+                cont_tables = {}
+                for colname in task_class.ContinuousData.columns.keys():
+                    cont_tables[colname] = h5f.create_table(
+                        continuous_group_path, 
+                        colname,
+                        description={
+                            colname: task_class.ContinuousData.columns[colname],
+                            'timestamp': tables.StringCol(50),
+                        }, 
+                        filters=self.continuous_filter, # Still needed?
+                        )
+            else:
+                chunk_table = None
+                cont_tables = {}
+
 
             # start getting data
             # stop when 'END' gets put in the queue
             for data in iter(queue.get, 'END'):
                 # wrap everything in try because this thread shouldn't crash
                 try:
+                    # special case chunk data
+                    if 'chunkclass_name' in data.keys():
+                        # Log
+                        chunkclass_name = data['chunkclass_name']
+                        self.logger.debug('chunk data received of type {}'.format(
+                            chunkclass_name))
+                        
+                        # Get the appropriate chunk_table
+                        self.logger.debug('chunktable_d keys: {}'.format(chunk_table_d.keys()))
+                        chunk_table = chunk_table_d[chunkclass_name]
+                        
+                        # Pop payload from `data`, continuing if no rows to add
+                        payload = data.pop('payload')
+                        if len(payload) == 0:
+                            continue
+
+                        # Pop payload_columns
+                        # All other items in `data` are ignored
+                        payload_columns = data.pop('payload_columns')
+                        
+                        # Reconstruct a DataFrame out of the payload
+                        payload_df = pandas.DataFrame(
+                            payload, columns=payload_columns)
+                        
+                        # Include exactly those columns that are in chunk_table
+                        # This will insert np.nan for any missing columns
+                        # This will cause an error if any of them are supposed to be int
+                        sliced_payload_df = payload_df.reindex(
+                            chunk_table.colnames, axis=1)
+                        
+                        # Convert to list of tuples, as expected by pytables
+                        to_append = list(map(tuple, sliced_payload_df.values))
+                        
+                        # Append
+                        try:
+                            chunk_table.append(to_append)
+                        except ValueError:
+                            self.logger.debug('error: failed to append chunk data!')
+                            self.logger.debug('payload_df:\n{}'.format(payload_df))
+                            self.logger.debug(
+                                'sliced_payload_df:\n{}'.format(sliced_payload_df))
+                    
+                        # Continue, the rest assumes trial data
+                        continue
+
+                    # special case continuous data
                     if 'continuous' in data.keys():
-                        cont_tables, cont_rows = self._save_continuous_data(
-                            h5f, data, continuous_group_path, cont_tables, cont_rows
-                        )
+                        self._save_continuous_data(h5f, data, cont_tables)
+
                         # continue, the rest is for handling trial data
                         continue
 
@@ -891,24 +1018,31 @@ class Subject(object):
                     self.logger.exception(f'exception in data thread: {e}')
 
     def _save_continuous_data(self,
-                              h5f: tables.File,
-                              data: dict,
-                              continuous_group_path:str,
-                              cont_tables: typing.Dict[str, tables.table.Table],
-                              cont_rows:typing.Dict[str, Row]) -> typing.Tuple[typing.Dict[str, tables.table.Table], typing.Dict[str, Row]]:
+            h5f: tables.File,
+            data: dict,
+            cont_tables: typing.Dict[str, tables.table.Table],
+            ):
+        """Save trial `data` as a row in `cont_tables`"""
+        # Iterate over all items in `data`
         for k, v in data.items():
-
-            # if we haven't made a table yet, do it
-            if k not in cont_tables.keys():
-                new_cont_table = self._make_continuous_table(h5f, continuous_group_path, k, v)
-                cont_tables[k] = new_cont_table
-                cont_rows[k] = new_cont_table.row
-
-            cont_rows[k][k] = v
-            cont_rows[k]['timestamp'] = data.get('timestamp', datetime.datetime.now().isoformat())
-            cont_rows[k].append()
-
-        return cont_tables, cont_rows
+            # Store the items we expected to receive
+            if k in cont_tables.keys():
+                # Append the received value and the timestamp
+                cont_tables[k].row[k] = v
+                cont_tables[k].row['timestamp'] = (
+                    data.get('timestamp', ''))
+                cont_tables[k].row.append()             
+            
+            # continue silently for items we expect to ignore
+            # (unless they were explicitly included in the table)
+            elif k in ['timestamp', 'subject', 'pilot', 'continuous']:
+                continue
+            
+            # otherwise warn
+            else:
+                self.logger.warning(
+                    "continuous data dropped because "
+                    "{} not recognized".format(k))
 
     def _make_continuous_table(self, h5f:tables.file.File,
                                continuous_group_path:str,
