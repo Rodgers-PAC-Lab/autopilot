@@ -835,7 +835,7 @@ class Pilot(Agent):
                     # I think this is no longer true, there is no DATA
                     if trial_data:
                         for k, v in data.items():
-                            if k in self.task.TrialData.columns.keys():
+                            if k in self.task.TrialData.to_pytables_description().columns.keys():
                                 row[k] = v
 
                     # If the trial is over (either completed or bailed), flush the row
