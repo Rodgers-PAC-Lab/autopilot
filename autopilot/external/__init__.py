@@ -50,30 +50,48 @@ def check_open(procname:str) -> bool:
 
 
 def start_pigpiod():
+    """Start pigpiod if needed and store in global variable PIGPIO_DAEMON
+    
+    Raises error if pigpiod is not found.
+    Print warning and returns None if pigpiod is already running.
+    Returns the current value of PIGPIO_DAEMON if it exists
+    Otherwise launches pigpiod using prefs and stores in PIGPIO_DAEMON
+    """
+    # If "which pigpiod" doesn't work, then raise ImportError now
     if not PIGPIO:
         raise ImportError('the pigpiod daemon was not found! use autopilot.setup.')
 
+    # If pigpiod is already running, issue a warning and return None
+    # Shouldn't we return PIGPIO_DAEMON in this case
     if check_open('pigpiod'):
         warnings.warn('pigpiod is already running')
         return
 
+    # Lock
     with globals()['PIGPIO_LOCK']:
+        # If PIGPIO_DAEMON already exists as a global, return that
+        # Although in this case, we probably would have returned above
         if globals()['PIGPIO_DAEMON'] is not None:
             return globals()['PIGPIO_DAEMON']
 
+        # Check again that we can run pigpiod, and store the binary as the
+        # start of the `launch_pigpiod` command string
         launch_pigpiod = shutil.which('pigpiod')
         if launch_pigpiod is None:
             raise RuntimeError('the pigpiod binary was not found!')
 
+        # Add the PIGPIOARGS from prefs to launch_pigpiod
         if prefs.get( 'PIGPIOARGS'):
             launch_pigpiod += ' ' + prefs.get('PIGPIOARGS')
 
+        # Add the PIGPIOMASK (as a string) from prefs to launch_pigpiod
         if prefs.get( 'PIGPIOMASK'):
             # if it's been converted to an integer, convert back to a string and zfill any leading zeros that were lost
             if isinstance(prefs.get('PIGPIOMASK'), int):
                 prefs.set('PIGPIOMASK', str(prefs.get('PIGPIOMASK')).zfill(28))
             launch_pigpiod += ' -x ' + prefs.get('PIGPIOMASK')
 
+        # Launch the process and store as global PIGPIO_DAEMON
         proc = subprocess.Popen('sudo ' + launch_pigpiod, shell=True)
         globals()['PIGPIO_DAEMON'] = proc
 
