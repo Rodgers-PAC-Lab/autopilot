@@ -1,6 +1,14 @@
+"""Classes to plot data in the GUI."""
 from functools import wraps
 from itertools import count
 
+# CR
+import datetime
+import time
+import logging
+import os
+
+# Upstream
 import numpy as np
 import pyqtgraph as pg
 from PySide2 import QtCore, QtWidgets
@@ -14,6 +22,9 @@ from autopilot.gui.plots.geom import Roll_Mean, HLine, PLOT_LIST
 from autopilot.networking import Net_Node
 from autopilot.utils.invoker import get_invoker, InvokeEvent
 
+# CR: check this no longer needed
+# pg config
+# pg.setConfigOptions(antialias=True, imageAxisOrder='row-major')
 
 def gui_event(fn):
     """
@@ -94,16 +105,24 @@ class Plot_Widget(QtWidgets.QWidget):
         for p in self.pilots:
             plot = Plot(pilot=p, parent=self)
             self.plot_layout.addWidget(plot)
-            self.plot_layout.addWidget(HLine())
+            #~ self.plot_layout.addWidget(HLine())
             self.plots[p] = plot
 
 
 class Plot(QtWidgets.QWidget):
-    """
-    Widget that hosts a :class:`pyqtgraph.PlotWidget` and manages
-    graphical objects for one pilot depending on the task.
+    """Displays data for a single Pilot, within the overall Terminal.
+    
+    This version has been heavily customized and only works for PAFT
+    tasks. TODO: allow different tasks to define their own Plot.
+    
+    This object inherits from QWidget. It lives inside a QVBoxLayout
+    rendering the other Pilots. This is handled by the class Plot_Widget.
+    
+    This object contains other Widgets, corresponding to (for example)
+    an infobox and one or more graphs.
 
-    **listens**
+    This object contains a Net_Node that listens for messages. The
+    following messages are accepted:
 
     +-------------+------------------------+-------------------------+
     | Key         | Method                 | Description             |
@@ -149,46 +168,98 @@ class Plot(QtWidgets.QWidget):
         state (str): state of the pilot, used to keep plot synchronized.
     """
 
-    def __init__(self, pilot, x_width=50, parent=None):
+    def __init__(self, pilot, parent=None):
+        """Initialize a new Plot for a single pilot.
+        
+        Arguments:
+            pilot (str): The name of the corresponding pilot.
+                Our Net_Node will be named P_{}.format(pilot).
+                Messages to this Net_Node will be handled by this object.
+            
+            parent (:class: `Plot_Widget`):
+                The `Plot_Widget` in which we live.
+                I don't think this is used by anything.
         """
-        Args:
-            pilot (str): The name of our pilot
-            x_width (int): How many trials in the past should we plot?
-        """
-        #super(Plot, self).__init__(QtOpenGL.QGLFormat(QtOpenGL.QGL.SampleBuffers), parent)
+        # Superclass init (Qt stuff)
         super(Plot, self).__init__()
-
+        
+        # Init logger
         self.logger = init_logger(self)
 
+        # Capture these arguments
         self.parent = parent
-        self.layout = None
-        self.infobox = None
-        self.n_trials = None
-        self.session_trials = 0
-        self.info = {}
-        self.plot = None
-        self.xrange = None
-        self.plot_params = {}
-        self.data = {} # Keep a dict of the data we are keeping track of, will be instantiated on start
-        self.plots = {}
+        self.pilot = pilot
+        
+        # Keep track of our `state`. This can be IDLE, INITIALIZING, or RUNNING
+        # Used to disregard messages when we're not able to handle them yet.
         self.state = "IDLE"
-        self.continuous = False
-        self.last_time = 0
-        self.video = None
-        self.videos = []
-
+        
+        # Qt magic?
         self.invoker = get_invoker()
 
-        # The name of our pilot, used to listen for events
-        self.pilot = pilot
+        
+        ## Task specific stuff
+        # These are the possible ports to display
+        # TODO: receive these from the Pilot? Or how to handle multiple boxes?
+        # These will be rendered clockwise from northwest in the box plot
+        # And from top down in the raster plot
+        if pilot == 'rpi_parent01':
+            self.known_pilot_ports = [
+                'rpi09_L',
+                'rpi09_R',
+                'rpi10_L',
+                'rpi10_R',            
+                'rpi11_L',
+                'rpi11_R',
+                'rpi12_L',
+                'rpi12_R', 
+                ]
+        elif pilot == 'rpi_parent02':
+            self.known_pilot_ports = [
+                'rpi07_L',
+                'rpi07_R',
+                'rpi08_L',
+                'rpi08_R', 
+                'rpi05_L',
+                'rpi05_R',
+                'rpi06_L',
+                'rpi06_R',
+                ]
+        elif pilot == 'rpiparent03':
+            self.known_pilot_ports = [
+                'rpi01_L',
+                'rpi01_R',
+                'rpi02_L',
+                'rpi02_R',            
+                'rpi03_L',
+                'rpi03_R',
+                'rpi04_L',
+                'rpi04_R', 
+                ]
+        elif pilot =='rpi17':
+            self.known_pilot_ports = []
+        else:
+            raise ValueError("unrecognized parent name: {}".format(pilot))
+            
+        # These are used to store data we receive over time
+        self.known_pilot_ports_poke_data = [
+            [] for kpp in self.known_pilot_ports]
+        self.known_pilot_ports_reward_data = [
+            [] for kpp in self.known_pilot_ports]
+        self.known_pilot_ports_correct_reward_data = [
+            [] for kpp in self.known_pilot_ports]
+        self.rank_of_poke_by_trial = []
+        
+        # These are used to store handles to different graph traces
+        self.known_pilot_ports_poke_plot = []
+        self.known_pilot_ports_reward_plot = []
+        self.known_pilot_ports_correct_reward_plot = []
 
-        # Set initial x-value, will update when data starts coming in
-        self.x_width = x_width
-        self.last_trial = self.x_width
-
-        # Inits the basic widget settings
+        
+        ## Init the plots and handles
         self.init_plots()
 
+        
         ## Station
         # Start the listener, subscribes to terminal_networking that will broadcast data
         self.listens = {
@@ -199,250 +270,466 @@ class Plot(QtWidgets.QWidget):
             'PARAM': self.l_param, # changing some param
             'STATE': self.l_state
         }
-
-        self.node = Net_Node(id='P_{}'.format(self.pilot),
-                             upstream="T",
-                             port=prefs.get('MSGPORT'),
-                             listens=self.listens,
-                             instance=True)
-
+        
+        # Start the Net_Node
+        self.node = autopilot.networking.Net_Node(
+            id='P_{}'.format(self.pilot),
+            upstream="T",
+            port=prefs.get('MSGPORT'),
+            listens=self.listens,
+            instance=True)
 
     @gui_event
     def init_plots(self):
+        """Initalize our contained Widgets and graphs.
+        
+        This creates the following Widgets in an QHBoxLayout:
+            infobox (QFormLayout) :
+                Lists text results, such as n_trials
+            plot_octagon (pg.PlotWidget) :
+                Plot of the current status of the octagon
+                A separate circle displays each port
+            plot_timecourse (pg.PlotWidget) :
+                Plot of the pokes over time
         """
-        Make pre-task GUI objects and set basic visual parameters of `self.plot`
-        """
-
-        # This is called to make the basic plot window,
-        # each task started should then send us params to populate afterwards
-        #self.getPlotItem().hideAxis('bottom')
-
+        ## Ceates a horizontal box layout for all the sub-widgets
         self.layout = QtWidgets.QHBoxLayout()
         self.layout.setContentsMargins(2,2,2,2)
         self.setLayout(self.layout)
-
-        # A little infobox to keep track of running time, trials, etc.
+    
+        
+        ## Widget 1: Infobox
+        # Create the first widget: an infobox for n_trials, etc
         self.infobox = QtWidgets.QFormLayout()
-        self.n_trials = count()
-        self.session_trials = 0
-        self.info = {
+        self.infobox_items = {
             'N Trials': QtWidgets.QLabel(),
+            'N Correct Trials': QtWidgets.QLabel(),
+            'N Rewards': QtWidgets.QLabel(),
+            'FC': QtWidgets.QLabel(),
+            'RCP': QtWidgets.QLabel(),
             'Runtime' : Timer(),
-            'Session' : QtWidgets.QLabel(),
-            'Protocol': QtWidgets.QLabel(),
-            'Step'    : QtWidgets.QLabel()
+            'Last poke': Timer(),
         }
-        for k, v in self.info.items():
+        
+        # Keep track of N Rewards
+        self.n_rewards = 0
+        self.infobox_items['N Rewards'].setText('')
 
+        # Keep track of N Trials
+        self.n_trials = 0
+        self.infobox_items['N Trials'].setText('')
+        
+        # Keep track of N Correct Trials
+        self.n_correct_trials = 0
+        self.infobox_items['N Correct Trials'].setText('')
+
+        # This is for calculating rcp
+        self.rank_of_poke_by_trial = []
+
+        # Add rows to infobox
+        for k, v in self.infobox_items.items():
             self.infobox.addRow(k, v)
-
-        #self.infobox.setS
-
-
+        
+        # Add to layout
         self.layout.addLayout(self.infobox, 2)
 
-        # The plot that we own :)
-        self.plot = pg.PlotWidget()
-        self.plot.setContentsMargins(0,0,0,0)
+        
+        ## Widget 2: Octagon plot
+        # Create
+        self.plot_octagon = pg.PlotWidget()
 
-        self.layout.addWidget(self.plot, 8)
+        # Within self.plot_octagon, add a circle representing each port
+        self.octagon_port_plot_l = []
+        for n_port in range(8):
+            # Determine location
+            theta = np.pi / 2 - n_port / 8 * 2 * np.pi + np.pi / 4
+            x_pos = np.cos(theta)
+            y_pos = np.sin(theta)
+            
+            # Plot the circle
+            port_plot = self.plot_octagon.plot(
+                x=[x_pos], y=[y_pos],
+                pen=None, symbolBrush=(255, 0, 0), symbolPen=None, symbol='o',
+                )
+            
+            # Store the handle to the plot
+            self.octagon_port_plot_l.append(port_plot)
+            
+            # Text label for each port
+            txt = pg.TextItem(self.known_pilot_ports[n_port],
+                color='white', anchor=(0.5, 0.5))
+            txt.setPos(x_pos * .8, y_pos * .8)
+            txt.setAngle(np.mod(theta * 180 / np.pi, 180) - 90)
+            self.plot_octagon.addItem(txt)
+        
+        # Set ranges
+        self.plot_octagon.setRange(xRange=(-1, 1), yRange=(-1, 1))
+        self.plot_octagon.setFixedWidth(275)
+        self.plot_octagon.setFixedHeight(300)
+        
+        # Add to layout
+        self.layout.addWidget(self.plot_octagon, 8)
+        
+        
+        ## Widget 3: Timecourse plot
+        ## Create
+        self.timecourse_plot = pg.PlotWidget()
+        self.timecourse_plot.setContentsMargins(0,0,0,0)
+        
+        # Set xlim
+        self.timecourse_plot.setRange(xRange=[0, 25 * 60], yRange=[0, 7])
+        self.timecourse_plot.getViewBox().invertY(True)
+       
+        # Add a vertical line indicating the current time
+        # This will shift over throughout the session
+        self.line_of_current_time = self.timecourse_plot.plot(
+            x=[0, 0], y=[-1, 8], pen='white')
 
-        self.xrange = range(self.last_trial - self.x_width + 1, self.last_trial + 1)
-        self.plot.setXRange(self.xrange[0], self.xrange[-1])
+        # Within self.timecourse_plot, add a trace for pokes made into
+        # each port
+        ticks_l = []
+        for n_row in range(len(self.known_pilot_ports)):
+            # Create a plot handle for pokes
+            poke_plot = self.timecourse_plot.plot(
+                x=[],
+                y=np.array([]),
+                pen=None, symbolBrush=(255, 0, 0), 
+                symbolPen=None, symbol='arrow_down',
+                )
 
-        # self.plot.getPlotItem().hideAxis('left')
-        self.plot.setBackground(None)
-        self.plot.getPlotItem().getAxis('bottom').setPen({'color':'k'})
-        self.plot.getPlotItem().getAxis('bottom').setTickFont('FreeMono')
-        self.plot.setXRange(self.xrange[0], self.xrange[1])
-        self.plot.enableAutoRange(y=True)
-        # self.plot
-        # self.plot.setYRange(0, 1)
+            # Store
+            self.known_pilot_ports_poke_plot.append(poke_plot)
+
+            # Create a plot handle for rewards
+            # This will be blue, because water was given
+            reward_plot = self.timecourse_plot.plot(
+                x=[],
+                y=np.array([]),
+                pen=None, symbolBrush=(0, 0, 255), 
+                symbolPen=None, symbol='arrow_up',
+                )
+
+            # Store
+            self.known_pilot_ports_reward_plot.append(reward_plot)
+
+            # Create a plot handle for "correct rewards", which is if the
+            # rewarded port was poked first
+            # This will be green, because it was correct
+            reward_plot = self.timecourse_plot.plot(
+                x=[],
+                y=np.array([]),
+                pen=None, symbolBrush=(0, 255, 0), 
+                symbolPen=None, symbol='arrow_up',
+                )
+
+            # Store
+            self.known_pilot_ports_correct_reward_plot.append(reward_plot)
+            
+            # Also keep track of yticks
+            ticks_l.append((n_row, self.known_pilot_ports[n_row]))
+
+        # Set ticks
+        self.timecourse_plot.getAxis('left').setTicks([ticks_l])
+
+        # Add to layout
+        self.layout.addWidget(self.timecourse_plot, 8)
 
     @gui_event
     def l_start(self, value):
-        """
-        Starting a task, initialize task-specific plot objects described in the
-        :attr:`.Task.PLOT` attribute.
-
-        Matches the data field name (keys of :attr:`.Task.PLOT` ) to the plot object
-        that represents it, eg, to make the standard nafc plot::
-
-            {'target'   : 'point',
-             'response' : 'segment',
-             'correct'  : 'rollmean'}
-
-        Args:
-            value (dict): The same parameter dictionary sent by :meth:`.Terminal.toggle_start`, including
-
-                * current_trial
-                * step
-                * session
-                * step_name
-                * task_type
-        """
-
+        """Start a new session"""
+        # If we're already running, log a warning, something didn't shut down
         if self.state in ("RUNNING", "INITIALIZING"):
+            self.logger.debug(
+                'Plot was told to start but the state is '
+                'already {}'.format(self.state))
             return
-
-        self.state = "INITIALIZING"
-
-
+        
+        self.logger.debug('PLOT L_START')
+        
         # set infobox stuff
-        self.n_trials = count()
-        self.session_trials = 0
-        self.info['N Trials'].setText(str(value['current_trial']))
-        self.info['Runtime'].start_timer()
-        self.info['Step'].setText(str(value['step']))
-        self.info['Session'].setText(str(value['session']))
-        self.info['Protocol'].setText(value['step_name'])
+        self.infobox_items['Runtime'].start_timer()
+        self.infobox_items['Last poke'].start_timer()
 
-        # We're sent a task dict, we extract the plot params and send them to the plot object
-        self.plot_params = autopilot.get_task(value['task_type']).PLOT
-
-        # if we got no plot params, that's fine, just set as running and return
-        if not self.plot_params:
-            self.logger.warning(f"No plot params for task {value['task_type']}")
-            self.state = "RUNNING"
-            return
-
-        if 'continuous' in self.plot_params.keys():
-            if self.plot_params['continuous']:
-                self.continuous = True
-            else:
-                self.continuous = False
-        else:
-            self.continuous = False
-
-
-
-
-
-        # TODO: Make this more general, make cases for each non-'data' key
-        try:
-            if self.plot_params['chance_bar']:
-                if self.plot_params['chance_level']:
-                    try:
-                        chance_level = float(self.plot_params['chance_level'])
-                    except ValueError:
-                        chance_level = 0.5
-                        # TODO: Log this.
-
-                    self.plot.getPlotItem().addLine(y=chance_level, pen=(255, 0, 0))
-
-                else:
-                    self.plot.getPlotItem().addLine(y=0.5, pen=(255, 0, 0))
-        except KeyError:
-            # No big deal, chance bar wasn't set
-            pass
-
-        self.x_width = self.plot_params.get('x_width', self.x_width)
-        if 'y_range' in self.plot_params:
-            self.plot.setYRange(*self.plot_params['y_range'])
-
-        # Make plot items for each data type
-        for data, plot in self.plot_params.get('data', {}).items():
-            # TODO: Better way of doing params for plots, redo when params are refactored
-            if plot == 'rollmean' and 'roll_window' in self.plot_params.keys():
-                self.plots[data] = Roll_Mean(winsize=self.plot_params['roll_window'])
-                self.plot.addItem(self.plots[data])
-                self.data[data] = np.zeros((0,2), dtype=np.float)
-            else:
-                self.plots[data] = PLOT_LIST[plot](continuous=self.continuous)
-                self.plot.addItem(self.plots[data])
-                self.data[data] = np.zeros((0,2), dtype=np.float)
-
-        if 'video' in self.plot_params.keys():
-            self.videos = self.plot_params['video']
-            self.video = Video(self.plot_params['video'])
-            #self.video.start()
-
-
+        # Set state
         self.state = 'RUNNING'
-
-
+        
+        # Set reward counter to 0
+        self.n_rewards = 0
+        self.n_trials = 0
+        self.n_correct_trials = 0
+        self.rank_of_poke_by_trial = []
+        
+        # Set time
+        self.start_time = None
+        self.local_start_time = None
+        
+        # Remove residual pokes from previous session
+        self.known_pilot_ports_poke_data = [
+            [] for kpp in self.known_pilot_ports]
+        self.known_pilot_ports_reward_data = [
+            [] for kpp in self.known_pilot_ports]
+        self.known_pilot_ports_correct_reward_data = [
+            [] for kpp in self.known_pilot_ports]
+        
+        # Update each poke plot to start empty
+        for poke_plot in self.known_pilot_ports_poke_plot:
+            poke_plot.setData(x=[], y=[])
+        for poke_plot in self.known_pilot_ports_reward_plot:
+            poke_plot.setData(x=[], y=[])
+        for poke_plot in self.known_pilot_ports_correct_reward_plot:
+            poke_plot.setData(x=[], y=[])
+        
+        # Update every so often
+        self.update_timer = pg.QtCore.QTimer()
+        self.update_timer.timeout.connect(self.update_time_bar)
+        self.update_timer.start(50)        
+    
+    @gui_event
+    def update_time_bar(self):
+        """Use current time to approximately update timebar"""
+        if self.local_start_time is not None:
+            current_time = datetime.datetime.now()
+            approx_time_in_session = (
+                current_time - self.local_start_time).total_seconds()
+            self.line_of_current_time.setData(
+                x=[approx_time_in_session, approx_time_in_session], y=[-1, 9])
 
     @gui_event
     def l_data(self, value):
-        """
-        Receive some data, if we were told to plot it, stash the data
-        and update the assigned plot.
+        """Receive data from a running task.
 
         Args:
             value (dict): Value field of a data message sent during a task.
         """
-        self.logger.debug(f'got data {value}')
-
-        if self.state == "INITIALIZING":
+        self.logger.debug('plots : l_data : received value {}'.format(value))
+        
+        # Return if we're not ready to take data
+        if self.state in ["INITIALIZING", "IDLE"]:
+            self.logger.debug(
+                'l_data returning because state is {}'.format(self.state))
             return
+        
+        # Use the start time of the first trial to define `self.start_time`
+        # This is time zero on the graph
+        if 'timestamp_trial_start' in value and self.start_time is None:
+            self.logger.debug(
+                'setting start time '
+                'to {}'.format(value['timestamp_trial_start']))
+            self.start_time = datetime.datetime.fromisoformat(
+                value['timestamp_trial_start'])
+            
+            # Also store approx local start time
+            self.local_start_time = datetime.datetime.now()
 
-        #pdb.set_trace()
-        if 'trial_num' in value.keys():
-            v = value.pop('trial_num')
-            if v >= self.last_trial:
-                self.session_trials = next(self.n_trials)
-            elif v < self.last_trial:
-                self.logger.exception('Shouldnt be going back in time!')
-            self.last_trial = v
-            # self.last_trial = v
-            self.info['N Trials'].setText("{}/{}".format(self.session_trials, v))
-            if not self.continuous:
-                self.xrange = range(v - self.x_width + 1, v + 1)
-                self.plot.setXRange(self.xrange[0], self.xrange[-1])
+        # Get the timestamp of this message
+        if 'timestamp' in value:
+            timestamp_dt = datetime.datetime.fromisoformat(value['timestamp'])
+            timestamp_sec = (timestamp_dt - self.start_time).total_seconds()
+            
+            # Update the current time line
+            self.line_of_current_time.setData(
+                x=[timestamp_sec, timestamp_sec], y=[-1, 9])
+        
+        # A new "rewarded_port" was just chosen. Mark it purple.
+        # This means it is the beginning of a new trial.
+        if 'rewarded_port' in value.keys():
+            self.handle_new_trial_start(value)
+        
+        # A port was just poked
+        if 'poked_port' in value.keys():
+            # Log this, mark the port red or blue, plot the poke time 
+            self.handle_poked_port(value, timestamp_sec)
 
+    def handle_new_trial_start(self, value):
+        """A new trial was just started, update plot
+        
+        Mark rewarded port as purple, previously rewarded as black,
+        and all others as white.
+        """
+        # Use this flag to keep track of whether reward has been delivered
+        # on this trial yet or not
+        self.reward_delivered_on_this_trial = False
+        
+        # Find the matching kpp_idx for the rewarded_port
+        try:
+            rp_kpp_idx = self.known_pilot_ports.index(
+                value['rewarded_port'])
+        except ValueError:
+            # This shouldn't happen
+            rp_kpp_idx = None
+        
+        # Find the matching kpp_idx for the previously_rewarded_port
+        try:
+            prp_kpp_idx = self.known_pilot_ports.index(
+                value['previously_rewarded_port'])
+        except ValueError:
+            # This shouldn't happen
+            prp_kpp_idx = None
+            
+        # Make all ports white, except rewarded port purple, and
+        # previously rewarded port black
+        for opp_idx, opp in enumerate(self.octagon_port_plot_l):
+            if opp_idx == rp_kpp_idx:
+                opp.setSymbolBrush('purple')
+            elif opp_idx == prp_kpp_idx:
+                opp.setSymbolBrush('black')
+            else:
+                opp.setSymbolBrush('w')        
 
-        if 't' in value.keys():
-            self.last_time = value.pop('t')
-            if self.continuous:
-                self.plot.setXRange(self.last_time-self.x_width, self.last_time+1)
+    def handle_poked_port(self, value, timestamp_sec):
+        """A port was poked, update the plots accordingly
+        
+        Determines which port was poked
+        Calls handle_rewarded_poke or handle_unrewarded_poke, depending
+        """
+        # Reset poke timer
+        self.infobox_items['Last poke'].start_time = time.time()
+       
+        # Extract data
+        poked_port = value['poked_port']
+        
+        # Find which pilot this is
+        try:
+            kpp_idx = self.known_pilot_ports.index(poked_port)
+        except ValueError:
+            self.logger.debug(
+                'unknown poke received: {}'.format(poked_port))
+            kpp_idx = None
+        
+        # Store the time and update the plot
+        if kpp_idx is not None:
+            # If reward_delivered, then this poke ended the trial
+            #    If first_poke, then the trial was correct
+            #       Plot as green tick and turn circle green
+            #    Else, then the trial was incorrect
+            #       Plot as blue tick and turn circle blue
+            # Else, then the trial is not over
+            #    Plot as red tick and turn circle red (unless it is
+            #    already blue or green)
+            
+            ## Test whether this poke ended the trial
+            if value['reward_delivered']:
+                self.handle_rewarded_poke(value, kpp_idx, timestamp_sec)
+            else:
+                self.handle_unrewarded_poke(value, kpp_idx, timestamp_sec)
 
+    def handle_rewarded_poke(self, value, kpp_idx, timestamp_sec):
+        """Handle a rewarded poke
+        
+        Update infoboxes
+        Plot ticks in green or blue
+        Turn circle green or blue
+        """
+        # This poke ended the trial by delivering a reward
+        self.reward_delivered_on_this_trial = True
 
-        if self.continuous:
-            x_val = self.last_time
+        # Increment rewards and trials
+        self.n_rewards += 1
+        self.n_trials += 1
+        self.infobox_items['N Rewards'].setText(str(self.n_rewards))
+        self.infobox_items['N Trials'].setText(str(self.n_trials))
+        
+        # Store the rank
+        self.rank_of_poke_by_trial.append(value['poke_rank'])
+
+        # Test whether it was the first poke of the trial
+        if value['first_poke']:
+            # This poke was the first one
+            # So this was the poke that made it a correct trial
+            
+            # Increment counter
+            self.n_correct_trials += 1
+            self.infobox_items['N Correct Trials'].setText(
+                str(self.n_correct_trials))                
+            
+            # Store the time in the GREEN trace (correct trial)
+            kpp_data = self.known_pilot_ports_correct_reward_data[kpp_idx]
+            kpp_data.append(timestamp_sec)
+            
+            # Update the plot
+            self.known_pilot_ports_correct_reward_plot[kpp_idx].setData(
+                x=kpp_data,
+                y=np.array([kpp_idx] * len(kpp_data)),
+                )                
+
+            # Turn the correspond poke circle GREEN (correct trial)
+            self.octagon_port_plot_l[kpp_idx].setSymbolBrush('g')
+        
         else:
-            x_val = self.last_trial
+            # This was not the first poke
+            # So this poke was correct, but a mistake was made
+            # on this trial
+            
+            # Store the time in the BLUE trace (water given)
+            kpp_data = self.known_pilot_ports_reward_data[kpp_idx]
+            kpp_data.append(timestamp_sec)
+            
+            # Update the plot
+            self.known_pilot_ports_reward_plot[kpp_idx].setData(
+                x=kpp_data,
+                y=np.array([kpp_idx] * len(kpp_data)),
+                )                
+            
+            # Turn the correspond poke circle BLUE (water given)
+            self.octagon_port_plot_l[kpp_idx].setSymbolBrush('b')                        
 
-        for k, v in value.items():
-            if k in self.data.keys():
-                self.data[k] = np.vstack((self.data[k], (x_val, v)))
-                # gui_event_fn(self.plots[k].update, *(self.data[k],))
-                self.plots[k].update(self.data[k])
-            elif k in self.videos:
-                self.video.update_frame(k, v)
+        # Update FC and RCP
+        if self.n_trials > 0:
+            # FC
+            self.infobox_items['FC'].setText(
+                '{:0.3f}'.format(
+                self.n_correct_trials / self.n_trials))
+            
+            # RCP
+            self.infobox_items['RCP'].setText(
+                '{:0.3f}'.format(
+                np.mean(self.rank_of_poke_by_trial)))        
 
-
+    def handle_unrewarded_poke(self, value, kpp_idx, timestamp_sec):
+        """Handle an unrewarded poke
+        
+        Plot a red tick and turn the circle red
+        Pokes to previously rewarded port are ignored
+        """
+        # This poke was unrewarded and did not end the trial
+        # Either it was incorrect, or the reward was already given
+        
+        # Test whether it was a previously_rewarded_port
+        if value['poke_rank'] == -1:
+            # This was probably a consummation lick from the
+            # previous trial. Do nothing
+            pass
+        
+        else:
+            # Store the time in the RED trace
+            kpp_data = self.known_pilot_ports_poke_data[kpp_idx]
+            kpp_data.append(timestamp_sec)
+            
+            # Update the plot
+            self.known_pilot_ports_poke_plot[kpp_idx].setData(
+                x=kpp_data,
+                y=np.array([kpp_idx] * len(kpp_data)),
+                )
+            
+            # Turn the correspond poke circle red,
+            # unless reward has already been delivered, in which
+            # case this is almost certainly consummation
+            if not self.reward_delivered_on_this_trial:
+                self.octagon_port_plot_l[kpp_idx].setSymbolBrush(
+                    'r')
 
     @gui_event
     def l_stop(self, value):
+        """Set all contained objects back to defaults before the next session
+
         """
-        Clean up the plot objects.
-
-        Args:
-            value (dict): if "graduation" is a key, don't stop the timer.
-        """
-        self.data = {}
-        self.plots = {}
-        self.plot.clear()
-        try:
-            if isinstance(value, str) or ('graduation' not in value.keys()):
-                self.info['Runtime'].stop_timer()
-        except:
-            self.info['Runtime'].stop_timer()
-
-
-
-        self.info['N Trials'].setText('')
-        self.info['Step'].setText('')
-        self.info['Session'].setText('')
-        self.info['Protocol'].setText('')
-
-        if self.video is not None:
-            self.video.release()
-            self.video.close()
-            del self.video
-            del self.videos
-            self.video = None
-            self.videos = []
+        # Stop the timer
+        self.infobox_items['Runtime'].stop_timer()
+        self.infobox_items['Last poke'].stop_timer()
+        self.update_timer.stop()
+        
+        # Don't close the Net_Node socket now or we can't receive again
+        # Although find a way to close it when the user closes the Terminal
 
         self.state = 'IDLE'
 
