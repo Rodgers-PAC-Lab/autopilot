@@ -434,7 +434,10 @@ class Terminal(QtWidgets.QMainWindow):
                     with open(pilot_db_fn, 'r') as pilot_file:
                         self._pilots = json.load(pilot_file, object_pairs_hook=odict)
                     self.logger.info(f'successfully loaded pilot_db.json file from {pilot_db_fn}')
-                    self.logger.debug(pformat(self._pilots))
+                    
+                    # CR: blanking this because it's really long now that
+                    # pilot_db also includes params
+                    # self.logger.debug(pformat(self._pilots))
                 except Exception as e:
                     self.logger.exception((f"Exception opening pilot_db.json file at {pilot_db_fn}, got exception: {e}.\n",
                                            "Not proceeding to prevent possibly overwriting corrupt pilot_db.file"))
