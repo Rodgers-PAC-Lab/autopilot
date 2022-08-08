@@ -691,6 +691,8 @@ class Subject(object):
             protocol = self.protocol.protocol,
             structure = self.structure
         )
+        
+        # group_path is something like /data/TASK_NAME/S00_STEPNAME
         group_path = protocol_groups.steps[self.step].path
         trial_table_path = "/".join([group_path, 'trial_data'])
 
@@ -790,22 +792,49 @@ class Subject(object):
             return trial_tab
 
     def _prepare_continuous_data(self, task_params: dict, group_path:str) -> str:
-        # --------------------------------------------------
-        # prepare continuous data group
-
+        """Create a node for continuous data for this session, if needed.
+        
+        Arguments:
+            task_params : used to get the task_class
+            group_path : something like /data/TASKNAME/SNN_STEPNAME
+        
+        Continuous data for this session will be stored at a node named
+        `continuous_group_path`, which is something like 
+            "/data/TASKNAME/SNN_STEPNAME/continuous_data/session_N"
+        where `N` comes from `self.session`.
+        
+        If the task_class has an attribute ContinuousData, then that node
+        is created. If it doesn't have that attribute, then no node is created.
+        
+        In either case, returns the string `continuous_group_path`.
+        """
+        # Generate the name of this session
         group_name = f"session_{self.session}"
-        continuous_group_path = '/'.join([group_path, group_name])
+        
+        # This is where all continuous data lives
+        # this will be something like $group_path$/continuous_data/session_N
+        cont_group_name = '/'.join([group_path, 'continuous_data'])
+        
+        # This is where continuous data for this session lives
+        # this will be something like $group_path$/continuous_data/session_N
+        continuous_group_path = '/'.join([cont_group_name, group_name])
 
+        # Open the file
         with self._h5f() as h5f:
-
-            # prepare continuous data group and tables
+            # Only create a note if the task has the attribute ContinuousData
             task_class = autopilot.get_task(task_params['task_type'])
             if hasattr(task_class, 'ContinuousData'):
-                cont_group = h5f.get_node(group_path, 'continuous_data')
+                # Get the node where continuous data lives
+                cont_group = h5f.get_node(cont_group_name)
+                
+                # Try to create the node for this session
                 try:
                     _ = h5f.create_group(cont_group, group_name)
                 except tables.NodeError:
-                    pass # fine, already made it
+                    # This happens if the node already exists
+                    self.logger.debug(
+                        '_prepare_continuous_data: could not create node, '
+                        'hopefully it already exists')
 
         return continuous_group_path
 
@@ -874,13 +903,6 @@ class Subject(object):
             # This is used to get the HDF5 datatypes for Continuous Data
             task_class = autopilot.get_task(task_params['task_type'])
 
-            # I think this now irrelevant 
-            # because we have continuous_group_path
-            # step_group = f"/data/{self.protocol_name}/S{self.step:02d}_{step_name}"
-            
-            # Get the trial_table, located within the step group
-            # file structure is '/data/protocol_name/##_step_name/tables'
-
             # Upstream
             trial_table = h5f.get_node(trial_table_path)
             trial_row = trial_table.row
@@ -919,7 +941,6 @@ class Subject(object):
                         continuous_session_group, 
                         chunk_class.__name__,
                         chunk_class,
-                        filters=self.continuous_filter,
                         )
                     
                     # Is it possible for this table to already exist in the HDF5?
@@ -945,7 +966,6 @@ class Subject(object):
                             colname: task_class.ContinuousData.columns[colname],
                             'timestamp': tables.StringCol(50),
                         }, 
-                        filters=self.continuous_filter, # Still needed?
                         )
             else:
                 chunk_table_d = None
