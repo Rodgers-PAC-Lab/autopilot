@@ -239,7 +239,9 @@ class Plot(QtWidgets.QWidget):
         elif pilot =='rpi17':
             self.known_pilot_ports = []
         else:
-            raise ValueError("unrecognized parent name: {}".format(pilot))
+            # This can happen if another pilot is in pilot_db for whatever reason
+            self.known_pilot_ports = []
+            self.logger.debug("plot: unrecognized parent name: {}".format(pilot))
             
         # These are used to store data we receive over time
         self.known_pilot_ports_poke_data = [
@@ -340,27 +342,30 @@ class Plot(QtWidgets.QWidget):
 
         # Within self.plot_octagon, add a circle representing each port
         self.octagon_port_plot_l = []
-        for n_port in range(8):
-            # Determine location
-            theta = np.pi / 2 - n_port / 8 * 2 * np.pi + np.pi / 4
-            x_pos = np.cos(theta)
-            y_pos = np.sin(theta)
-            
-            # Plot the circle
-            port_plot = self.plot_octagon.plot(
-                x=[x_pos], y=[y_pos],
-                pen=None, symbolBrush=(255, 0, 0), symbolPen=None, symbol='o',
-                )
-            
-            # Store the handle to the plot
-            self.octagon_port_plot_l.append(port_plot)
-            
-            # Text label for each port
-            txt = pg.TextItem(self.known_pilot_ports[n_port],
-                color='white', anchor=(0.5, 0.5))
-            txt.setPos(x_pos * .8, y_pos * .8)
-            txt.setAngle(np.mod(theta * 180 / np.pi, 180) - 90)
-            self.plot_octagon.addItem(txt)
+        
+        # This if statement allows proceeding if pilot isn't actually a parent
+        if len(self.known_pilot_ports) > 0:
+            for n_port in range(8):
+                # Determine location
+                theta = np.pi / 2 - n_port / 8 * 2 * np.pi + np.pi / 4
+                x_pos = np.cos(theta)
+                y_pos = np.sin(theta)
+                
+                # Plot the circle
+                port_plot = self.plot_octagon.plot(
+                    x=[x_pos], y=[y_pos],
+                    pen=None, symbolBrush=(255, 0, 0), symbolPen=None, symbol='o',
+                    )
+                
+                # Store the handle to the plot
+                self.octagon_port_plot_l.append(port_plot)
+                
+                # Text label for each port
+                txt = pg.TextItem(self.known_pilot_ports[n_port],
+                    color='white', anchor=(0.5, 0.5))
+                txt.setPos(x_pos * .8, y_pos * .8)
+                txt.setAngle(np.mod(theta * 180 / np.pi, 180) - 90)
+                self.plot_octagon.addItem(txt)
         
         # Set ranges
         self.plot_octagon.setRange(xRange=(-1, 1), yRange=(-1, 1))
