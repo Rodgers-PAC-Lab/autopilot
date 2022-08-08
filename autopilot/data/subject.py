@@ -840,6 +840,12 @@ class Subject(object):
 
     def _prepare_graduation(self, task_params:dict, trial_tab:tables.table.Table) -> 'Graduation':
         try:
+            # CR: Use this to indicate no graduation needed, and return
+            # without logging an exception
+            # Otherwise we get KeyError on the next line
+            if 'type' not in task_params['graduation']:
+                return
+            
             grad_type = task_params['graduation']['type']
             grad_params = task_params['graduation']['value'].copy()
 
