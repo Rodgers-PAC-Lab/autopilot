@@ -182,6 +182,9 @@ class Subject(object):
                 try:
                     h5f = tables.open_file(str(self.file), mode="r+")
                     yield h5f
+                except tables.exceptions.HDF5ExtError:
+                    self.logger.debug('error opening {}'.format(self.file))
+                    raise
                 finally:
                     if h5f is not None:
                         # This happens if an error happened when opening file
@@ -904,6 +907,7 @@ class Subject(object):
                 # Indicate that there is no continuous_group available
                 # continuous_group = None
                 continuous_session_group = None
+                raise
 
             # If continuous_session_group exists, create chunk_table within it
             if continuous_session_group is not None:
@@ -944,7 +948,7 @@ class Subject(object):
                         filters=self.continuous_filter, # Still needed?
                         )
             else:
-                chunk_table = None
+                chunk_table_d = None
                 cont_tables = {}
 
 
