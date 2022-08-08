@@ -770,7 +770,7 @@ class Subject(object):
                 else:
                     # find any discontinuities
                     # normally continuous sessions should have a diff of 0 or 1 (same or incremented session)
-                    discontinuities = np.where(np.logical_or(np.diff(sessions)<0,np.diff(sessions) > 1))
+                    discontinuities = np.where(np.logical_or(np.diff(sessions)<0,np.diff(sessions) > 1))[0]
                     if len(discontinuities) == 0:
                         # fine, use the whole thing
                         pass
