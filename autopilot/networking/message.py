@@ -145,7 +145,28 @@ class Message(object):
             decode = base64.b64decode(obj_pairs[0][1])
             try:
                 arr = blosc.unpack_array(decode)
-            except RuntimeError:
+            except (RuntimeError, ValueError):
+                """CR: Adding ValueError because:
+                  File "/home/pi/dev/autopilot/autopilot/networking/node.py", line 194, in handle_listen
+                    msg = Message(msg[-1], expand_arrays=self.expand)
+                  File "/home/pi/dev/autopilot/autopilot/networking/message.py", line 77, in __init__
+                    deserialized = json.loads(msg, object_pairs_hook=self._deserialize_numpy)
+                  File "/usr/lib/python3.9/json/__init__.py", line 359, in loads
+                    return cls(**kw).decode(s)
+                  File "/usr/lib/python3.9/json/decoder.py", line 337, in decode
+                    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+                  File "/usr/lib/python3.9/json/decoder.py", line 353, in raw_decode
+                    obj, end = self.scan_once(s, idx)
+                  File "/home/pi/dev/autopilot/autopilot/networking/message.py", line 147, in _deserialize_numpy
+                    arr = blosc.unpack_array(decode)
+                  File "/home/pi/.venv/autopilot/lib/python3.9/site-packages/blosc2/core.py", line 367, in unpack_array
+                    pickled_array = decompress(packed_array)
+                  File "/home/pi/.venv/autopilot/lib/python3.9/site-packages/blosc2/core.py", line 170, in decompress
+                    return blosc2_ext.decompress(src, dst, as_bytearray)
+                  File "blosc2_ext.pyx", line 440, in blosc2.blosc2_ext.decompress
+                  File "blosc2_ext.pyx", line 406, in blosc2.blosc2_ext._check_comp_length
+                ValueError: src cannot be less than 16 byte
+                """
                 # cannot decompress, maybe because wasn't compressed
                 arr = np.frombuffer(decode, dtype=obj_pairs[1][1]).reshape(obj_pairs[2][1])
 
