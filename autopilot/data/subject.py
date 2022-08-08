@@ -917,23 +917,15 @@ class Subject(object):
             trial_keys = trial_table.colnames
 
             # Get the continuous_session_group
-            # If it exists, it is wtihin continuous_group/session_number
+            # This is created by _prepare_continuous_data in prepare_run,
+            # but only if this task_class included ContinuousData
             try:
-                # All continuous data
-                # continuous_group = h5f.get_node(step_group, 'continuous_data')
-                
-                # Continuous data for this session
-                # This must have been created by something
-                # continuous_session_group = h5f.get_node(
-                #    continuous_group, 'session_{}'.format(self.session))
-                
-                # CR: I think (?) this is right?
-                # What happens if this group does not exist?
+                # If it exists, it is within continuous_group/session_number
                 continuous_session_group = h5f.get_node(continuous_group_path)
             
             except (KeyError, AttributeError):
                 # Indicate that there is no continuous_group available
-                # continuous_group = None
+                # This probably means task_class does not contain ContinuousData
                 continuous_session_group = None
                 raise
 
@@ -981,70 +973,84 @@ class Subject(object):
             # start getting data
             # stop when 'END' gets put in the queue
             for data in iter(queue.get, 'END'):
+                self.logger.debug('_data_thread: received {}'.format(data))
+                
                 # wrap everything in try because this thread shouldn't crash
                 try:
                     # special case chunk data
                     if 'chunkclass_name' in data.keys():
-                        # Log
-                        chunkclass_name = data['chunkclass_name']
-                        self.logger.debug('chunk data received of type {}'.format(
-                            chunkclass_name))
-                        
-                        # Get the appropriate chunk_table
-                        self.logger.debug('chunktable_d keys: {}'.format(chunk_table_d.keys()))
-                        chunk_table = chunk_table_d[chunkclass_name]
-                        
-                        # Pop payload from `data`, continuing if no rows to add
-                        payload = data.pop('payload')
-                        if len(payload) == 0:
-                            continue
-
-                        # Pop payload_columns
-                        # All other items in `data` are ignored
-                        payload_columns = data.pop('payload_columns')
-                        
-                        # Reconstruct a DataFrame out of the payload
-                        payload_df = pandas.DataFrame(
-                            payload, columns=payload_columns)
-                        
-                        # Include exactly those columns that are in chunk_table
-                        # This will insert np.nan for any missing columns
-                        # This will cause an error if any of them are supposed to be int
-                        sliced_payload_df = payload_df.reindex(
-                            chunk_table.colnames, axis=1)
-                        
-                        # Convert to list of tuples, as expected by pytables
-                        to_append = list(map(tuple, sliced_payload_df.values))
-                        
-                        # Append
-                        try:
-                            chunk_table.append(to_append)
-                        except ValueError:
-                            self.logger.debug('error: failed to append chunk data!')
-                            self.logger.debug('payload_df:\n{}'.format(payload_df))
-                            self.logger.debug(
-                                'sliced_payload_df:\n{}'.format(sliced_payload_df))
-                    
-                        # Continue, the rest assumes trial data
-                        continue
+                        self._save_chunk_data(h5f, data, chunk_table_d)
 
                     # special case continuous data
-                    if 'continuous' in data.keys():
+                    elif 'continuous' in data.keys():
                         self._save_continuous_data(h5f, data, cont_tables)
-
-                        # continue, the rest is for handling trial data
-                        continue
-
-                    # If we get trial data out of order, try and write it back in the correct row.
-                    if 'trial_num' in data.keys() and 'trial_num' in trial_row:
-                        trial_row = self._sync_trial_row(data['trial_num'], trial_row, trial_table)
-                        del data['trial_num']
-
-                    self._save_trial_data(data, trial_row, trial_table)
+                    
+                    # regular old trial data
+                    else:
+                        self.logger.debug('received trial data: {}'.format(data))
+                        # If we get trial data out of order, 
+                        # try and write it back in the correct row.
+                        if 'trial_num' in data.keys() and 'trial_num' in trial_row:
+                            trial_row = self._sync_trial_row(
+                                data['trial_num'], trial_row, trial_table)
+                            del data['trial_num']
+                            self.logger.debug('fixed trial data: {}'.format(data))
+                        
+                        self.logger.debug('saving trial data')
+                        self._save_trial_data(data, trial_row, trial_table)
 
                 except Exception as e:
                     # we shouldn't throw any exception in this thread, just log it and move on
                     self.logger.exception(f'exception in data thread: {e}')
+
+    def _save_chunk_data(self, 
+        h5f: tables.File,
+        data: dict,
+        chunk_table_d: dict,
+        ):
+        """Pops `payload` from `data` and stores as DataFrame in chunk table.
+        
+        """
+        # Log
+        chunkclass_name = data['chunkclass_name']
+        self.logger.debug('chunk data received of type {}'.format(
+            chunkclass_name))
+        
+        # Get the appropriate chunk_table
+        self.logger.debug('chunktable_d keys: {}'.format(chunk_table_d.keys()))
+        chunk_table = chunk_table_d[chunkclass_name]
+        
+        # Pop payload from `data`, continuing if no rows to add
+        payload = data.pop('payload')
+        if len(payload) == 0:
+            self.logger.debug('_save_chunk_data: payload was empty')
+            return 
+
+        # Pop payload_columns
+        # All other items in `data` are ignored
+        payload_columns = data.pop('payload_columns')
+        
+        # Reconstruct a DataFrame out of the payload
+        payload_df = pandas.DataFrame(
+            payload, columns=payload_columns)
+        
+        # Include exactly those columns that are in chunk_table
+        # This will insert np.nan for any missing columns
+        # This will cause an error if any of them are supposed to be int
+        sliced_payload_df = payload_df.reindex(
+            chunk_table.colnames, axis=1)
+        
+        # Convert to list of tuples, as expected by pytables
+        to_append = list(map(tuple, sliced_payload_df.values))
+        
+        # Append
+        try:
+            chunk_table.append(to_append)
+        except ValueError:
+            self.logger.debug('error: failed to append chunk data!')
+            self.logger.debug('payload_df:\n{}'.format(payload_df))
+            self.logger.debug(
+                'sliced_payload_df:\n{}'.format(sliced_payload_df))        
 
     def _save_continuous_data(self,
             h5f: tables.File,
@@ -1090,42 +1096,76 @@ class Subject(object):
             'timestamp': tables.StringCol(256)
         })
 
-    def _save_trial_data(self, data:dict, trial_row:Row, trial_table:tables.table.Table):
-
+    def _save_trial_data(self, data:dict, trial_row:Row, 
+        trial_table:tables.table.Table):
+        """Save `data` to `trial_row`, potentially incrementing trial
+        
+        Each item (k, v) in `data` is iterated. Keys that correspond to
+        columns in the trial table are saved. Unrecognized keys are
+        dropped with an exception.
+        
+        If TRIAL_END is in `data`, or if saving one of the items would 
+        overwrite existing data, then the trial row is incremented.
+        """
+        # Iterate over all items in `data`, saving each one
         for k, v in data.items():
-            # some bug where some columns are not always detected,
-            # rather than failing out here, just log error
-            if k in ('TRIAL_END',):
+            if k in ('TRIAL_END', 'pilot', 'subject'):
+                # Don't try to save these in the trial table
+                # TRIAL_END is a flag for incrementing trial
+                # 'pilot' and 'subject' are included in messages
                 continue
 
-            try:
+            elif k in trial_row:
+                # `k` is a known column of the trial table, so we should
+                # save it
+                
+                # If this would overwrite an existing value, then instead,
+                # increment the trial and print a warning
                 if trial_row[k] not in (None, b'', 0) and k != 'trial_num':
                     self.logger.warning(
-                        f"Received two values for key, making new row.: {k} and trial row: {trial_row.nrow}, existing value: {trial_row[k]}, new value: {v}")
+                        f"Received two values for key, making new row.: {k} "
+                        f"and trial row: {trial_row.nrow}, existing value: "
+                        f"{trial_row[k]}, new value: {v}"
+                        )
+                    
+                    # Increment trial
                     self._increment_trial(trial_row)
+                
+                # Store the value in `trial_row`
                 trial_row[k] = v
-            except KeyError:
+            
+            else:
+                # `k` is not a known column of the trial table
+                # This means we're dropping data, so print exception!
                 # TODO: expand trial_table!
-                if k in ('pilot', 'subject'):
-                    # normal, just move on.
-                    continue
-                self.logger.exception(f"Trial data dropped because no column for key: {k}, value: {v}")
+                self.logger.exception(
+                    f"Trial data dropped because no column for key: {k}, "
+                    f"value: {v}")
 
-        if 'TRIAL_END' in data.keys() or all([v is not None for v in trial_row.fetch_all_fields()]):
+        # Increment the trial number when TRIAL_END is received
+        if 'TRIAL_END' in data.keys():
             self._increment_trial(trial_row)
 
-        # always flush so that our row iteration routines above will find what they're looking for
+        # always flush so that our row iteration routines above will 
+        # find what they're looking for
         trial_table.flush()
 
     def _sync_trial_row(self, trial_num:int, trial_row:Row, trial_table:tables.table.Table) -> Row:
         if trial_row['trial_num'] in (None, b''):
+            self.logger.debug("_sync_trial_row: this row's trial_num is "
+                "blank, setting to {}".format(trial_num))
             trial_row['trial_num'] = trial_num
 
         elif trial_num == trial_row['trial_num'] + 1:
+            self.logger.debug("_sync_trial_row: this row's trial_num is "
+                "one greater than expected, incrementing trial to {}".format(
+                trial_num))
             self._increment_trial(trial_row)
             trial_row['trial_num'] = trial_num
 
         elif trial_num == trial_row['trial_num']:
+            self.logger.debug(
+                "_sync_trial_data: this row's trial_num is as expected")
             # fine! we're on the right one
             pass
 
@@ -1138,21 +1178,31 @@ class Subject(object):
             # FIXME: this should also ensure that the trial_num comes from a row with a matching session_uuid
 
             other_row = [r for r in trial_table.where(f"trial_num == {trial_num}")]
+            self.logger.debug(
+                "_sync_trial_data: error, we're on the wrong row, and it's "
+                "not just the next one. potential matches: {}".format(
+                other_row))
 
             if len(other_row) == 0:
                 # proceed to fill the row below, we got trial data discontinuously somehow
                 self.logger.warning(f"Got discontinuous trial data")
+                self.logger.debug(
+                    "_sync_trial_data: no matches, using {}".format(trial_num))
                 self._increment_trial(trial_row)
                 trial_row['trial_num'] = trial_num
 
             elif len(other_row) == 1:
                 # return the other row! (if an overwrite is attempted, append and go to next row anyway)
+                self.logger.debug(
+                    "_sync_trial_data: matched row {} and using it".format(other_row[0]))
                 trial_row = other_row[0]
 
             else:
                 # we have more than one row with this trial_num.
                 # shouldn't happen, but we dont' want to throw any data away
                 self.logger.warning(f'Found multiple rows with same trial_num: {trial_num}')
+                self.logger.debug(
+                    "_sync_trial_data: matched multiple rows, using {}".format(trial_num))
                 # continue just for data conservancy's sake
                 self._increment_trial(trial_row)
                 trial_row['trial_num'] = trial_num
