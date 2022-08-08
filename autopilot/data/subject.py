@@ -864,9 +864,8 @@ class Subject(object):
         with self._h5f() as h5f:
 
             ## CR
-            # Get the current task and step
-            task_params = self.current[self.step]
-            # step_name = task_params['step_name']
+            # Get task_params, currently used only to get task_class
+            task_params = self.protocol.protocol[self.step]
             
             # Get task_class
             # This is used to get the HDF5 datatypes for Continuous Data
