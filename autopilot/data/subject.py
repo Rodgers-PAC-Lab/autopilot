@@ -183,7 +183,7 @@ class Subject(object):
                     h5f = tables.open_file(str(self.file), mode="r+")
                     yield h5f
                 except tables.exceptions.HDF5ExtError:
-                    self.logger.debug('error opening {}'.format(self.file))
+                    self.logger.debug('error opening with lock {}'.format(self.file))
                     raise
                 finally:
                     if h5f is not None:
@@ -194,7 +194,9 @@ class Subject(object):
                         h5f.close()
 
         else:
+            h5f = None
             try:
+                #~ h5f = tables.open_file(str(self.file), mode="r+")
                 try:
                     h5f = tables.open_file(str(self.file), mode="r")
                 except ValueError as e:
@@ -204,10 +206,13 @@ class Subject(object):
                         raise e
 
                 yield h5f
+            except tables.exceptions.HDF5ExtError:
+                self.logger.debug('error opening wihout lock {}'.format(self.file))
+                raise
             finally:
-                h5f.flush()
-                h5f.close()
-        # return _h5f_context()
+                if h5f is not None:
+                    h5f.flush()
+                    h5f.close()
 
     @property
     def info(self) -> Biography:
@@ -248,7 +253,9 @@ class Subject(object):
 
             if 'protocol' in protocol:
                 protocol_node = h5f.get_node(self.structure.protocol.path + '/protocol')
+                self.logger.debug('protocol_property: protocol_node = {}'.format(protocol_node))
                 protocol_node = filenode.open_node(protocol_node)
+                self.logger.debug('protocol_property: protocol_node = {}'.format(protocol_node))
                 protocoldict['protocol'] = json.loads(protocol_node.readall())
                 protocol_node.close()
 
@@ -304,7 +311,8 @@ class Subject(object):
             else:
                 raise e
 
-        self.logger.info(f"Saved new protocol status {protocol}")
+        # CR blank this because too verbose
+        # self.logger.info(f"Saved new protocol status {protocol}")
 
     @property
     def protocol_name(self) -> str:
