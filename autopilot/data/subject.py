@@ -906,79 +906,65 @@ class Subject(object):
             queue (:class:`queue.Queue`): passed by :meth:`~.Subject.prepare_run` and used by other
                 objects to pass data to be stored.
         """
+        task_class = autopilot.tasks.paft.PAFT
+        table_desc = task_class.TrialData.to_pytables_description()
+        
         # Open the HDF5 file where data is stored
-        with self._h5f() as h5f:
-
-            ## CR
-            # Get task_params, currently used only to get task_class
-            task_params = self.protocol.protocol[self.step]
+        with tables.open_file('~/test.hdf5', 'w') as h5f:
+            ## Create a trial table for this session
+            trial_table = h5f.create_table(
+                where=h5f.root, 
+                name='trial_data', 
+                description=table_desc, 
+                title='subject X on date Y',
+                )
             
-            # Get task_class
-            # This is used to get the HDF5 datatypes for Continuous Data
-            task_class = autopilot.get_task(task_params['task_type'])
-
-            # Upstream
-            trial_table = h5f.get_node(trial_table_path)
+            # Get a link to the row to add
             trial_row = trial_table.row
 
-            # CR
+            # Get the column names
             trial_keys = trial_table.colnames
 
-            # Get the continuous_session_group
-            # This is created by _prepare_continuous_data in prepare_run,
-            # but only if this task_class included ContinuousData
-            try:
-                # If it exists, it is within continuous_group/session_number
-                continuous_session_group = h5f.get_node(continuous_group_path)
+
+            ## Create a continuous table for this session
+            # This is where continuous data for this session lives
+            continuous_session_group = h5f.create_group(h5f.root, 'continuous_data')
             
-            except (KeyError, AttributeError):
-                # Indicate that there is no continuous_group available
-                # This probably means task_class does not contain ContinuousData
-                continuous_session_group = None
-                raise
-
-            # If continuous_session_group exists, create chunk_table within it
-            if continuous_session_group is not None:
-                # Iterate over any defined CHUNKDATA_CLASSES in task_class
-                chunk_table_d = {}
-                for chunk_class in task_class.CHUNKDATA_CLASSES:
-                    # Create a chunk_table for this chunk_class
-                    chunk_table = h5f.create_table(
-                        continuous_session_group, 
-                        chunk_class.__name__,
-                        chunk_class,
-                        )
-                    
-                    # Is it possible for this table to already exist in the HDF5?
-                    # If so, will get NodeError here
-                    # Could just get existing one, but not sure this ever happens
-
-                    # Store
-                    chunk_table_d[chunk_class.__name__] = chunk_table
+            # Also create a separate table for each column in ContinuousData
+            # That table will have one column for that piece of data,
+            # and a second column called "timestamp" of type StringAtom
+            # Previously this was only done for items in 
+            # step_group['continuous_data']._v_attrs['data']
+            # But that is only set at the time of protocol assignment
+            # This way, it is refreshed each time the task is changed
+            cont_tables = {}
+            for colname in task_class.ContinuousData.columns.keys():
+                cont_tables[colname] = h5f.create_table(
+                    continuous_session_group, 
+                    colname,
+                    description={
+                        colname: task_class.ContinuousData.columns[colname],
+                        'timestamp': tables.StringCol(50),
+                    }, 
+                )
+            
+            
+            ## Create chunkdata 
+            # Iterate over any defined CHUNKDATA_CLASSES in task_class
+            chunk_table_d = {}
+            for chunk_class in task_class.CHUNKDATA_CLASSES:
+                # Create a chunk_table for this chunk_class
+                chunk_table = h5f.create_table(
+                    continuous_session_group, 
+                    chunk_class.__name__,
+                    chunk_class,
+                    )
                 
-                # Also create a separate table for each column in ContinuousData
-                # That table will have one column for that piece of data,
-                # and a second column called "timestamp" of type StringAtom
-                # Previously this was only done for items in 
-                # step_group['continuous_data']._v_attrs['data']
-                # But that is only set at the time of protocol assignment
-                # This way, it is refreshed each time the task is changed
-                cont_tables = {}
-                for colname in task_class.ContinuousData.columns.keys():
-                    cont_tables[colname] = h5f.create_table(
-                        continuous_group_path, 
-                        colname,
-                        description={
-                            colname: task_class.ContinuousData.columns[colname],
-                            'timestamp': tables.StringCol(50),
-                        }, 
-                        )
-            else:
-                chunk_table_d = None
-                cont_tables = {}
+                # Store
+                chunk_table_d[chunk_class.__name__] = chunk_table
+            
 
-
-            # start getting data
+            ## start getting data
             # stop when 'END' gets put in the queue
             for data in iter(queue.get, 'END'):
                 self.logger.debug('_data_thread: received {}'.format(data))
