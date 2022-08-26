@@ -789,7 +789,7 @@ class Subject(object):
         table_desc = task_class.TrialData.to_pytables_description()
         
         # Open the HDF5 file where data is stored
-        with tables.open_file(os.path.expanduser('~/test.hdf5'), 'w') as h5f:
+        with tables.open_file(hdf5_filename, 'w') as h5f:
             ## Create a trial table for this session
             trial_table = h5f.create_table(
                 where=h5f.root, 
