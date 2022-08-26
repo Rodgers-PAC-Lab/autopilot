@@ -201,7 +201,7 @@ class Plot(QtWidgets.QWidget):
         ## Task specific stuff
         # These are the possible ports to display
         # TODO: receive these from the Pilot? Or how to handle multiple boxes?
-        # These will be rendered clockwise from northwest in the box plot
+        # These will be rendered clockwise in the box plot
         # And from top down in the raster plot
         if pilot == 'rpi_parent01':
             self.known_pilot_ports = [
@@ -214,6 +214,12 @@ class Plot(QtWidgets.QWidget):
                 'rpi12_L',
                 'rpi12_R', 
                 ]
+            
+            # The first entry in the list above will be located at
+            # the gui rotation offset (typically, straight up, or pi / 2).
+            # Each subsequent port is 45 degrees clockwise from there.
+            self.gui_rotation_offset = np.pi / 2
+        
         elif pilot == 'rpi_parent02':
             self.known_pilot_ports = [
                 'rpi07_L',
@@ -225,6 +231,8 @@ class Plot(QtWidgets.QWidget):
                 'rpi06_L',
                 'rpi06_R',
                 ]
+            self.gui_rotation_offset = np.pi / 2
+        
         elif pilot == 'rpiparent03':
             self.known_pilot_ports = [
                 'rpi01_L',
@@ -236,13 +244,18 @@ class Plot(QtWidgets.QWidget):
                 'rpi04_L',
                 'rpi04_R', 
                 ]
+            self.gui_rotation_offset = -np.pi / 4
+        
         elif pilot =='rpi17':
             self.known_pilot_ports = []
+            self.gui_rotation_offset = np.pi / 2
+        
         else:
             # This can happen if another pilot is in pilot_db for whatever reason
             self.known_pilot_ports = []
+            self.gui_rotation_offset = np.pi / 2
             self.logger.debug("plot: unrecognized parent name: {}".format(pilot))
-            
+        
         # These are used to store data we receive over time
         self.known_pilot_ports_poke_data = [
             [] for kpp in self.known_pilot_ports]
@@ -347,7 +360,10 @@ class Plot(QtWidgets.QWidget):
         if len(self.known_pilot_ports) > 0:
             for n_port in range(8):
                 # Determine location
-                theta = np.pi / 2 - n_port / 8 * 2 * np.pi + np.pi / 4
+                # The first entry in the list will be located at
+                # the gui rotation offset (typically, straight up, or pi / 2).
+                # Each port after that is 45 degrees clockwise (-pi/4)
+                theta = self.gui_rotation_offset - n_port * np.pi / 4
                 x_pos = np.cos(theta)
                 y_pos = np.sin(theta)
                 
