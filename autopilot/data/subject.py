@@ -712,7 +712,6 @@ class Subject(object):
 
         # Get current task parameters and handles to tables
         task_params = self.protocol.protocol[self.step]
-        print("task_params = {}".format(str(task_params)))
         
         # increment session and clear session_uuid to ensure uniqueness
         self.session += 1
@@ -723,7 +722,6 @@ class Subject(object):
         session_dt = datetime.datetime.now()
         session_dt_string = session_dt.strftime('%Y-%m-%d-%H-%M-%S-%f')
         session_name = '{}_{}'.format(session_dt_string, self.name)
-        print("session_name: {}".format(session_name))
 
         # Create a location to store this
         # TODO: fetch sandbox_root_dir from prefs
@@ -736,7 +734,6 @@ class Subject(object):
         
         # Generate the HDF5 filename for _data_thread
         hdf5_filename = os.path.join(sandbox_dir, session_name + '.hdf5')
-        print("hdf5_filename: {}".format(hdf5_filename))
         
         # Copy in the task_params used
         # TODO: store pilot name here too
