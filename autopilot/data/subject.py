@@ -1,6 +1,7 @@
 """
 Abstraction layer around subject data storage files
 """
+import os
 import threading
 import datetime
 import json
@@ -253,9 +254,9 @@ class Subject(object):
 
             if 'protocol' in protocol:
                 protocol_node = h5f.get_node(self.structure.protocol.path + '/protocol')
-                self.logger.debug('protocol_property: protocol_node = {}'.format(protocol_node))
+                #self.logger.debug('protocol_property: protocol_node = {}'.format(protocol_node))
                 protocol_node = filenode.open_node(protocol_node)
-                self.logger.debug('protocol_property: protocol_node = {}'.format(protocol_node))
+                #self.logger.debug('protocol_property: protocol_node = {}'.format(protocol_node))
                 protocoldict['protocol'] = json.loads(protocol_node.readall())
                 protocol_node.close()
 
@@ -910,7 +911,7 @@ class Subject(object):
         table_desc = task_class.TrialData.to_pytables_description()
         
         # Open the HDF5 file where data is stored
-        with tables.open_file('~/test.hdf5', 'w') as h5f:
+        with tables.open_file(os.path.expanduser('~/test.hdf5'), 'w') as h5f:
             ## Create a trial table for this session
             trial_table = h5f.create_table(
                 where=h5f.root, 
@@ -923,7 +924,7 @@ class Subject(object):
             trial_row = trial_table.row
 
             # Get the column names
-            trial_keys = trial_table.colnames
+            #trial_keys = trial_table.colnames
 
 
             ## Create a continuous table for this session
@@ -963,11 +964,13 @@ class Subject(object):
                 # Store
                 chunk_table_d[chunk_class.__name__] = chunk_table
             
+            self.logger.debug('_data_thread: hdf5 created: {}'.format(str(h5f.root)))
+            
 
             ## start getting data
             # stop when 'END' gets put in the queue
             for data in iter(queue.get, 'END'):
-                self.logger.debug('_data_thread: received {}'.format(data))
+                #self.logger.debug('_data_thread: received {}'.format(data))
                 
                 # wrap everything in try because this thread shouldn't crash
                 try:
@@ -1073,23 +1076,6 @@ class Subject(object):
                     "continuous data dropped because "
                     "{} not recognized".format(k))
 
-    def _make_continuous_table(self, h5f:tables.file.File,
-                               continuous_group_path:str,
-                               key:str,
-                               value:typing.Any) -> tables.table.Table:
-        # make atom for this data
-        try:
-            # if it's a numpy array...
-            col_atom = tables.Atom.from_type(value.dtype.name, value.shape)
-        except AttributeError:
-            temp_array = np.array(value)
-            col_atom = tables.Atom.from_type(temp_array.dtype.name, temp_array.shape)
-
-        return h5f.create_table(continuous_group_path, key, description={
-            key: tables.Col.from_atom(col_atom),
-            'timestamp': tables.StringCol(256)
-        })
-
     def _save_trial_data(self, data:dict, trial_row:Row, 
         trial_table:tables.table.Table):
         """Save `data` to `trial_row`, potentially incrementing trial
@@ -1109,13 +1095,13 @@ class Subject(object):
                 # 'pilot' and 'subject' are included in messages
                 continue
 
-            elif k in trial_row:
+            elif k in trial_table.colnames:
                 # `k` is a known column of the trial table, so we should
                 # save it
                 
                 # If this would overwrite an existing value, then instead,
                 # increment the trial and print a warning
-                if trial_row[k] not in (None, b'', 0) and k != 'trial_num':
+                if k in trial_row and trial_row[k] not in (None, b'', 0) and k != 'trial_num':
                     self.logger.warning(
                         f"Received two values for key, making new row.: {k} "
                         f"and trial row: {trial_row.nrow}, existing value: "
