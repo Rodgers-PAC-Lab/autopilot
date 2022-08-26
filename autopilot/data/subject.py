@@ -624,10 +624,15 @@ class Subject(object):
                         protocol_name:Optional[str]=None):
         """
         Assign a protocol to the subject.
+        
+        Specifically, a :class:`Protocol_Status` will be created using the
+        provided attributes, and stored in the attribute `self.protocol`.
 
-        If the subject has a currently assigned task, stashes it with :meth:`~.Subject.stash_current`
+        If the subject has a currently assigned task, stashes it with 
+        :meth:`~.Subject.stash_current`
 
-        Creates groups and tables according to the data descriptions in the task class being assigned.
+        Creates groups and tables according to the data descriptions in the 
+        task class being assigned.
         eg. as described in :class:`.Task.TrialData`.
 
         Updates the history table.
@@ -635,14 +640,17 @@ class Subject(object):
         Args:
             protocol (Path, str, dict): the protocol to be assigned. Can be one of
 
-                * the name of the protocol (its filename minus .json) if it is in `prefs.get('PROTOCOLDIR')`
-                * filename of the protocol (its filename with .json) if it is in the `prefs.get('PROTOCOLDIR')`
+                * the name of the protocol (its filename minus .json) 
+                    if it is in `prefs.get('PROTOCOLDIR')`
+                * filename of the protocol (its filename with .json) 
+                    if it is in the `prefs.get('PROTOCOLDIR')`
                 * the full path and filename of the protocol.
                 * The protocol dictionary serialized to a string
                 * the protocol as a list of dictionaries
 
             step_n (int): Which step is being assigned?
-            protocol_name (str): If passing ``protocol`` as a dict, have to give a name to the protocol
+            protocol_name (str): If passing ``protocol`` as a dict, have to 
+                give a name to the protocol
         """
         # Protocol will be passed as a .json filename in prefs.get('PROTOCOLDIR')
 
@@ -670,7 +678,8 @@ class Subject(object):
             pilot = pilot,
             protocol_name=protocol_name,
         )
-        # set current status (this will also stash any existing status and update the trial history tables as needed)
+        # set current status (this will also stash any existing status and 
+        # update the trial history tables as needed)
 
         self.protocol = status
 
@@ -690,20 +699,16 @@ class Subject(object):
             Dict: the parameters for the current step, with subject id, step number,
                 current trial, and session number included.
         """
+        # This subject must have a :class:`Protocol_Status` assigned to the
+        # attribute `self.protocol`, so that we know what task to run. 
+        # Otherwise, raise an error.
         if self.protocol is None:
-            e = RuntimeError('No task assigned to subject, cant prepare_run. use Subject.assign_protocol or protocol reassignment wizard in the terminal GUI')
+            e = RuntimeError(
+                "No task assigned to subject, can't prepare_run. "
+                'use Subject.assign_protocol or protocol reassignment wizard '
+                'in the terminal GUI')
             self.logger.exception(f"{e}")
             raise e
-
-        protocol_groups = Protocol_Group(
-            protocol_name = self.protocol_name,
-            protocol = self.protocol.protocol,
-            structure = self.structure
-        )
-        
-        # group_path is something like /data/TASK_NAME/S00_STEPNAME
-        group_path = protocol_groups.steps[self.step].path
-        trial_table_path = "/".join([group_path, 'trial_data'])
 
         # Get current task parameters and handles to tables
         task_params = self.protocol.protocol[self.step]
@@ -711,34 +716,38 @@ class Subject(object):
         # increment session and clear session_uuid to ensure uniqueness
         self.session += 1
         self._session_uuid = None
+        
+        # Generate a session_name as the subject name plus the current time
+        session_dt = datetime.datetime.now().isoformat()
+        session_dt_string = session_dt.strftime('%Y-%m-%d-%H-%M-%S-%f')
+        session_name = '{}_{}'.format(self.name, session_dt)
 
-        ##############################
-        trial_tab = self._trim_trial_to_session(group_path)
-        trial_tab_keys = tuple(trial_tab.dtype.fields.keys())
-
-        # get last trial number from trial_table
+        # Create a location to store this
+        # TODO: fetch sandbox_root_dir from prefs
+        sandbox_root_dir = os.path.expanduser('~/autopilot/data/sandboxes')
+        sandbox_dir = os.path.join(sandbox_root_dir, session_name)
         try:
-            self.current_trial = trial_tab['trial_num'][-1]+1
-        except IndexError:
-            if 'trial_num' not in trial_tab_keys:
-                self.logger.warning('No trial_num column detected in trial data! this is a basic indexing column for trialwise data and should always be present! You might experience unexpected behavior in your data, make sure you check everyhing is as it should be!')
-            self.logger.info('Using current_trial = 0')
-            self.current_trial = 0
-
-        continuous_group_path = self._prepare_continuous_data(task_params, group_path)
-
-        # --------------------------------------------------
-        # prepare graduation object
-
-        self.graduation = None
-        if 'graduation' in task_params.keys():
-            self.graduation = self._prepare_graduation(task_params, trial_tab)
+            os.mkdir(sandbox_dir)
+        except OSError:
+            raise OSError("cannot create sandbox dir at {}".format(sandbox_dir))
+        
+        # Generate the HDF5 filename for _data_thread
+        hdf5_filename = os.path.join(sandbox_dir, session_name + '.hdf5')
+        
+        # Copy in the task_params used
+        with open(os.path.join(sandbox_dir, 'task_params.json')) as fi:
+            json.dump(
+                task_params, fi, indent=4, separators=(',', ': '), 
+                sort_keys=True)
+        
+        # TODO: copy in the code that was used, my prefs.json, etc
+        # TODO: start capturing video 
 
         # spawn thread to accept data
         self.data_queue = queue.Queue()
         self._thread = threading.Thread(
             target=self._data_thread,
-            args=(self.data_queue, trial_table_path, continuous_group_path)
+            args=(self.data_queue, hdf5_filename)
         )
         self._thread.start()
         self.running = True
@@ -750,162 +759,31 @@ class Subject(object):
         task_params['session'] = int(self.session)
         return task_params
 
-    def _trim_trial_to_session(self, group_path:str) -> tables.table.Table:
-
-        with self._h5f(lock=False) as h5f:
-            # tasks without TrialData will have some default table, so this should always be present
-            trial_table = h5f.get_node(group_path, 'trial_data') # type: tables.Table
-
-            ##################################3
-            # try to filter rows based on contiguous session numbers
-            # session always increments, even when reassigned, so if reassigning, there should be
-            # a discontinuity in session number.
-            # this is more reliable than trying to use timestamps, because they might not always
-            # be present (though they should be) and they might differ from the history timestamps
-            # if a terminal and pilot are on different timezones, for example.
-            slice_start = 0
-
-            if trial_table.nrows == 0:
-                return trial_table.read()
-
-            try:
-                sessions = trial_table.col('session')
-
-                # first check if our current session is the same or +1 the previous session
-                # otherwise, we have been reassigned and haven't done any trials yet.
-                if len(sessions)>0 and abs(self.session - sessions[-1])>1:
-                    slice_start = len(sessions)
-
-                else:
-                    # find any discontinuities
-                    # normally continuous sessions should have a diff of 0 or 1 (same or incremented session)
-                    discontinuities = np.where(np.logical_or(np.diff(sessions)<0,np.diff(sessions) > 1))[0]
-                    if len(discontinuities) == 0:
-                        # fine, use the whole thing
-                        pass
-                    else:
-                        slice_start = int(discontinuities[-1]+1)
-
-            except Exception as e:
-                self.logger.exception(
-                    f"Couldnt trim data given to graduation objects to current set of sessions, using full data history. got exception\n {e}")
-
-
-            if not slice_start and slice_start != 0:
-                self.logger.info(f"Could not trim trial data, full trial table given to graduation objects")
-                slice_start = 0
-            elif not isinstance(slice_start, int):
-                slice_start = slice_start[0]
-            self.logger.debug(f"Trimming trial table with slice_start: {slice_start}")
-            trial_tab = trial_table.read(start=slice_start)
-            return trial_tab
-
-    def _prepare_continuous_data(self, task_params: dict, group_path:str) -> str:
-        """Create a node for continuous data for this session, if needed.
-        
-        Arguments:
-            task_params : used to get the task_class
-            group_path : something like /data/TASKNAME/SNN_STEPNAME
-        
-        Continuous data for this session will be stored at a node named
-        `continuous_group_path`, which is something like 
-            "/data/TASKNAME/SNN_STEPNAME/continuous_data/session_N"
-        where `N` comes from `self.session`.
-        
-        If the task_class has an attribute ContinuousData, then that node
-        is created. If it doesn't have that attribute, then no node is created.
-        
-        In either case, returns the string `continuous_group_path`.
-        """
-        # Generate the name of this session
-        group_name = f"session_{self.session}"
-        
-        # This is where all continuous data lives
-        # this will be something like $group_path$/continuous_data/session_N
-        cont_group_name = '/'.join([group_path, 'continuous_data'])
-        
-        # This is where continuous data for this session lives
-        # this will be something like $group_path$/continuous_data/session_N
-        continuous_group_path = '/'.join([cont_group_name, group_name])
-
-        # Open the file
-        with self._h5f() as h5f:
-            # Only create a note if the task has the attribute ContinuousData
-            task_class = autopilot.get_task(task_params['task_type'])
-            if hasattr(task_class, 'ContinuousData'):
-                # Get the node where continuous data lives
-                cont_group = h5f.get_node(cont_group_name)
-                
-                # Try to create the node for this session
-                try:
-                    _ = h5f.create_group(cont_group, group_name)
-                except tables.NodeError:
-                    # This happens if the node already exists
-                    self.logger.debug(
-                        '_prepare_continuous_data: could not create node, '
-                        'hopefully it already exists')
-
-        return continuous_group_path
-
-    def _prepare_graduation(self, task_params:dict, trial_tab:tables.table.Table) -> 'Graduation':
-        try:
-            # CR: Use this to indicate no graduation needed, and return
-            # without logging an exception
-            # Otherwise we get KeyError on the next line
-            if 'type' not in task_params['graduation']:
-                return
-            
-            grad_type = task_params['graduation']['type']
-            grad_params = task_params['graduation']['value'].copy()
-
-            # add other params asked for by the task class
-            grad_obj = autopilot.get('graduation', grad_type) # type: typing.Type[Graduation]
-
-            if grad_obj.PARAMS:
-                # these are params that should be set in the protocol settings
-                for param in grad_obj.PARAMS:
-                    # if param not in grad_params.keys():
-                    # for now, try to find it in our attributes
-                    # but don't overwrite if it already has what it needs in case
-                    # of name overlap
-                    if hasattr(self, param) and param not in grad_params.keys():
-                        grad_params.update({param: getattr(self, param)})
-
-            if grad_obj.COLS:
-                # give requested columns in trial table to graduation object
-                for col in grad_obj.COLS:
-                    try:
-                        grad_params.update({col: trial_tab[col]})
-                    except KeyError:
-                        self.logger.exception(f'Graduation object requested column {col}, but it was not found in the trial table. Graduation will likely be inaccurate!')
-
-            grad_instance = grad_obj(**grad_params)
-            self.did_graduate.clear()
-            return grad_instance
-        except Exception as e:
-            self.logger.exception(
-                f'Exception in graduation parameter specification, graduation is disabled.\ngot error: {e}')
-
     # --------------------------------------------------
     # Data Thread Private Methods!
     # --------------------------------------------------
 
-    def _data_thread(self, queue:queue.Queue, trial_table_path:str, continuous_group_path:str):
-        """
-        Thread that keeps hdf file open and receives data while task is running.
+    def _data_thread(self, queue:queue.Queue, hdf5_filename:str):
+        """Target of data thread, which writes data to hdf5 during task.
 
-        receives data through :attr:`~.Subject.queue` as dictionaries. Data can be
-        partial-trial data (eg. each phase of a trial) as long as the task returns a dict with
+        receives data through :attr:`~.Subject.queue` as dictionaries. 
+        Data can be
+        partial-trial data (eg. each phase of a trial) as long as 
+        the task returns a dict with
         'TRIAL_END' as a key at the end of each trial.
 
-        each dict given to the queue should have the `trial_num`, and this method can
-        properly store data without passing `TRIAL_END` if so. I recommend being explicit, however.
+        each dict given to the queue should have the `trial_num`, 
+        and this method can
+        properly store data without passing `TRIAL_END` if so. 
+        I recommend being explicit, however.
 
         Checks graduation state at the end of each trial.
 
         Args:
-            queue (:class:`queue.Queue`): passed by :meth:`~.Subject.prepare_run` and used by other
+            queue (:class:`queue.Queue`): passed by 
+                :meth:`~.Subject.prepare_run` and used by other
                 objects to pass data to be stored.
+            hdf_filname (str): where to write the hdf5 data for this session
         """
         task_class = autopilot.tasks.paft.PAFT
         table_desc = task_class.TrialData.to_pytables_description()
