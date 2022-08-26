@@ -535,25 +535,37 @@ class Terminal(QtWidgets.QMainWindow):
         """
         # stopping is the enemy of starting so we put them in the same function to learn about each other
         if starting is True:
-            # Get Weights
-            start_weight, ok = QtWidgets.QInputDialog.getDouble(self, "Set Starting Weight",
-                                                            "Starting Weight:")
+            # We are starting a new task
+            # Get the subject's weight from a user dialog box
+            start_weight, ok = QtWidgets.QInputDialog.getDouble(
+                self, "Set Starting Weight", "Starting Weight:")
+            
+            # Depends on whether they clicked cancel or not
             if ok:
+                # They clicked ok
                 # Ope'nr up if she aint
+                # Put a :class:`Subject` named `subject` in a dict stored
+                # in the attribute named `self.subjects`
                 if subject not in self.subjects.keys():
                     self.subjects[subject] = Subject(subject)
 
-
+                # Store the weight on that :class:`Subject`
                 self.subjects[subject].update_weights(start=float(start_weight))
-                task = self.subjects[subject].prepare_run()
+                
+                # Start the thread to run the task
+                # This returns a dict (?) named task_params
+                # Store the pilot's name here
+                task = self.subjects[subject].prepare_run(pilot)
                 task['pilot'] = pilot
-
+                
+                # Send the START key to the pilot
                 self.node.send(to=pilot, key="START", value=task)
-                # also let the plot know to start
+                
+                # Send the START key to the plot
                 self.node.send(to="P_{}".format(pilot), key="START", value=task)
 
             else:
-                # pressed cancel, don't start
+                # They clicked cancel, don't start
                 return
 
         else:
@@ -564,8 +576,8 @@ class Terminal(QtWidgets.QMainWindow):
             # TODO: Start coherence checking ritual
             # TODO: Auto-select the next subject in the list.
             # Get Weights
-            stop_weight, ok = QtWidgets.QInputDialog.getDouble(self, "Set Stopping Weight",
-                                                               "Stopping Weight:")
+            stop_weight, ok = QtWidgets.QInputDialog.getDouble(
+                self, "Set Stopping Weight", "Stopping Weight:")
 
             self.subjects[subject].stop_run()
             self.subjects[subject].update_weights(stop=float(stop_weight))
@@ -583,6 +595,7 @@ class Terminal(QtWidgets.QMainWindow):
 
         Any key in `value` that matches a column in the subject's trial data table will be saved.
 
+        (Removed by CR):
         If the subject graduates after receiving this piece of data, stop the current
         task running on the Pilot and send the new one.
 
@@ -592,17 +605,6 @@ class Terminal(QtWidgets.QMainWindow):
         # A Pi has sent us data, let's save it huh?
         subject_name = value['subject']
         self.subjects[subject_name].save_data(value)
-        if self.subjects[subject_name].did_graduate.is_set() is True:
-            self.node.send(to=value['pilot'], key="STOP", value={'graduation':True})
-            self.subjects[subject_name].stop_run()
-            self.subjects[subject_name]._graduate()
-            task = self.subjects[subject_name].prepare_run()
-            task['pilot'] = value['pilot']
-
-            # FIXME: Don't hardcode wait time, wait until we get confirmation that the running task has fully unloaded
-            time.sleep(5)
-
-            self.node.send(to=value['pilot'], key="START", value=task)
 
     def l_ping(self, value):
         """
