@@ -687,7 +687,7 @@ class Subject(object):
     # prepare run
     # --------------------------------------------------
 
-    def prepare_run(self) -> dict:
+    def prepare_run(self, pilot:str) -> dict:
         """
         Prepares the Subject object to receive data while running the task.
 
@@ -712,15 +712,16 @@ class Subject(object):
 
         # Get current task parameters and handles to tables
         task_params = self.protocol.protocol[self.step]
-
+        
         # increment session and clear session_uuid to ensure uniqueness
         self.session += 1
         self._session_uuid = None
         
-        # Generate a session_name as the subject name plus the current time
+        # Generate a session_name as a concatenation of the current time,
+        # and the subject name
         session_dt = datetime.datetime.now().isoformat()
         session_dt_string = session_dt.strftime('%Y-%m-%d-%H-%M-%S-%f')
-        session_name = '{}_{}'.format(self.name, session_dt)
+        session_name = '{}_{}_{}'.format(session_dt, self.name)
 
         # Create a location to store this
         # TODO: fetch sandbox_root_dir from prefs
@@ -735,7 +736,9 @@ class Subject(object):
         hdf5_filename = os.path.join(sandbox_dir, session_name + '.hdf5')
         
         # Copy in the task_params used
+        # TODO: store pilot name here too
         with open(os.path.join(sandbox_dir, 'task_params.json')) as fi:
+            # This was copied from elsewhere
             json.dump(
                 task_params, fi, indent=4, separators=(',', ': '), 
                 sort_keys=True)
