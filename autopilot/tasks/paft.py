@@ -56,7 +56,7 @@ from autopilot.stim.sound import jackclient
 
 # The name of the task
 # This declaration allows Subject to identify which class in this file 
-# contains the task class. 
+# contains the task class, and its human-readable task name.
 TASK = 'PAFT'
 
 
@@ -514,7 +514,7 @@ class PAFT(Task):
                 'parent': prefs.get('NAME'), 'subject': subject},
             'task_type': 'PAFT_Child',
             'subject': subject,
-            'reward': reward,          
+            'reward': reward,
         }
 
         # send to the station object with a 'CHILD' key
@@ -629,7 +629,7 @@ class PAFT(Task):
 
             # Send the message
             self.node2.send(to=which_pi, key='PLAY', value=kwargs)
-    
+
     def choose_stimulus(self):
         """A stage that chooses the stimulus"""
         # Get timestamp
@@ -1109,7 +1109,7 @@ class PAFT(Task):
                 'reward_delivered': this_is_rewarded_poke,
                 'poke_rank': this_poke_rank,
                 },
-            )            
+            )  
 
     def recv_reward(self, value):
         """Log reward and advance stage block"""
