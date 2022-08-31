@@ -715,6 +715,20 @@ class Subject(object):
         task_params = self.protocol.protocol[self.step]
         task_class_name = task_params['task_type']
         
+        """
+        print('self.protocol: {}'.format(str(self.protocol)))
+        print('self.protocol.protocol: {}'.format(str(self.protocol.protocol)))
+        print('self.step: {}'.format(self.step))
+        
+        self.protocol: dict-like, has keys 'assigned', 'current_trial', 
+            'pilot', 'protocol', 'protocol_name', 'session', 'step'
+        
+        self.protocol.protocol: list-like of dict, each dict is 
+            like the protocol JSON
+        
+        self.step: int, indexing self.protocol.protocol
+        """
+        
         # increment session and clear session_uuid to ensure uniqueness
         self.session += 1
         self._session_uuid = None
@@ -738,11 +752,21 @@ class Subject(object):
         hdf5_filename = os.path.join(sandbox_dir, session_name + '.hdf5')
         
         # Copy in the task_params used
-        # TODO: store pilot name here too
         with open(os.path.join(sandbox_dir, 'task_params.json'), 'w') as fi:
             # This was copied from elsewhere
             json.dump(
                 task_params, fi, indent=4, separators=(',', ': '), 
+                sort_keys=True)
+        
+        # Store sandbox_params, currently just pilot name and task name
+        sandbox_params = {
+            'pilot': pilot, 
+            'task_class_name': task_class_name,
+            'protocol_name': self.protocol.protocol_name,
+            }
+        with open(os.path.join(sandbox_dir, 'sandbox_params.json'), 'w') as fi:
+            json.dump(
+                sandbox_params, fi, indent=4, separators=(',', ': '), 
                 sort_keys=True)
         
         # TODO: copy in the code that was used, my prefs.json, etc
