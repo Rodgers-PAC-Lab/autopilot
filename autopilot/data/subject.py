@@ -804,9 +804,6 @@ class Subject(object):
             # Get a link to the row to add
             trial_row = trial_table.row
 
-            # Get the column names
-            #trial_keys = trial_table.colnames
-
 
             ## Create a continuous table for this session
             # This is where continuous data for this session lives
