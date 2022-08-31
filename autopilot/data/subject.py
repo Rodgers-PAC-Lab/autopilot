@@ -1074,11 +1074,6 @@ class Subject(object):
         self.logger.debug('Trial Incremented')
         trial_row['session'] = self.session
         trial_row['session_uuid'] = self.session_uuid
-        if self.graduation:
-            # set our graduation flag, the terminal will get the rest rolling
-            did_graduate = self.graduation.update(trial_row)
-            if did_graduate is True:
-                self.did_graduate.set()
         trial_row.append()
 
     def save_data(self, data):
