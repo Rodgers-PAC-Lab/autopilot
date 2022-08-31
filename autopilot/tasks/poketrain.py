@@ -494,15 +494,17 @@ class PokeTrain(Task):
         port_params['side'] = port_params['port'].apply(
             lambda s: s.split('_')[1])
 
-        # Find the unrewarded row
-        unrewarded_idx = port_params.index[
-            np.where(port_params['port'] == self.previously_rewarded_port)[0][0]]
-        
-        # Reward all others besides that one
+        # Reward all ports other than previously rewarded one
         port_params['reward'] = True
-        port_params.loc[unrewarded_idx, 'reward'] = False
 
-	# Turn sound off on all ports
+        # Find the previously rewarded port and set it to not rewarded
+        if self.previously_rewarded_port is not None:
+            iidx = np.where(
+                port_params['port'] == self.previously_rewarded_port)[0][0]
+            unrewarded_idx = port_params.index[iidx]
+            port_params.loc[unrewarded_idx, 'reward'] = False
+
+        # Turn sound off on all ports
         port_params.loc[:, 'sound_on'] = False
 
 
