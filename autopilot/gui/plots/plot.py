@@ -591,8 +591,12 @@ class Plot(QtWidgets.QWidget):
         try:
             prp_kpp_idx = self.known_pilot_ports.index(
                 value['previously_rewarded_port'])
-        except ValueError:
-            # This shouldn't happen
+        except (KeyError, ValueError):
+            # This shouldn't happen in PAFT
+            # This happens in poketrain because 'rewarded_port' doesn't
+            # actually indicate a trial start, and there is no
+            # 'previously_rewarded_port' in that message
+            # In any case, do nothing
             prp_kpp_idx = None
             
         # Make all ports white, except rewarded port purple, and
