@@ -246,8 +246,16 @@ class Plot(QtWidgets.QWidget):
                 ]
             self.gui_rotation_offset = -np.pi / 4
         
-        elif pilot =='rpi17':
-            self.known_pilot_ports = []
+        elif pilot == 'rpiparent04':
+            self.known_pilot_ports = [
+                'rpi18_L',
+                'rpi18_R',
+                'rpi19_L',
+                'rpi19_R',            
+                'rpi20_L',
+                'rpi20_R',
+                'rpi21_L',
+                'rpi21_R', ]
             self.gui_rotation_offset = np.pi / 2
         
         else:
