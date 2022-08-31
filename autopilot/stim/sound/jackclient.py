@@ -28,7 +28,9 @@ from autopilot.utils.loggers import init_logger
 try:
     import jack
 except (OSError, ModuleNotFoundError):
-    print('jack library not found! sounds unavailable')
+    pass
+    # this warning is too noisy
+    #print('jack library not found! sounds unavailable')
 
 from autopilot import prefs
 
