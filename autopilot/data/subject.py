@@ -710,8 +710,10 @@ class Subject(object):
             self.logger.exception(f"{e}")
             raise e
 
-        # Get current task parameters and handles to tables
+        # Get current task parameters
+        # I think this is essentially just the contents of the protocol JSON
         task_params = self.protocol.protocol[self.step]
+        task_class_name = task_params['task_type']
         
         # increment session and clear session_uuid to ensure uniqueness
         self.session += 1
@@ -750,7 +752,7 @@ class Subject(object):
         self.data_queue = queue.Queue()
         self._thread = threading.Thread(
             target=self._data_thread,
-            args=(self.data_queue, hdf5_filename)
+            args=(self.data_queue, hdf5_filename, task_class_name)
         )
         self._thread.start()
         self.running = True
@@ -766,7 +768,8 @@ class Subject(object):
     # Data Thread Private Methods!
     # --------------------------------------------------
 
-    def _data_thread(self, queue:queue.Queue, hdf5_filename:str):
+    def _data_thread(self, queue:queue.Queue, hdf5_filename:str, 
+        task_class_name:str):
         """Target of data thread, which writes data to hdf5 during task.
 
         receives data through :attr:`~.Subject.queue` as dictionaries. 
@@ -787,8 +790,10 @@ class Subject(object):
                 :meth:`~.Subject.prepare_run` and used by other
                 objects to pass data to be stored.
             hdf_filname (str): where to write the hdf5 data for this session
+            task_class_name (str): name of the task, used by autopilot.get_task
+                to instantiate the task and get the TrialData
         """
-        task_class = autopilot.tasks.paft.PAFT
+        task_class = autopilot.get_task(task_class_name)
         table_desc = task_class.TrialData.to_pytables_description()
         
         # Open the HDF5 file where data is stored
