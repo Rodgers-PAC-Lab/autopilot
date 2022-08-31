@@ -565,7 +565,7 @@ class PokeTrain(Task):
         # of the reward.
         # Unlike PAFT, we don't know the rewarded port until now, so
         # return it
-	return {
+        return {
             'timestamp_reward': self.timestamp_of_last_reward.isoformat(),        
             'rewarded_port': self.rewarded_port,
             }
