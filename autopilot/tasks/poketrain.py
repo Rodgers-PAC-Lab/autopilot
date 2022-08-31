@@ -3,7 +3,7 @@
 Multiple Child rpis running the "PAFT_Child" Task connect to this Parent.
 On each trial, the first port that is poked dispenses a reward, unless it
 is the same port that was rewarded on the previous trial. The Child task
-is no different form the PAFT_Child, we just never tell it to play sounds.
+is no different from the PAFT_Child, we just never tell it to play sounds.
 """
 
 import threading
@@ -18,6 +18,8 @@ import tables
 import numpy as np
 import pandas
 import autopilot.hardware.gpio
+from pydantic import Field
+from autopilot.data.models.protocol import Trial_Data
 from autopilot.stim.sound import sounds
 from autopilot.tasks.task import Task
 from autopilot.networking import Net_Node
@@ -26,9 +28,9 @@ from autopilot.hardware import BCM_TO_BOARD
 from autopilot.utils.loggers import init_logger
 from autopilot.stim.sound import jackclient
 
-
-## The name of the task
-# This declaration allows Subject to know the human-readable task name
+# The name of the task
+# This declaration allows Subject to identify which class in this file 
+# contains the task class, and its human-readable task name.
 TASK = 'PokeTrain'
 
 
@@ -71,10 +73,12 @@ class PokeTrain(Task):
     # kwarg in __init__
     PARAMS = odict()
     PARAMS['reward'] = {
-        'tag':'Reward Duration (ms)',
+        'tag':'reward duration (ms)',
         'type':'int',
         }
 
+    
+    ## Set up TrialData and Continuous Data schema
     # Per https://docs.auto-pi-lot.com/en/latest/guide/task.html:
     # The `TrialData` object is used by the `Subject` class when a task
     # is assigned to create the data storage table
@@ -83,22 +87,30 @@ class PokeTrain(Task):
     # to be set properly here.
     # If they are left unspecified on any given trial, they receive 
     # a default value, such as 0 for Int32Col.
-    class TrialData(tables.IsDescription):
+    #
+    # An updated version using pydantic
+    class TrialData(Trial_Data):
         # The trial within this session
         # Unambigously label this
-        trial_in_session = tables.Int32Col()
+        trial_in_session: int = Field(
+            description='The 0-based trial number within the session')
         
         # If this isn't specified here, it will be added anyway
-        trial_num = tables.Int32Col()
+        trial_num: int = Field(
+            description='The trial number aggregating over sessions')
         
         # The rewarded_port
         # Must specify the max length of the string, we use 64 to be safe
-        previously_rewarded_port = tables.StringCol(64)
-        rewarded_port = tables.StringCol(64)
+        previously_rewarded_port: str = Field(
+            description='the port that was rewarded on the previous trial')
+        rewarded_port: str = Field(
+            description='the port that is rewarded on this trial')
         
         # The timestamps
-        timestamp_trial_start = tables.StringCol(64)
-        timestamp_reward = tables.StringCol(64)
+        timestamp_trial_start: str = Field(
+            description='The time that the trial began, as a string')
+        timestamp_reward: str = Field(
+            description='The time that the reward was delivered, as a string')
 
     # Define continuous data
     # https://docs.auto-pi-lot.com/en/latest/guide/task.html
@@ -107,9 +119,22 @@ class PokeTrain(Task):
     # Actually, no I think that is extracted automatically from the 
     # networked message, and should not be defined here
     class ContinuousData(tables.IsDescription):
+        reward_timestamp = tables.StringCol(64)
+        trial = tables.Int32Col()
+    
+    class ChunkData_Pokes(tables.IsDescription):
+        timestamp = tables.StringCol(64)
         poked_port = tables.StringCol(64)
         trial = tables.Int32Col()
-
+        first_poke = tables.Int32Col()
+        reward_delivered = tables.Int32Col()
+        poke_rank = tables.Int32Col()
+    
+    # This defines the classes that act like ChunkData
+    # See Subject.data_thread
+    CHUNKDATA_CLASSES = [ChunkData_Pokes]
+    
+    ## Set up hardware and children
     # Per https://docs.auto-pi-lot.com/en/latest/guide/task.html:
     # The HARDWARE dictionary maps a hardware type (eg. POKES) and 
     # identifier (eg. 'L') to a Hardware object. The task uses the hardware 
@@ -117,34 +142,18 @@ class PokeTrain(Task):
     # instantiate each of the hardware objects, so their naming system 
     # must match (ie. there must be a prefs.PINS['POKES']['L'] entry in 
     # prefs for a task that has a task.HARDWARE['POKES']['L'] object).
-    HARDWARE = {
-        'POKES':{
-            'L': autopilot.hardware.gpio.Digital_In,
-            'R': autopilot.hardware.gpio.Digital_In,
-        },
-        'LEDS':{
-            'L': autopilot.hardware.gpio.LED_RGB,
-            'R': autopilot.hardware.gpio.LED_RGB,
-        },
-        'PORTS':{
-            'L': autopilot.hardware.gpio.Solenoid,
-            'R': autopilot.hardware.gpio.Solenoid,
-        }
-    }
+    # 
+    # Because this runs on the parent, we don't have any hardware to 
+    # instantiate
+    HARDWARE = {}
     
-    ## Define the child rpis to connect to
-    # Get them from prefs
+    # This defines the child rpis to connect to
     children_names = prefs.get('CHILDID')
     if children_names is None:
         # This happens on terminal
         children_names = []
-    
-    # Set this variable for compatibility, though I'm not sure if anyone's
-    # using it.
     CHILDREN = {}
     for child in children_names:
-        # Set 'task_type' to be the name of the Child task, though right
-        # now this is hard-coded below anyway
         CHILDREN[child] = {'task_type': "PAFT_Child"}
 
     
@@ -213,7 +222,9 @@ class PokeTrain(Task):
         self.counter_trials_across_sessions = int(current_trial)
 
         # This is used to count the trials for the "trial_in_session" HDF5 column
-        self.counter_trials_in_session = 0
+        # Initialize to -1, because the first thing that happens is that
+        # it is incremented upon choosing the first stimulus
+        self.counter_trials_in_session = -1
 
         # A dict of hardware triggers
         self.triggers = {}
@@ -239,6 +250,15 @@ class PokeTrain(Task):
         # This is used to keep track of the rewarded port
         self.rewarded_port = None
         self.previously_rewarded_port = None
+        
+        # This is used to infer the first poke of each trial
+        self.trial_of_last_poke = None
+        
+        # This is used to infer whether reward was delivered
+        self.reward_delivered_on_this_trial = False
+        
+        # This is used to calculate performance metrics
+        self.ports_poked_on_this_trial = []
         
         
         ## Init hardware -- this sets self.hardware, self.pin_id, and
@@ -284,6 +304,7 @@ class PokeTrain(Task):
 
         # Construct a message to send to child
         # Specify the subjects for the child (twice)
+        # These extra params end up in the __init__ for the child class
         value = {
             'child': {
                 'parent': prefs.get('NAME'), 'subject': subject},
@@ -325,6 +346,7 @@ class PokeTrain(Task):
                 'HELLO': self.recv_hello,
                 'POKE': self.recv_poke,
                 'REWARD': self.recv_reward,
+                'CHUNK': self.recv_chunk,                
                 },
             instance=False,
             )
@@ -359,8 +381,10 @@ class PokeTrain(Task):
                 'left_on': False, 'right_on': False,
                 'left_punish': left_punish, 'right_punish': right_punish,
                 'left_reward': False, 'right_reward': False,
+                'synchronization_flash': False,
                 },
             )              
+
     
     def reward_all_ports_but_one(self):
         """Punish previously rewarded port and reward all others."""
@@ -397,6 +421,37 @@ class PokeTrain(Task):
             # Send the message
             self.node2.send(to=pilot, key='PLAY', value=kwargs)
     
+    def send_acoustic_params(self, port_params, synchronization_flash):
+        """Send params to each pi
+        
+        port_params : DataFrame of port-specific params
+        
+        synchronization_flash : bool
+            Whether to also send a synchronization request
+
+        """
+        # Iterate over pilots
+        for which_pi, sub_df in port_params.groupby('pilot'):
+            # Extract kwargs for this pilot
+            sub_df = sub_df.set_index('side')
+            kwargs = {
+                'left_on': sub_df.loc['L', 'sound_on'],
+                'left_punish': ~sub_df.loc['L', 'reward'],
+                'left_reward': sub_df.loc['L', 'reward'],
+                'right_on': sub_df.loc['R', 'sound_on'],
+                'right_punish': ~sub_df.loc['R', 'reward'],
+                'right_reward': sub_df.loc['R', 'reward'],
+                }
+            
+            # Sync
+            if synchronization_flash:
+                kwargs['synchronization_flash'] = True
+            else:
+                kwargs['synchronization_flash'] = False
+
+            # Send the message
+            self.node2.send(to=which_pi, key='PLAY', value=kwargs)
+
     def choose_stimulus(self):
         """A stage that chooses the stimulus"""
         # Get timestamp
@@ -416,19 +471,49 @@ class PokeTrain(Task):
         # self.rewarded_port on *previous* trial is now previously_rewarded_port
         self.previously_rewarded_port = self.rewarded_port
         
-        # self.rewarded_port is not known until the first poke
+        # Unlike PAFT, self.rewarded_port is not known until the first poke
         self.rewarded_port = None
         
         # This will be set at the time of reward
         self.timestamp_of_last_reward = None        
         
-        # This flag makes sure we only advance on reward once per trial
-        self.flag_recv_reward_function_entered_on_this_trial = False
+        # This is used to keep track of rank of each poke
+        self.ports_poked_on_this_trial = []
         
-        
-        ## Punish the previously rewarded port, and reward all others
-        self.reward_all_ports_but_one()
+        # This is used to keep track of whether a reward was delivered
+        self.reward_delivered_on_this_trial = False
 
+
+        ## Generate port_params DataFrame
+        port_params = pandas.Series(
+            self.known_pilot_ports, name='port').to_frame()
+        
+        # Extract pilot and side
+        port_params['pilot'] = port_params['port'].apply(
+            lambda s: s.split('_')[0])
+        port_params['side'] = port_params['port'].apply(
+            lambda s: s.split('_')[1])
+
+        # Find the unrewarded row
+        unrewarded_idx = port_params.index[
+            np.where(port_params['port'] == self.previously_rewarded_port)[0][0]]
+        
+        # Reward all others besides that one
+        port_params['reward'] = True
+        port_params.loc[unrewarded_idx, 'reward'] = False
+
+	# Turn sound off on all ports
+        port_params.loc[:, 'sound_on'] = False
+
+
+        ## Send the play and silence messages
+        # Debug
+        self.logger.debug('chose port_params:\n{}'.format(port_params))
+        
+        # Send those parameters, and also request a synchronization flash
+        self.send_acoustic_params(
+            port_params, synchronization_flash=True)
+        
 
         ## Continue to the next stage
         # CLEAR means "wait for triggers"
@@ -448,6 +533,7 @@ class PokeTrain(Task):
             prp_to_send = self.previously_rewarded_port
         
         return {
+            'rewarded_port': self.rewarded_port,
             'previously_rewarded_port': prp_to_send,
             'timestamp_trial_start': timestamp_trial_start.isoformat(),
             'trial_num': self.counter_trials_across_sessions,
@@ -461,6 +547,11 @@ class PokeTrain(Task):
 
         # Do not continue until the stage_block is set, e.g. by a poke
         self.stage_block.clear()        
+        
+        # This is tested in recv_poke before advancing
+        self.advance_on_port_l = [
+            kpp for kpp in self.known_pilot_ports 
+            if kpp != self.previously_rewarded_port]
     
     def report_reward(self):
         """A stage that just reports reward timestamp"""
@@ -472,21 +563,12 @@ class PokeTrain(Task):
         
         # Return self.timestamp_of_last_reward, which was set at the time
         # of the reward.
-        # And same for self.rewarded_port
-        # Check for None just to be safe
-        if self.timestamp_of_last_reward is None:
-            self.logger.debug(
-                "error: self.timestamp_of_last_reward is None, "
-                "this shouldn't happen")            
-        elif self.rewarded_port is None:
-            self.logger.debug(
-                "error: self.rewarded_port is None, "
-                "this shouldn't happen")            
-        else:
-            return {
-                'timestamp_reward': self.timestamp_of_last_reward.isoformat(),        
-                'rewarded_port': self.rewarded_port,
-                } 
+        # Unlike PAFT, we don't know the rewarded port until now, so
+        # return it
+	return {
+            'timestamp_reward': self.timestamp_of_last_reward.isoformat(),        
+            'rewarded_port': self.rewarded_port,
+            }
     
     def end_of_trial(self):
         """A stage that ends the trial
@@ -572,52 +654,189 @@ class PokeTrain(Task):
         
         # Set this flag
         self.child_connected[value['from']] = True
+
+    def recv_chunk(self, value):
+        """Forwards a chunk of data from a child to the terminal.
+        
+        value : dict, with keys:
+            'payload' : 2d array
+            'payload_columns' : list of strings
+                These become the names of the columns of `payload`, so they
+                should be the same length.
+            'timestamp' : the time of the message
+            'pilot' : the name of the child
+        
+        Any other items in `value` are ignored. 
+        
+        Those items in `value`, plus {'subject': self.subject, 'chunk': True},
+        are put into a new Message and sent to _T with key 'DATA' and
+        flags to disable printing and repeating.
+        """
+        # Log
+        self.logger.debug(
+            "received CHUNK from child, passing along"
+            )
+        
+        # Pass along to terminal for saving
+        # `value` should have keys pilot, payload, and timestamp
+        value_to_send = {
+            'payload': value['payload'],
+            'payload_columns': value['payload_columns'],
+            'timestamp': value['timestamp'],
+            'pilot': value['pilot'], # required by something
+            'subject': self.subject, # required by terminal.l_data            
+            'chunkclass_name': value['chunkclass_name'], # which chunk
+            }
+        
+        # Generate the Message
+        msg = autopilot.networking.Message(
+            to='_T', # send to terminal
+            key='DATA', # choose listen
+            value=value_to_send, # the value to send
+            flags={
+                'MINPRINT': True, # disable printing of value
+                'NOREPEAT': True, # disable repeating
+                },
+            id="dummy_dst2", # does nothing (?), but required
+            sender="dummy_src2", # does nothing (?), but required 
+            )
+
+        # Send to terminal
+        self.node.send('_T', 'DATA', msg=msg)
     
     def recv_poke(self, value):
+        """A poke was received. Send info to terminal.
+
+            poked_port : which port was poked
+            
+            first_poke : True only on the very first poke of the trial
+                (excluding previously rewarded port)
+                This is used to determine if the trial was correct
+                This happens exactly once per trial
+            
+            reward_delivered : True if a reward was delivered on this very
+                poke. This is used to determine if the trial is over
+                This happens exactly once per trial
+            
+            poke_rank : rank of the poked port on this trial
+                (excluding previously rewarded port)
+                This must be 0 if (first_poke and reward_delivered),
+                which happens once on correct trials 
+                and never on incorrect trials.                
+                The value of this on the single poke per trial when 
+                reward_delivered is True is used to calculate RCP and FC
+        
+        If poked_port == previously_rewarded_port:
+            first_poke is False
+            reward_delivered is False
+            poke_rank is -1
+        """
         # TODO: get the timestamp directly from the child rpi instead of 
         # inferring it here
         poke_timestamp = datetime.datetime.now()
+
+        # Form poked_port
+        poked_port = '{}_{}'.format(value['from'], value['poke'])
+
+        # Special case previously rewarded port
+        if poked_port == self.previously_rewarded_port:
+            # Don't count these pokes
+            this_is_first_poke = False
+            this_is_rewarded_poke = False
+            this_poke_rank = -1
+        
+        else:
+            # Infer whether this is the first poke of the current trial
+            if self.counter_trials_in_session != self.trial_of_last_poke:
+                this_is_first_poke = True
+
+                # It is the first poke of the trial, update the memory
+                self.trial_of_last_poke = self.counter_trials_in_session
+            else:
+                this_is_first_poke = False
+            
+            # Infer whether reward delivered
+            if (
+                    poked_port == self.rewarded_port and 
+                    not self.reward_delivered_on_this_trial
+                    ):
+                this_is_rewarded_poke = True
+                
+                # Setting this flag ensures consummation pokes are not counted
+                # again
+                self.reward_delivered_on_this_trial = True                
+            else:
+                this_is_rewarded_poke = False
+            
+            # Keep track of rank of poke on this trial
+            this_poke_rank = len(self.ports_poked_on_this_trial)
+            if poked_port not in self.ports_poked_on_this_trial:
+                self.ports_poked_on_this_trial.append(poked_port)
 
         # Announce
         self.logger.debug(
             "[{}] received POKE from child with value {}".format(
             poke_timestamp.isoformat(), value))
+        self.logger.debug(
+            "[{}] {} poked; {}; {}; {}".format(
+                poke_timestamp.isoformat(), 
+                poked_port,
+                'reward delivered' if this_is_rewarded_poke else 'unrewarded',
+                'first of trial' if this_is_first_poke else 'not first',
+                'rewarded' if this_is_rewarded_poke else 'not rewarded',
+                value))
 
-        # Form poked_port
-        poked_port = '{}_{}'.format(value['from'], value['poke'])
         
-        # Directly report continuous data to terminal (aka _T)
-        # Otherwise it can be encoded in the returned data, but that is only
-        # once per stage
-        # subject is needed by core.terminal.Terminal.l_data
-        # pilot is needed by networking.station.Terminal_Station.l_data
-        # timestamp and continuous are needed by subject.Subject.data_thread
-        # `trial` is for convenience, but note it will be wrong for pokes
-        # that occur during the "choose_stimulus" function
-        self.node.send(
-            to='_T',
-            key='DATA',
-            value={
-                'subject': self.subject,
-                'pilot': prefs.get('NAME'),
-                'continuous': True,
-                'poked_port': poked_port,
-                'timestamp': poke_timestamp.isoformat(),
-                'trial': self.counter_trials_in_session,
+        ## Chunk and send to terminal for saving
+        # Convert to Series
+        payload_df = pandas.DataFrame.from_dict({
+            'poked_port': [poked_port],
+            'first_poke': [this_is_first_poke],
+            'reward_delivered': [this_is_rewarded_poke],
+            'poke_rank': [this_poke_rank],
+            'timestamp': [poke_timestamp.isoformat()],
+            'trial': [self.counter_trials_in_session],
+            })
+            
+        # `value` should have keys pilot, payload, and timestamp
+        value_to_send = {
+            'payload': payload_df.values,
+            'payload_columns': payload_df.columns.values,
+            'timestamp': poke_timestamp.isoformat(),
+            'pilot': prefs.get('name'), # required by something
+            'subject': self.subject, # required by terminal.l_data            
+            'chunkclass_name': 'ChunkData_Pokes', # which chunk
+            }
+        
+        # Generate the Message
+        msg = autopilot.networking.Message(
+            to='_T', # send to terminal
+            key='DATA', # choose listen
+            value=value_to_send, # the value to send
+            flags={
+                'MINPRINT': True, # disable printing of value
+                'NOREPEAT': True, # disable repeating
                 },
+            id="dummy_dst2", # does nothing (?), but required
+            sender="dummy_src2", # does nothing (?), but required 
             )
 
-        # Also send to plot
+        # Send to terminal
+        self.node.send('_T', 'DATA', msg=msg)
+    
+    
+        ## Also send to plot
         self.node.send(
             to='P_{}'.format(prefs.get('NAME')),
             key='DATA',
             value={
                 'subject': self.subject,
                 'pilot': prefs.get('NAME'),
-                'continuous': True,
-                'poked_port': poked_port,
                 'timestamp': poke_timestamp.isoformat(),
-                'trial': self.counter_trials_in_session,
+                'poked_port': poked_port,
+                'first_poke': this_is_first_poke,
+                'reward_delivered': this_is_rewarded_poke,
+                'poke_rank': this_poke_rank,
                 },
             )  
 
@@ -634,24 +853,50 @@ class PokeTrain(Task):
 
         # Form poked_port
         poked_port = '{}_{}'.format(value['from'], value['poke'])
-        
-        # Check if this function has already been entered on this 
-        # trial
-        if not self.flag_recv_reward_function_entered_on_this_trial:
-            # This is the first time
-            # Set the stage block and the flag
-            self.stage_block.set()
-            self.flag_recv_reward_function_entered_on_this_trial = True
+
+        # If the poked port is anything other than previously_rewarded_port,
+        # then set the stage_block.
+        # This guard should not be necessary because the child pi should
+        # only reward once per trial
+        if poked_port in self.advance_on_port_l:
+            # Null this flag so we can't somehow advance twice
+            self.advance_on_port_l = []
             
-            # Store the time of the reward
-            self.timestamp_of_last_reward = reward_timestamp
+            # Advance
+            self.stage_block.set()
             
             # Set this one as the rewarded port
             self.rewarded_port = poked_port            
 
         else:
             self.logger.debug(
-                "warning: multiple rewards received on same trial")
+                "error: reward signal received from {}, ".format(poked_port) +
+                "but advance_on_port_l was {}".format(self.advance_on_port_l)
+                )
+
+        # Store the time of the reward
+        self.timestamp_of_last_reward = reward_timestamp   
+
+        # Directly report continuous data to terminal (aka _T)
+        # Otherwise it can be encoded in the returned data, but that is only
+        # once per stage
+        # subject is needed by core.terminal.Terminal.l_data
+        # pilot is needed by networking.station.Terminal_Station.l_data
+        # timestamp and continuous are needed by subject.Subject.data_thread
+        # `trial` is for convenience, but note it will be wrong for pokes
+        # that occur during the "choose_stimulus" function
+        self.node.send(
+            to='_T',
+            key='DATA',
+            value={
+                'subject': self.subject,
+                'pilot': prefs.get('NAME'),
+                'continuous': True,
+                'reward_timestamp': reward_timestamp.isoformat(),
+                'timestamp': reward_timestamp.isoformat(),
+                'trial': self.counter_trials_in_session,
+                },
+            )
 
     def end(self, *args, **kwargs):
         """Called when the task is ended by the user.
