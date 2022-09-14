@@ -16,17 +16,19 @@ import tables
 import numpy as np
 import pandas
 import autopilot.hardware.gpio
+from pydantic import Field
+from autopilot.data.models.protocol import Trial_Data
 from autopilot.stim.sound import sounds
 from autopilot.tasks.task import Task
 from autopilot.networking import Net_Node
 from autopilot import prefs
 from autopilot.hardware import BCM_TO_BOARD
-from autopilot.core.loggers import init_logger
+from autopilot.utils.loggers import init_logger
 from autopilot.stim.sound import jackclient
 
 # The name of the task
 # This declaration allows Subject to identify which class in this file 
-# contains the task class. 
+# contains the task class, and its human-readable task name.
 TASK = 'PAFT_audiotest'
 
 
@@ -35,18 +37,16 @@ class PAFT_audiotest(Task):
     """The probabalistic auditory foraging task (PAFT).
     
     To understand the stage progression logic, see:
-    * autopilot.core.pilot.Pilot.run_task - the main loop
+    * autopilot.agents.pilot.Pilot.run_task - the main loop
     * autopilot.tasks.task.Task.handle_trigger - set stage trigger
     
     To understand the data saving logic, see:
-    * autopilot.core.terminal.Terminal.l_data - what happens when data is sent
+    * autopilot.agents.terminal.Terminal.l_data - what happens when data is sent
     * autopilot.core.subject.Subject.data_thread - how data is saved
 
     Class attributes:
         PARAMS : collections.OrderedDict
             This defines the params we expect to receive from the terminal.
-        DATA : dict of dicts
-            This defines the kind of data we return to the terminal
         TrialData : subclass of tables.IsDescription
             This defines how to set up the hdf5 file for the Subject with
             the returned data
@@ -71,6 +71,12 @@ class PAFT_audiotest(Task):
     
     ## Define the class attributes
     # This defines params we receive from terminal on session init
+    # It also determines the params that are available to specify in the
+    # Protocol creation GUI.
+    # The params themselves are defined the protocol json.
+    # Presently these can only be of type int, bool, enum (aka list), or sound
+    # Defaults cannot be specified here or in the GUI, only in the corresponding
+    # kwarg in __init__
     PARAMS = odict()
     PARAMS['reward'] = {
         'tag':'reward duration (ms)',
@@ -88,13 +94,17 @@ class PAFT_audiotest(Task):
     # to be set properly here.
     # If they are left unspecified on any given trial, they receive 
     # a default value, such as 0 for Int32Col.
-    class TrialData(tables.IsDescription):
+    #
+    # An updated version using pydantic
+    class TrialData(Trial_Data):
         # The trial within this session
         # Unambigously label this
-        trial_in_session = tables.Int32Col()
+        trial_in_session: int = Field(
+            description='The 0-based trial number within the session')
         
         # If this isn't specified here, it will be added anyway
-        trial_num = tables.Int32Col()
+        trial_num: int = Field(
+            description='The trial number aggregating over sessions')
 
     ## Set up hardware and children
     # Per https://docs.auto-pi-lot.com/en/latest/guide/task.html:
@@ -170,7 +180,8 @@ class PAFT_audiotest(Task):
         self.stages = itertools.cycle(stage_list)        
         
         
-        ## Init hardware -- this sets self.hardware and self.pin_id
+        ## Init hardware -- this sets self.hardware, self.pin_id, and
+        ## assigns self.handle_trigger to gpio callbacks
         self.triggers = {}
         self.init_hardware()
         
