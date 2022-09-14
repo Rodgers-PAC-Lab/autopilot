@@ -46,7 +46,7 @@ class PAFT_Child(children.Child):
         self.name = prefs.get('NAME')
 
         # Set up a logger
-        self.logger = autopilot.core.loggers.init_logger(self)
+        self.logger = autopilot.utils.loggers.init_logger(self)
         
         # This is needed when sending messages
         self.n_messages_sent = 0
@@ -396,12 +396,16 @@ class PAFT_Child(children.Child):
         self.node2.send('parent_pi', 'HELLO', {'from': self.name})        
 
     def init_hardware(self):
-        """Placeholder"""
-        self.hardware = {}        
+        """
+        Use the HARDWARE dict that specifies what we need to run the task
+        alongside the HARDWARE subdict in :mod:`prefs` to tell us how
+        they're plugged in to the pi
 
+        Instantiate the hardware, assign it :meth:`.Task.handle_trigger`
+        as a callback if it is a trigger.
+        """
         # We use the HARDWARE dict that specifies what we need to run the task
-        # alongside the HARDWARE subdict in the prefs structure to tell us 
-        # how they're plugged in to the pi
+        # alongside the HARDWARE subdict in the prefs structure to tell us how they're plugged in to the pi
         self.hardware = {}
         self.pin_id = {} # Reverse dict to identify pokes
         pin_numbers = prefs.get('HARDWARE')
@@ -411,6 +415,10 @@ class PAFT_Child(children.Child):
             self.hardware[type] = {}
             # then iterate through each pin and handler of this type
             for pin, handler in values.items():
+                # if the hardware is specified as a string, try and get it from registry
+                if isinstance(handler, str):
+                    handler = autopilot.get_hardware(handler)
+
                 try:
                     hw_args = pin_numbers[type][pin]
                     if isinstance(hw_args, dict):
@@ -421,8 +429,7 @@ class PAFT_Child(children.Child):
                         hw_name = "{}_{}".format(type, pin)
                         hw = handler(hw_args, name=hw_name)
 
-                    # if a pin is a trigger pin (event-based input), 
-                    # give it the trigger handler
+                    # if a pin is a trigger pin (event-based input), give it the trigger handler
                     if hw.is_trigger:
                         hw.assign_cb(self.handle_trigger)
 
@@ -437,10 +444,8 @@ class PAFT_Child(children.Child):
                         if 'pin' in hw_args.keys():
                             self.pin_id[hw_args['pin']] = pin 
 
-                except:
-                    self.logger.exception(
-                        "Pin could not be instantiated - Type: "
-                        "{}, Pin: {}".format(type, pin))
+                except Exception as e:
+                    self.logger.exception("Pin could not be instantiated - Type: {}, Pin: {}\nGot exception:{}".format(type, pin, e))
 
     def handle_trigger(self, pin, level=None, tick=None):
         """Handle a GPIO trigger.

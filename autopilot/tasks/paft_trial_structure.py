@@ -21,7 +21,7 @@ from autopilot.tasks.task import Task
 from autopilot.networking import Net_Node
 from autopilot import prefs
 from autopilot.hardware import BCM_TO_BOARD
-from autopilot.core.loggers import init_logger
+from autopilot.utils.loggers import init_logger
 from autopilot.stim.sound import jackclient
 
 # The name of the task
@@ -37,11 +37,11 @@ class PaftTrialStructure(Task):
     This passes through three stages and returns random data for each.
     
     To understand the stage progression logic, see:
-    * autopilot.core.pilot.Pilot.run_task - the main loop
+    * autopilot.agents.pilot.Pilot.run_task - the main loop
     * autopilot.tasks.task.Task.handle_trigger - set stage trigger
     
     To understand the data saving logic, see:
-    * autopilot.core.terminal.Terminal.l_data - what happens when data is sent
+    * autopilot.agents.terminal.Terminal.l_data - what happens when data is sent
     * autopilot.core.subject.Subject.data_thread - how data is saved
 
     Class attributes:

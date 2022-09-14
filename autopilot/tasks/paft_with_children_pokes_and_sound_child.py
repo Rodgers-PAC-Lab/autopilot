@@ -44,7 +44,7 @@ class PaftWithChildrenPokesAndSoundChild(children.Child):
         self.name = prefs.get('NAME')
 
         # Set up a logger
-        self.logger = autopilot.core.loggers.init_logger(self)
+        self.logger = autopilot.utils.loggers.init_logger(self)
 
 
         ## Hardware

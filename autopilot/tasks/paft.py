@@ -44,17 +44,19 @@ import tables
 import numpy as np
 import pandas
 import autopilot.hardware.gpio
+from pydantic import Field
+from autopilot.data.models.protocol import Trial_Data
 from autopilot.stim.sound import sounds
 from autopilot.tasks.task import Task
 from autopilot.networking import Net_Node
 from autopilot import prefs
 from autopilot.hardware import BCM_TO_BOARD
-from autopilot.core.loggers import init_logger
+from autopilot.utils.loggers import init_logger
 from autopilot.stim.sound import jackclient
 
 # The name of the task
 # This declaration allows Subject to identify which class in this file 
-# contains the task class. 
+# contains the task class, and its human-readable task name.
 TASK = 'PAFT'
 
 
@@ -65,11 +67,11 @@ class PAFT(Task):
     This passes through three stages and returns random data for each.
     
     To understand the stage progression logic, see:
-    * autopilot.core.pilot.Pilot.run_task - the main loop
+    * autopilot.agents.pilot.Pilot.run_task - the main loop
     * autopilot.tasks.task.Task.handle_trigger - set stage trigger
     
     To understand the data saving logic, see:
-    * autopilot.core.terminal.Terminal.l_data - what happens when data is sent
+    * autopilot.agents.terminal.Terminal.l_data - what happens when data is sent
     * autopilot.core.subject.Subject.data_thread - how data is saved
 
     Class attributes:
@@ -137,6 +139,9 @@ class PAFT(Task):
             'bandwidth (high-low) of distracter sound (Hz)', 'float'),
         ('distracter_log_amplitude', 
             'log(amplitude of distracter sound)', 'float'),
+        ('n_distracters',
+            'number of ports playing distracters at distracter_rate (int)',
+            'int'),
         ],
         columns=['key', 'tag', 'type'],
         )
@@ -171,37 +176,58 @@ class PAFT(Task):
     # to be set properly here.
     # If they are left unspecified on any given trial, they receive 
     # a default value, such as 0 for Int32Col.
-    class TrialData(tables.IsDescription):
+    #
+    # An updated version using pydantic
+    class TrialData(Trial_Data):
         # The trial within this session
         # Unambigously label this
-        trial_in_session = tables.Int32Col()
+        trial_in_session: int = Field(
+            description='The 0-based trial number within the session')
         
         # If this isn't specified here, it will be added anyway
-        trial_num = tables.Int32Col()
+        trial_num: int = Field(
+            description='The trial number aggregating over sessions')
         
         # The rewarded_port
         # Must specify the max length of the string, we use 64 to be safe
-        previously_rewarded_port = tables.StringCol(64)
-        rewarded_port = tables.StringCol(64)
+        previously_rewarded_port: str = Field(
+            description='the port that was rewarded on the previous trial')
+        rewarded_port: str = Field(
+            description='the port that is rewarded on this trial')
         
         # The timestamps
-        timestamp_trial_start = tables.StringCol(64)
-        timestamp_reward = tables.StringCol(64)
+        timestamp_trial_start: str = Field(
+            description='The time that the trial began, as a string')
+        timestamp_reward: str = Field(
+            description='The time that the reward was delivered, as a string')
         
         # A bunch of stimulus parameters
         # TODO: generate this programmatically from helper
         # TODO: add "log" to the names of the log-spaced params
-        stim_target_rate = tables.Float32Col()
-        stim_target_temporal_std = tables.Float32Col()
-        stim_target_spatial_extent = tables.Float32Col()
-        stim_distracter_rate = tables.Float32Col()
-        stim_distracter_temporal_std = tables.Float32Col()
-        stim_target_center_freq = tables.Float32Col()
-        stim_target_bandwidth = tables.Float32Col()
-        stim_target_amplitude = tables.Float32Col()
-        stim_distracter_center_freq = tables.Float32Col()
-        stim_distracter_bandwidth = tables.Float32Col()
-        stim_distracter_amplitude = tables.Float32Col()
+        stim_target_rate: float = Field(
+            description='The rate of the target sound at the goal')
+        stim_target_temporal_std: float = Field(
+            description='The temporal variability of the target sound')
+        stim_target_spatial_extent: float = Field(
+            description='The spatial extent of the target sounds')
+        stim_distracter_rate: float = Field(
+            description='The rate of the distractor sounds')
+        stim_distracter_temporal_std: float = Field(
+            description='The temporal variability of the distracter sounds')
+        stim_target_center_freq: float = Field(
+            description='The center frequency of the target noise bursts')
+        stim_target_bandwidth: float = Field(
+            description='The bandwidth of the target noise bursts')
+        stim_target_amplitude: float = Field(
+            description='The amplitude of the target noise bursts')
+        stim_distracter_center_freq: float = Field(
+            description='The center frequency of the distracter noise bursts')
+        stim_distracter_bandwidth: float = Field(
+            description='The bandwidth of the distracter noise bursts')
+        stim_distracter_amplitude: float = Field(
+            description='The amplitude of the distracter noise bursts')
+        stim_n_distracters: int = Field(
+            description='The number of distracter ports')
 
     # Define continuous data
     # https://docs.auto-pi-lot.com/en/latest/guide/task.html
@@ -244,20 +270,10 @@ class PAFT(Task):
     # instantiate each of the hardware objects, so their naming system 
     # must match (ie. there must be a prefs.PINS['POKES']['L'] entry in 
     # prefs for a task that has a task.HARDWARE['POKES']['L'] object).
-    HARDWARE = {
-        'POKES':{
-            'L': autopilot.hardware.gpio.Digital_In,
-            'R': autopilot.hardware.gpio.Digital_In,
-        },
-        'LEDS':{
-            'L': autopilot.hardware.gpio.LED_RGB,
-            'R': autopilot.hardware.gpio.LED_RGB,
-        },
-        'PORTS':{
-            'L': autopilot.hardware.gpio.Solenoid,
-            'R': autopilot.hardware.gpio.Solenoid,
-        }
-    }
+    # 
+    # Because this runs on the parent, we don't have any hardware to 
+    # instantiate
+    HARDWARE = {}
     
     # This defines the child rpis to connect to
     children_names = prefs.get('CHILDID')
@@ -400,6 +416,17 @@ class PAFT(Task):
                     task_params[param_min],
                     task_params[param_max],
                     task_params[param_n_choices])
+                
+                # Special case this one, which must be int
+                # Could also test for param.type == 'int', though it's 
+                # ambiguous whether this means min and max must be int,
+                # or all choices in between
+                if param.key == 'n_distracters':
+                    orig = self.stim_choosing_params[param.key]
+                    casted = orig.astype(int)
+                    if (casted != orig).any(): 
+                        raise ValueError("cannot convert n_distracters to int")
+                    self.stim_choosing_params[param.key] = casted
 
         # Log
         self.logger.debug('received task_params:\n{}'.format(task_params))
@@ -487,7 +514,7 @@ class PAFT(Task):
                 'parent': prefs.get('NAME'), 'subject': subject},
             'task_type': 'PAFT_Child',
             'subject': subject,
-            'reward': reward,          
+            'reward': reward,
         }
 
         # send to the station object with a 'CHILD' key
@@ -602,7 +629,7 @@ class PAFT(Task):
 
             # Send the message
             self.node2.send(to=which_pi, key='PLAY', value=kwargs)
-    
+
     def choose_stimulus(self):
         """A stage that chooses the stimulus"""
         # Get timestamp
@@ -666,6 +693,8 @@ class PAFT(Task):
             self.stim_choosing_params['distracter_bandwidth'])
         stim_distracter_log_amplitude = random.choice(
             self.stim_choosing_params['distracter_log_amplitude'])
+        stim_n_distracters = random.choice(
+            self.stim_choosing_params['n_distracters'])
         
         # Put the ones that don't vary with port in a dict
         # The ones that do vary with port are captured by port_params
@@ -723,10 +752,15 @@ class PAFT(Task):
         port_params.loc[port_params['target_rate'] < 0, 'target_rate'] = 0
         
         # Calculate distracter rate
-        port_params.loc[:, 'distracter_rate'] = (
-            stim_distracter_rate - port_params.loc[:, 'target_rate'])
+        # Previously this was stim_distracter_rate - target rate
+        # Now, fill N randomly chosen speakers with distracters
+        potential_distracter_idxs = [
+            idx for idx in port_params.index if idx != rewarded_idx]
+        chosen_distracter_idxs = random.sample(
+            potential_distracter_idxs, k=stim_n_distracters)
+        port_params['distracter_rate'] = 0
         port_params.loc[
-            port_params['distracter_rate'] < 0, 'distracter_rate'] = 0
+            chosen_distracter_idxs, 'distracter_rate'] = stim_distracter_rate
         
         
         ## Send the play and silence messages
@@ -1075,7 +1109,7 @@ class PAFT(Task):
                 'reward_delivered': this_is_rewarded_poke,
                 'poke_rank': this_poke_rank,
                 },
-            )            
+            )  
 
     def recv_reward(self, value):
         """Log reward and advance stage block"""
