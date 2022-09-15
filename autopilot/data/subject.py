@@ -14,6 +14,10 @@ from pathlib import Path
 import shutil
 import queue
 
+# watchtower
+import urllib3
+import requests
+
 import pandas as pd
 import numpy as np
 import tables
@@ -758,11 +762,22 @@ class Subject(object):
                 task_params, fi, indent=4, separators=(',', ': '), 
                 sort_keys=True)
         
+        # Choose camera_name from pilot
+        if pilot == 'rpi_parent02':
+            camera_name = 'e3v82c6'
+        else:
+            camera_name = None
+        
+        # Set creation time (might be needed to line up with videos)
+        sandbox_creation_time = datetime.datetime.now().isoformat()
+        
         # Store sandbox_params, currently just pilot name and task name
         sandbox_params = {
             'pilot': pilot, 
             'task_class_name': task_class_name,
             'protocol_name': self.protocol.protocol_name,
+            'camera_name': camera_name,
+            'sandbox_creation_time': sandbox_creation_time,
             }
         with open(os.path.join(sandbox_dir, 'sandbox_params.json'), 'w') as fi:
             json.dump(
@@ -770,13 +785,12 @@ class Subject(object):
                 sort_keys=True)
         
         # TODO: copy in the code that was used, my prefs.json, etc
-        # TODO: start capturing video 
 
         # spawn thread to accept data
         self.data_queue = queue.Queue()
         self._thread = threading.Thread(
             target=self._data_thread,
-            args=(self.data_queue, hdf5_filename, task_class_name)
+            args=(self.data_queue, hdf5_filename, task_class_name, camera_name)
         )
         self._thread.start()
         self.running = True
@@ -793,7 +807,7 @@ class Subject(object):
     # --------------------------------------------------
 
     def _data_thread(self, queue:queue.Queue, hdf5_filename:str, 
-        task_class_name:str):
+        task_class_name:str, camera_name=None):
         """Target of data thread, which writes data to hdf5 during task.
 
         receives data through :attr:`~.Subject.queue` as dictionaries. 
@@ -816,11 +830,40 @@ class Subject(object):
             hdf_filname (str): where to write the hdf5 data for this session
             task_class_name (str): name of the task, used by autopilot.get_task
                 to instantiate the task and get the TrialData
+            camera_name (str or None): name of the camera to use, or None
+                if None, no video is taken
+                otherwise, watchtower start/stop commands are sent
         """
+        ## Setup watchtower
+        # (optional) Disable the "insecure requests" warning for https certs
+        urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+        if camera_name is not None:
+            # what watchtower url to control
+            watchtowerurl = 'https://192.168.11.196:4343'
+
+            # login and obtain API token
+            username = 'mouse'
+            password = 'watchtowerpassword'
+            r = requests.post(
+                watchtowerurl+'/api/login', 
+                data={'username': username, 'password': password}, 
+                verify=False)
+            j = json.loads(r.text)
+            apit = j['apitoken']
+
+            # set save path
+            response = requests.post(
+                watchtowerurl+'/api/sessions/rename', 
+                data = {'Filepath': '/home/mouse/Videos'}, verify=False)
+    
+        
+        ## Get the table_desc to create the HDF5 file
         task_class = autopilot.get_task(task_class_name)
         table_desc = task_class.TrialData.to_pytables_description()
         
-        # Open the HDF5 file where data is stored
+        
+        ## Open the HDF5 file where data is stored
         with tables.open_file(hdf5_filename, 'w') as h5f:
             ## Create a trial table for this session
             trial_table = h5f.create_table(
@@ -874,38 +917,76 @@ class Subject(object):
             self.logger.debug('_data_thread: hdf5 created: {}'.format(str(h5f.root)))
             
 
-            ## start getting data
-            # stop when 'END' gets put in the queue
-            for data in iter(queue.get, 'END'):
-                #self.logger.debug('_data_thread: received {}'.format(data))
-                
-                # wrap everything in try because this thread shouldn't crash
-                try:
-                    # special case chunk data
-                    if 'chunkclass_name' in data.keys():
-                        self._save_chunk_data(h5f, data, chunk_table_d)
-
-                    # special case continuous data
-                    elif 'continuous' in data.keys():
-                        self._save_continuous_data(h5f, data, cont_tables)
+            ## try/finally ensures video stop save is always called
+            try:
+                if camera_name is not None:
+                    # start the video
+                    self.logger.debug('starting video save')
+                    response = requests.post(
+                        watchtowerurl+'/api/cameras/action', 
+                        data={
+                            'SerialGroup[]': [camera_name], 
+                            'Action': 'RECORDGROUP', 
+                            'apitoken': apit,
+                        }, 
+                        verify=False)
+                    self.logger.debug('video stop save command sent')
                     
-                    # regular old trial data
-                    else:
-                        self.logger.debug('received trial data: {}'.format(data))
-                        # If we get trial data out of order, 
-                        # try and write it back in the correct row.
-                        if 'trial_num' in data.keys() and 'trial_num' in trial_row:
-                            trial_row = self._sync_trial_row(
-                                data['trial_num'], trial_row, trial_table)
-                            del data['trial_num']
-                            self.logger.debug('fixed trial data: {}'.format(data))
-                        
-                        self.logger.debug('saving trial data')
-                        self._save_trial_data(data, trial_row, trial_table)
+                    if not response.ok:
+                        self.logger.debug(
+                            'error: response after start save command: {}'.format(
+                            response.text))
+    
+                # stop when 'END' gets put in the queue
+                for data in iter(queue.get, 'END'):
+                    #self.logger.debug('_data_thread: received {}'.format(data))
+                    
+                    # wrap everything in try because this thread shouldn't crash
+                    try:
+                        # special case chunk data
+                        if 'chunkclass_name' in data.keys():
+                            self._save_chunk_data(h5f, data, chunk_table_d)
 
-                except Exception as e:
-                    # we shouldn't throw any exception in this thread, just log it and move on
-                    self.logger.exception(f'exception in data thread: {e}')
+                        # special case continuous data
+                        elif 'continuous' in data.keys():
+                            self._save_continuous_data(h5f, data, cont_tables)
+                        
+                        # regular old trial data
+                        else:
+                            self.logger.debug('received trial data: {}'.format(data))
+                            # If we get trial data out of order, 
+                            # try and write it back in the correct row.
+                            if 'trial_num' in data.keys() and 'trial_num' in trial_row:
+                                trial_row = self._sync_trial_row(
+                                    data['trial_num'], trial_row, trial_table)
+                                del data['trial_num']
+                                self.logger.debug('fixed trial data: {}'.format(data))
+                            
+                            self.logger.debug('saving trial data')
+                            self._save_trial_data(data, trial_row, trial_table)
+
+                    except Exception as e:
+                        # we shouldn't throw any exception in this thread, just log it and move on
+                        self.logger.exception(f'error: exception in data thread: {e}')
+            
+            finally:
+                if camera_name is not None:
+                    # stop the video
+                    self.logger.debug('stopping video save')
+                    response = requests.post(
+                        watchtowerurl+'/api/cameras/action', 
+                        data={
+                            'SerialGroup[]': [camera_name], 
+                            'Action': 'STOPRECORDGROUP', 
+                            'apitoken': apit,
+                        }, 
+                        verify=False)
+                    self.logger.debug('video stop save command sent')
+                    
+                    if not response.ok:
+                        self.logger.debug(
+                            'error: response after stop save command: {}'.format(
+                            response.text))                
 
     def _save_chunk_data(self, 
         h5f: tables.File,
