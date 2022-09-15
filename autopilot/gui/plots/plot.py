@@ -244,7 +244,7 @@ class Plot(QtWidgets.QWidget):
                 'rpi04_L',
                 'rpi04_R', 
                 ]
-            self.gui_rotation_offset = -np.pi / 4
+            self.gui_rotation_offset = -3 * np.pi / 4
         
         elif pilot == 'rpiparent04':
             self.known_pilot_ports = [
@@ -256,7 +256,7 @@ class Plot(QtWidgets.QWidget):
                 'rpi20_R',
                 'rpi21_L',
                 'rpi21_R', ]
-            self.gui_rotation_offset = np.pi / 2
+            self.gui_rotation_offset = 0
         
         else:
             # This can happen if another pilot is in pilot_db for whatever reason
@@ -393,8 +393,8 @@ class Plot(QtWidgets.QWidget):
         
         # Set ranges
         self.plot_octagon.setRange(xRange=(-1, 1), yRange=(-1, 1))
-        self.plot_octagon.setFixedWidth(275)
-        self.plot_octagon.setFixedHeight(300)
+        self.plot_octagon.setFixedWidth(175)
+        self.plot_octagon.setFixedHeight(200)
         
         # Add to layout
         self.layout.addWidget(self.plot_octagon, 8)
