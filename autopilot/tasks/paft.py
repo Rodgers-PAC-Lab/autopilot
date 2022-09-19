@@ -851,7 +851,7 @@ class PAFT(Task):
         self.logger.debug('end_of_trial: entering stage')
         
         # 5 s ITI
-        time.sleep(3)        
+        time.sleep(1)        
 
         # Continue to the next stage
         self.stage_block.set()        
