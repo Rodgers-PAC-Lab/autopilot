@@ -486,27 +486,33 @@ class Subject(object):
             path = Path(path)
             assert path.suffix == '.h5'
 
+        # Depends on if the path already exists (e.g., if the subject has
+        # been created before and deleted, or this is the first time)
         if path.exists():
-            raise FileExistsError(f"A subject file for {bio.id} already exists at {path}!")
+            # The path already exists
+            print(
+                'warning: subject {} already exists at {}'.format(
+                bio.id, path))
+        
+        else:
+            # Need to create the HDF5 file from scratch
+            # use the open_file command directly here because we use mode="w"
+            h5f = tables.open_file(filename=str(path), mode='w')
 
-        # use the open_file command directly here because we use mode="w"
-        h5f = tables.open_file(filename=str(path), mode='w')
+            # make basic structure
+            structure.make(h5f)
 
-        # make basic structure
-        structure.make(h5f)
+            info_node = h5f.get_node(structure.info.path)
+            for k, v in bio.dict().items():
+                info_node._v_attrs[k] = v
 
-        info_node = h5f.get_node(structure.info.path)
-        for k, v in bio.dict().items():
-            info_node._v_attrs[k] = v
+            # compatibility - double `id` as name
+            info_node._v_attrs['name'] = bio.id
+            h5f.root._v_attrs['VERSION'] = cls._VERSION
 
-        # compatibility - double `id` as name
-        info_node._v_attrs['name'] = bio.id
-        h5f.root._v_attrs['VERSION'] = cls._VERSION
-
-        h5f.close()
+            h5f.close()
 
         return Subject(name=bio.id, file=path)
-
 
     def update_history(self, type, name:str, value:typing.Any, step=None):
         """
