@@ -487,7 +487,16 @@ class Plot(QtWidgets.QWidget):
         self.n_trials = 0
         self.n_correct_trials = 0
         self.rank_of_poke_by_trial = []
-        
+
+        # Update the infobox
+        self.infobox_items['N Rewards'].setText('')
+        self.infobox_items['N Trials'].setText('')
+        self.infobox_items['N Correct Trials'].setText('')
+        self.infobox_items['FC'].setText('')
+        self.infobox_items['RCP'].setText('')
+        self.infobox_items['Runtime'].setText('')
+        self.infobox_items['Last poke'].setText('')
+
         # Set time
         self.start_time = None
         self.local_start_time = None
@@ -727,13 +736,21 @@ class Plot(QtWidgets.QWidget):
         # This poke was unrewarded and did not end the trial
         # Either it was incorrect, or the reward was already given
         
-        # Test whether it was a previously_rewarded_port
-        if value['poke_rank'] == -1:
-            # This was probably a consummation lick from the
-            # previous trial. Do nothing
-            pass
+        # TODO: Set a timer to decide if this is a consummation lick
+        # from the previous trial, or it's been long enough and we should 
+        # just treat this as another kind of error
+        # For now, just plot these pokes as red ticks even though they
+        # might be consummation licks
         
-        else:
+        #~ # Test whether it was a previously_rewarded_port
+        #~ if value['poke_rank'] == -1:
+            #~ # This was probably a consummation lick from the
+            #~ # previous trial. Do nothing
+            #~ pass
+        
+        #~ else:
+
+        if True:
             # Store the time in the RED trace
             kpp_data = self.known_pilot_ports_poke_data[kpp_idx]
             kpp_data.append(timestamp_sec)
