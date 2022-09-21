@@ -762,8 +762,8 @@ class Subject(object):
             mouse_reward = box_reward[0]
         else:
             self.logger.debug(
-                'unknown reward amount for {}, using lowest'.format(self.name))
-            mouse_reward = box_reward[0]
+                'unknown reward amount for {}, using highest'.format(self.name))
+            mouse_reward = box_reward[2]
         
         # Store this in task_params, and it will be sent to the pilot to
         # start the task
