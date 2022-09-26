@@ -490,27 +490,33 @@ class Subject(object):
             path = Path(path)
             assert path.suffix == '.h5'
 
+        # Depends on if the path already exists (e.g., if the subject has
+        # been created before and deleted, or this is the first time)
         if path.exists():
-            raise FileExistsError(f"A subject file for {bio.id} already exists at {path}!")
+            # The path already exists
+            print(
+                'warning: subject {} already exists at {}'.format(
+                bio.id, path))
+        
+        else:
+            # Need to create the HDF5 file from scratch
+            # use the open_file command directly here because we use mode="w"
+            h5f = tables.open_file(filename=str(path), mode='w')
 
-        # use the open_file command directly here because we use mode="w"
-        h5f = tables.open_file(filename=str(path), mode='w')
+            # make basic structure
+            structure.make(h5f)
 
-        # make basic structure
-        structure.make(h5f)
+            info_node = h5f.get_node(structure.info.path)
+            for k, v in bio.dict().items():
+                info_node._v_attrs[k] = v
 
-        info_node = h5f.get_node(structure.info.path)
-        for k, v in bio.dict().items():
-            info_node._v_attrs[k] = v
+            # compatibility - double `id` as name
+            info_node._v_attrs['name'] = bio.id
+            h5f.root._v_attrs['VERSION'] = cls._VERSION
 
-        # compatibility - double `id` as name
-        info_node._v_attrs['name'] = bio.id
-        h5f.root._v_attrs['VERSION'] = cls._VERSION
-
-        h5f.close()
+            h5f.close()
 
         return Subject(name=bio.id, file=path)
-
 
     def update_history(self, type, name:str, value:typing.Any, step=None):
         """
@@ -733,6 +739,43 @@ class Subject(object):
         self.step: int, indexing self.protocol.protocol
         """
         
+        ## Calculate reward amount
+        # Box-specific reward amount
+        if pilot == 'rpi_parent01':
+            box_reward = [85, 100, 120]
+        elif pilot == 'rpi_parent02':
+            box_reward = [85, 100, 120]
+        elif pilot == 'rpiparent03':
+            box_reward = [55, 65, 80]
+        elif pilot == 'rpiparent04':
+            box_reward = [55, 65, 80]
+        else:
+            self.logger.debug(
+                'unknown reward amount for {}, using 55'.format(pilot))
+            box_reward = [55, 65, 80]
+        
+        # Mouse-specific reward amount
+        high_reward_l = []
+        med_reward_l = []
+        low_reward_l = []
+        if self.name in high_reward_l:
+            mouse_reward = box_reward[2]
+        elif self.name in med_reward_l:
+            mouse_reward = box_reward[1]
+        elif self.name in low_reward_l:
+            mouse_reward = box_reward[0]
+        else:
+            self.logger.debug(
+                'unknown reward amount for {}, using highest'.format(self.name))
+            mouse_reward = box_reward[2]
+        
+        # Store this in task_params, and it will be sent to the pilot to
+        # start the task
+        # Note that this is overwriting the value loaded from the protocol
+        task_params['reward'] = mouse_reward
+        
+        
+        ## other session stuff
         # increment session and clear session_uuid to ensure uniqueness
         self.session += 1
         self._session_uuid = None
