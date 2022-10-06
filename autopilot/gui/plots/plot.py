@@ -567,7 +567,14 @@ class Plot(QtWidgets.QWidget):
             
             # Also store approx local start time
             self.local_start_time = datetime.datetime.now()
-
+        
+        # Get the timestamp of this message
+        # This is a weird construction, later "if" blocks rely on the
+        # outcome of this
+        if 'timestamp' in value:
+            timestamp_dt = datetime.datetime.fromisoformat(value['timestamp'])
+            timestamp_sec = (timestamp_dt - self.start_time).total_seconds()
+        
         # A new "rewarded_port" was just chosen. Mark it purple.
         # This means it is the beginning of a new trial.
         if 'rewarded_port' in value.keys():
