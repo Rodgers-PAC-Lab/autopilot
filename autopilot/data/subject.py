@@ -105,36 +105,17 @@ class Subject(object):
             Dict: the parameters for the current step, with subject id, step number,
                 current trial, and session number included.
         """
-        # This subject must have a :class:`Protocol_Status` assigned to the
-        # attribute `self.protocol`, so that we know what task to run. 
-        # Otherwise, raise an error.
-        if self.protocol is None:
-            e = RuntimeError(
-                "No task assigned to subject, can't prepare_run. "
-                'use Subject.assign_protocol or protocol reassignment wizard '
-                'in the terminal GUI')
-            self.logger.exception(f"{e}")
-            raise e
-
+        # Read fixed protocol
+        protocol_filename = '/home/mouse/autopilot/protocols/ControlTest220614.json'
+        with open(protocol_filename) as fi:
+            protocol_json = json.load(fi)
+   
         # Get current task parameters
         # I think this is essentially just the contents of the protocol JSON
-        task_params = self.protocol.protocol[self.step]
+        task_params = protocol_json[0] # first step
         task_class_name = task_params['task_type']
         
-        """
-        print('self.protocol: {}'.format(str(self.protocol)))
-        print('self.protocol.protocol: {}'.format(str(self.protocol.protocol)))
-        print('self.step: {}'.format(self.step))
-        
-        self.protocol: dict-like, has keys 'assigned', 'current_trial', 
-            'pilot', 'protocol', 'protocol_name', 'session', 'step'
-        
-        self.protocol.protocol: list-like of dict, each dict is 
-            like the protocol JSON
-        
-        self.step: int, indexing self.protocol.protocol
-        """
-        
+       
         ## Calculate reward amount
         # Box-specific reward amount
         if pilot == 'rpi_parent01':
@@ -172,10 +153,6 @@ class Subject(object):
         
         
         ## other session stuff
-        # increment session and clear session_uuid to ensure uniqueness
-        self.session += 1
-        self._session_uuid = None
-        
         # Generate a session_name as a concatenation of the current time,
         # and the subject name
         session_dt = datetime.datetime.now()
@@ -223,7 +200,7 @@ class Subject(object):
         sandbox_params = {
             'pilot': pilot, 
             'task_class_name': task_class_name,
-            'protocol_name': self.protocol.protocol_name,
+            'protocol_filename': protocol_filename,
             'camera_name': camera_name,
             'sandbox_creation_time': sandbox_creation_time,
             }
@@ -244,10 +221,12 @@ class Subject(object):
         self.running = True
 
         # return a completed task parameter dictionary
+        # TODO: remove whatever code is looking for step, current_trial,
+        # and session
         task_params['subject'] = self.name
-        task_params['step'] = int(self.step)
-        task_params['current_trial'] = int(self.current_trial)
-        task_params['session'] = int(self.session)
+        task_params['step'] = 999
+        task_params['current_trial'] = 999
+        task_params['session'] = 999
         return task_params
 
     def _data_thread(self, queue:queue.Queue, hdf5_filename:str, 
