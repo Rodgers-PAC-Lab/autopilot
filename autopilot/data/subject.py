@@ -806,10 +806,19 @@ class Subject(object):
                 sort_keys=True)
         
         # Choose camera_name from pilot
-        if pilot == 'rpi_parent02':
+        if pilot == 'rpi_parent01':
+            camera_name = 'e3v82e4'
+        elif pilot == 'rpi_parent02':
             camera_name = 'e3v82c6'
+        elif pilot == 'rpiparent03':
+            camera_name = 'e3v82d2'
+        elif pilot == 'rpiparent04':
+            camera_name = 'e3v8370'
         else:
             camera_name = None
+        
+        # For now, disable saving
+        camera_name = None
         
         # Set creation time (might be needed to line up with videos)
         sandbox_creation_time = datetime.datetime.now().isoformat()
@@ -883,7 +892,7 @@ class Subject(object):
 
         if camera_name is not None:
             # what watchtower url to control
-            watchtowerurl = 'https://192.168.11.196:4343'
+            watchtowerurl = 'https://192.168.11.148:4343'
 
             # login and obtain API token
             username = 'mouse'
@@ -895,10 +904,10 @@ class Subject(object):
             j = json.loads(r.text)
             apit = j['apitoken']
 
-            # set save path
-            response = requests.post(
-                watchtowerurl+'/api/sessions/rename', 
-                data = {'Filepath': '/home/mouse/Videos'}, verify=False)
+            #~ # set save path
+            #~ response = requests.post(
+                #~ watchtowerurl+'/api/sessions/rename', 
+                #~ data = {'Filepath': '/home/mouse/Videos'}, verify=False)
     
         
         ## Get the table_desc to create the HDF5 file
