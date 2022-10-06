@@ -218,7 +218,7 @@ class Plot(QtWidgets.QWidget):
             # The first entry in the list above will be located at
             # the gui rotation offset (typically, straight up, or pi / 2).
             # Each subsequent port is 45 degrees clockwise from there.
-            self.gui_rotation_offset = np.pi / 2
+            self.gui_rotation_offset = 3 * np.pi / 4
         
         elif pilot == 'rpi_parent02':
             self.known_pilot_ports = [
@@ -231,7 +231,7 @@ class Plot(QtWidgets.QWidget):
                 'rpi06_L',
                 'rpi06_R',
                 ]
-            self.gui_rotation_offset = np.pi / 2
+            self.gui_rotation_offset = 3 * np.pi / 4
         
         elif pilot == 'rpiparent03':
             self.known_pilot_ports = [
