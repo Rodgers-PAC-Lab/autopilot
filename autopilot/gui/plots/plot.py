@@ -540,7 +540,6 @@ class Plot(QtWidgets.QWidget):
                 x=[approx_time_in_session, approx_time_in_session], y=[-1, 9],
                 pen=pg.mkPen(np.abs(self.line_of_current_time_color - 1)),
                 )
-            #~ print(self.line_of_current_time_color, (np.abs(self.line_of_current_time_color) - 1))
 
     @gui_event
     def l_data(self, value):
@@ -569,19 +568,6 @@ class Plot(QtWidgets.QWidget):
             # Also store approx local start time
             self.local_start_time = datetime.datetime.now()
 
-        # Get the timestamp of this message
-        if 'timestamp' in value:
-            timestamp_dt = datetime.datetime.fromisoformat(value['timestamp'])
-            timestamp_sec = (timestamp_dt - self.start_time).total_seconds()
-            
-            #~ # Update the current time line
-            #~ self.line_of_current_time_color += 0.1
-            #~ if self.line_of_current_time_color >= 1:
-                #~ self.line_of_current_time_color = 0
-            #~ self.line_of_current_time.setData(
-                #~ x=[timestamp_sec, timestamp_sec], y=[-1, 9],
-                #~ pen=self.line_of_current_time_color)
-        
         # A new "rewarded_port" was just chosen. Mark it purple.
         # This means it is the beginning of a new trial.
         if 'rewarded_port' in value.keys():
