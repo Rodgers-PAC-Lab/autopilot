@@ -411,8 +411,11 @@ class Plot(QtWidgets.QWidget):
        
         # Add a vertical line indicating the current time
         # This will shift over throughout the session
+        self.line_of_current_time_color = 0.5
         self.line_of_current_time = self.timecourse_plot.plot(
-            x=[0, 0], y=[-1, 8], pen='white')
+            x=[0, 0], y=[-1, 8], 
+            pen=pg.mkPen(self.line_of_current_time_color))
+        
 
         # Within self.timecourse_plot, add a trace for pokes made into
         # each port
@@ -529,8 +532,15 @@ class Plot(QtWidgets.QWidget):
             current_time = datetime.datetime.now()
             approx_time_in_session = (
                 current_time - self.local_start_time).total_seconds()
+
+            # Update the current time line
+            self.line_of_current_time_color = np.mod(
+                self.line_of_current_time_color + 0.1, 2)
             self.line_of_current_time.setData(
-                x=[approx_time_in_session, approx_time_in_session], y=[-1, 9])
+                x=[approx_time_in_session, approx_time_in_session], y=[-1, 9],
+                pen=pg.mkPen(np.abs(self.line_of_current_time_color - 1)),
+                )
+            #~ print(self.line_of_current_time_color, (np.abs(self.line_of_current_time_color) - 1))
 
     @gui_event
     def l_data(self, value):
@@ -564,9 +574,13 @@ class Plot(QtWidgets.QWidget):
             timestamp_dt = datetime.datetime.fromisoformat(value['timestamp'])
             timestamp_sec = (timestamp_dt - self.start_time).total_seconds()
             
-            # Update the current time line
-            self.line_of_current_time.setData(
-                x=[timestamp_sec, timestamp_sec], y=[-1, 9])
+            #~ # Update the current time line
+            #~ self.line_of_current_time_color += 0.1
+            #~ if self.line_of_current_time_color >= 1:
+                #~ self.line_of_current_time_color = 0
+            #~ self.line_of_current_time.setData(
+                #~ x=[timestamp_sec, timestamp_sec], y=[-1, 9],
+                #~ pen=self.line_of_current_time_color)
         
         # A new "rewarded_port" was just chosen. Mark it purple.
         # This means it is the beginning of a new trial.
