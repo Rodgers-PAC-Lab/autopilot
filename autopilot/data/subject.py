@@ -602,8 +602,6 @@ class Subject(object):
 
     def _increment_trial(self, trial_row: Row):
         self.logger.debug('Trial Incremented')
-        trial_row['session'] = self.session
-        trial_row['session_uuid'] = self.session_uuid
         trial_row.append()
 
     def save_data(self, data):
