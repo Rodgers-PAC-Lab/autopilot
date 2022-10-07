@@ -105,8 +105,31 @@ class Subject(object):
             Dict: the parameters for the current step, with subject id, step number,
                 current trial, and session number included.
         """
-        # Read fixed protocol
-        protocol_filename = '/home/mouse/autopilot/protocols/ControlTest220614.json'
+        ## Get protocol for mouse
+        # Get mouse config params
+        # This is a dict with mouse names as keys
+        with open('/home/mouse/autopilot/config/subjects.json') as fi:
+            config_mouse = json.load(fi)
+        
+        # Get the params for this mouse
+        try:
+            params_mouse = config_mouse[self.name]
+        except KeyError:
+            self.logger.debug(
+                'error: {} not found in subjects.json, using "default"'.format(
+                self.name))
+            params_mouse = config_mouse['default']
+        
+        # Read protocol from directory
+        try:
+            protocol_filename = os.path.join(
+                '/home/mouse/autopilot/protocols', 
+                params_mouse['protocol_filename'],
+                )
+        except KeyError:
+            raise IOError(
+                "error: subjects.json is missing protocol_filename for "
+                "subject {}".format(self.name))
         with open(protocol_filename) as fi:
             protocol_json = json.load(fi)
    
