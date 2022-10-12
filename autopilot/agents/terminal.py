@@ -549,9 +549,6 @@ class Terminal(QtWidgets.QMainWindow):
                 if subject not in self.subjects.keys():
                     self.subjects[subject] = Subject(subject)
 
-                # Store the weight on that :class:`Subject`
-                self.subjects[subject].update_weights(start=float(start_weight))
-                
                 # Start the thread to run the task
                 # This returns a dict (?) named task_params
                 # Store the pilot's name here
@@ -580,8 +577,6 @@ class Terminal(QtWidgets.QMainWindow):
                 self, "Set Stopping Weight", "Stopping Weight:")
 
             self.subjects[subject].stop_run()
-            self.subjects[subject].update_weights(stop=float(stop_weight))
-
 
 
     ############################
