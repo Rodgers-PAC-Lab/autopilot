@@ -142,7 +142,7 @@ class Subject(object):
         ## Calculate reward amount
         # Box-specific reward amount
         if pilot == 'rpi_parent01':
-            box_reward = [85, 100, 120]
+            box_reward = [55, 65, 80]
         elif pilot == 'rpi_parent02':
             box_reward = [55, 65, 80]
         elif pilot == 'rpiparent03':
