@@ -214,7 +214,7 @@ class Subject(object):
             camera_name = None
         
         # For now, disable saving
-        camera_name = None
+        #~ camera_name = None
         
         # Set creation time (might be needed to line up with videos)
         sandbox_creation_time = datetime.datetime.now().isoformat()
@@ -286,22 +286,17 @@ class Subject(object):
 
         if camera_name is not None:
             # what watchtower url to control
-            watchtowerurl = 'https://192.168.11.148:4343'
+            watchtowerurl = 'https://192.168.11.121:4343'
 
             # login and obtain API token
             username = 'mouse'
-            password = 'watchtowerpassword'
+            password = 'whitemattertest'
             r = requests.post(
                 watchtowerurl+'/api/login', 
                 data={'username': username, 'password': password}, 
                 verify=False)
             j = json.loads(r.text)
             apit = j['apitoken']
-
-            #~ # set save path
-            #~ response = requests.post(
-                #~ watchtowerurl+'/api/sessions/rename', 
-                #~ data = {'Filepath': '/home/mouse/Videos'}, verify=False)
     
         
         ## Get the table_desc to create the HDF5 file
