@@ -203,13 +203,13 @@ class Subject(object):
         
         # Choose camera_name from pilot
         if pilot == 'rpi_parent01':
-            camera_name = 'Box3-e3v82e4'
+            camera_name = 'e3v82e4'
         elif pilot == 'rpi_parent02':
-            camera_name = 'Box2-e3v82c6'
+            camera_name = 'e3v82c6'
         elif pilot == 'rpiparent03':
-            camera_name = 'Box4-e3v82d2'
+            camera_name = 'e3v82d2'
         elif pilot == 'rpiparent04':
-            camera_name = 'Box5-e3v8370'
+            camera_name = 'e3v8370'
         else:
             camera_name = None
         
