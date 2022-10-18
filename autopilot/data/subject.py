@@ -41,6 +41,133 @@ warnings.simplefilter('ignore', category=tables.NaturalNameWarning)
 import pandas
 
 
+def watchtower_setup(watchtowerurl, logger):
+    """Log in to watchtower and get api token.
+    
+    Returns: watchtower_connection_up, apit
+        watchtower_connection_up : bool
+            True if connection worked
+            False if it timed out
+        
+        apit : api token
+            None if it timed out
+    """
+    # Disable the "insecure requests" warning
+    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+    # login and obtain API token
+    username = 'mouse'
+    password = 'whitemattertest'
+    
+    # Wrap all requests in case of timeout
+    watchtower_connection_up = True
+    try:
+        # Try to log in
+        r = requests.post(
+            watchtowerurl + '/api/login', 
+            data={'username': username, 'password': password}, 
+            verify=False,
+            timeout=1,
+            )
+    except requests.ConnectTimeout:
+        # If no connection available, log error and set
+        # watchtower_connection_up to False to disable further
+        # attemps in this session
+        logger.debug(
+            "error: cannot connect to watchtower at {}".format(
+            watchtowerurl))
+        watchtower_connection_up = False
+    
+    # Extract the token
+    if watchtower_connection_up:
+        j = json.loads(r.text)
+        apit = j['apitoken']
+    else:
+        apit = None
+    
+    return watchtower_connection_up, apit
+
+def watchtower_start_save(watchtowerurl, apit, camera_name, logger):
+    """Tell watchtower to start saving.
+    
+    Returns watchtower_connection_up
+    """
+    # Until proven False
+    watchtower_connection_up = True
+    
+    # Wrap all requests
+    try:
+        response = requests.post(
+            watchtowerurl+'/api/cameras/action', 
+            data={
+                'SerialGroup[]': [camera_name], 
+                'Action': 'RECORDGROUP', 
+                'apitoken': apit,
+            }, 
+            timeout=1,            
+            verify=False)
+        logger.debug('video stop save command sent')
+    
+    except requests.ConnectTimeout:
+        # If timeout, log the error and disable further
+        # attempts to communicate during this session
+        logger.debug(  
+            'error: cannot connect to watchtowerurl at '
+            '{} to start save'.format(
+            watchtowerurl))
+        response = None
+        watchtower_connection_up = False
+    
+    # This logs an error if we were able to communicate with
+    # watchtower, but the response was an error
+    if response is not None and not response.ok:
+        logger.debug(
+            'error: response after start save command: ' +
+            str(response.text))
+    
+    return watchtower_connection_up
+    
+def watchtower_stop_save(watchtowerurl, apit, camera_name, logger):
+    """Tell watchtower to stop saving.
+    
+    Returns watchtower_connection_up
+    """  
+    # Until proven False
+    watchtower_connection_up = True
+    
+    # Wrap all requests
+    try:
+        response = requests.post(
+            watchtowerurl+'/api/cameras/action', 
+            data={
+                'SerialGroup[]': [camera_name], 
+                'Action': 'STOPRECORDGROUP', 
+                'apitoken': apit,
+            }, 
+            verify=False,
+            timeout=1,
+            )
+        logger.debug('video stop save command sent')
+    
+    except requests.ConnectTimeout:
+        # If timeout, log the error and disable further
+        # attempts to communicate during this session
+        logger.debug(  
+            'error: cannot connect to watchtowerurl at '
+            '{} to stop save'.format(
+            watchtowerurl))
+        response = None
+        watchtower_connection_up = False                        
+
+    # This logs an error if we were able to communicate with
+    # watchtower, but the response was an error
+    if response is not None and not response.ok:
+        logger.debug(
+            'error: response after stop save command: ' +
+            str(response.text))      
+    
+    return watchtower_connection_up
+
 class Subject(object):
     """
     Class for managing one subject's data and protocol.
@@ -277,23 +404,11 @@ class Subject(object):
                 if None, no video is taken
                 otherwise, watchtower start/stop commands are sent
         """
-        ## Setup watchtower
-        # (optional) Disable the "insecure requests" warning for https certs
-        urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-
+        ## Setup watchtower (if camera specified)
+        watchtowerurl = 'https://192.168.11.121:4343'
         if camera_name is not None:
-            # what watchtower url to control
-            watchtowerurl = 'https://192.168.11.121:4343'
-
-            # login and obtain API token
-            username = 'mouse'
-            password = 'whitemattertest'
-            r = requests.post(
-                watchtowerurl+'/api/login', 
-                data={'username': username, 'password': password}, 
-                verify=False)
-            j = json.loads(r.text)
-            apit = j['apitoken']
+            watchtower_connection_up, apit = watchtower_setup(
+                watchtowerurl, logger=self.logger)
     
         
         ## Get the table_desc to create the HDF5 file
@@ -317,7 +432,8 @@ class Subject(object):
 
             ## Create a continuous table for this session
             # This is where continuous data for this session lives
-            continuous_session_group = h5f.create_group(h5f.root, 'continuous_data')
+            continuous_session_group = h5f.create_group(
+                h5f.root, 'continuous_data')
             
             # Also create a separate table for each column in ContinuousData
             # That table will have one column for that piece of data,
@@ -357,23 +473,10 @@ class Subject(object):
 
             ## try/finally ensures video stop save is always called
             try:
-                if camera_name is not None:
-                    # start the video
-                    self.logger.debug('starting video save')
-                    response = requests.post(
-                        watchtowerurl+'/api/cameras/action', 
-                        data={
-                            'SerialGroup[]': [camera_name], 
-                            'Action': 'RECORDGROUP', 
-                            'apitoken': apit,
-                        }, 
-                        verify=False)
-                    self.logger.debug('video stop save command sent')
-                    
-                    if not response.ok:
-                        self.logger.debug(
-                            'error: response after start save command: {}'.format(
-                            response.text))
+                # Start save
+                if camera_name is not None and watchtower_connection_up:
+                    watchtower_connection_up = watchtower_start_save(
+                        watchtowerurl, apit, camera_name, self.logger)
     
                 # stop when 'END' gets put in the queue
                 for data in iter(queue.get, 'END'):
@@ -398,7 +501,7 @@ class Subject(object):
                                 trial_row = self._sync_trial_row(
                                     data['trial_num'], trial_row, trial_table)
                                 del data['trial_num']
-                                self.logger.debug('fixed trial data: {}'.format(data))
+                                self.logger.debug('error: fixed trial data: {}'.format(data))
                             
                             self.logger.debug('saving trial data')
                             self._save_trial_data(data, trial_row, trial_table)
@@ -408,23 +511,9 @@ class Subject(object):
                         self.logger.exception(f'error: exception in data thread: {e}')
             
             finally:
-                if camera_name is not None:
-                    # stop the video
-                    self.logger.debug('stopping video save')
-                    response = requests.post(
-                        watchtowerurl+'/api/cameras/action', 
-                        data={
-                            'SerialGroup[]': [camera_name], 
-                            'Action': 'STOPRECORDGROUP', 
-                            'apitoken': apit,
-                        }, 
-                        verify=False)
-                    self.logger.debug('video stop save command sent')
-                    
-                    if not response.ok:
-                        self.logger.debug(
-                            'error: response after stop save command: {}'.format(
-                            response.text))                
+                if camera_name is not None and watchtower_connection_up:
+                    watchtower_connection_up = watchtower_stop_save(
+                        watchtowerurl, apit, camera_name, self.logger)
 
     def _save_chunk_data(self, 
         h5f: tables.File,
@@ -529,7 +618,7 @@ class Subject(object):
                 # increment the trial and print a warning
                 if k in trial_row and trial_row[k] not in (None, b'', 0) and k != 'trial_num':
                     self.logger.warning(
-                        f"Received two values for key, making new row.: {k} "
+                        f"error: Received two values for key, making new row.: {k} "
                         f"and trial row: {trial_row.nrow}, existing value: "
                         f"{trial_row[k]}, new value: {v}"
                         )
@@ -545,7 +634,7 @@ class Subject(object):
                 # This means we're dropping data, so print exception!
                 # TODO: expand trial_table!
                 self.logger.exception(
-                    f"Trial data dropped because no column for key: {k}, "
+                    f"error: Trial data dropped because no column for key: {k}, "
                     f"value: {v}")
 
         # Increment the trial number when TRIAL_END is received
