@@ -69,7 +69,7 @@ def watchtower_setup(watchtowerurl, logger):
             verify=False,
             timeout=1,
             )
-    except requests.ConnectTimeout:
+    except (requests.ConnectTimeout, requests.exceptions.ConnectionError):
         # If no connection available, log error and set
         # watchtower_connection_up to False to disable further
         # attemps in this session
@@ -407,6 +407,11 @@ class Subject(object):
                 if None, no video is taken
                 otherwise, watchtower start/stop commands are sent
         """
+        # Any errors here will crash the data thread and nothing will be
+        # saved. Need to set up a callback on thread exception,
+        # maybe something from concurrent.futures
+        # https://stackoverflow.com/questions/2829329/catch-a-threads-exception-in-the-caller-thread
+        
         ## Setup watchtower (if camera specified)
         watchtowerurl = 'https://192.168.11.121:4343'
         if camera_name is not None:
