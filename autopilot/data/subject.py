@@ -284,7 +284,10 @@ class Subject(object):
         # Mouse-specific reward amount
         high_reward_l = []
         med_reward_l = []
-        low_reward_l = []
+        low_reward_l = [
+            'sprayer_051','sprayer_052','sprayer_053',
+            'lightning_054','lightning_055'
+            ]
         if self.name in high_reward_l:
             mouse_reward = box_reward[2]
         elif self.name in med_reward_l:
