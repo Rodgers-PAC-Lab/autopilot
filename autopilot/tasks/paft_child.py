@@ -51,15 +51,26 @@ class PAFT_Child(children.Child):
         # This is needed when sending messages
         self.n_messages_sent = 0
 
+        # This is set by create_inter_pi_communication_node
+        # Initialize to None now, so that if pokes happen before
+        # the node is set up, we can catch that and issue a wraning
+        self.node2 = None
+        
 
         ## Hardware
         self.triggers = {}
         self.init_hardware()
         
         # Set initial poke triggers
-        self.set_poke_triggers(left_punish=False, right_punish=False,
+        # As soon as this command is run, then pokes will trigger
+        # calls to `log_poke` and `report_poke`. So we have to make sure
+        # that those don't rely on any of the code in the rest of __init__,
+        # which hasn't run yet. 
+        self.set_poke_triggers(
+            left_punish=False, right_punish=False,
             left_reward=False, right_reward=False)
 
+        # Debug
         self.logger.debug('debug: before sleep')
         time.sleep(1)
         self.logger.debug('debug: after sleep')
@@ -113,7 +124,10 @@ class PAFT_Child(children.Child):
 
         ## Set up NET_Node to communicate with Parent
         # Do this after initializing the sounds, otherwise we won't be
-        # ready to play yet
+        # ready to play yet, and we could receive a PLAY command from
+        # the parent as soon as this node is set up. That PLAY command
+        # will also add other callbacks that are triggered by pokes, such
+        # as reward or punish. 
         self.create_inter_pi_communication_node()
 
     def initalize_sounds(self,             
@@ -536,9 +550,14 @@ class PAFT_Child(children.Child):
 
     def report_poke(self, poke):
         """Tell the parent that the poke happened"""
-        self.node2.send(
-            'parent_pi', 'POKE', {'from': self.name, 'poke': poke},
-            )
+        if self.node2 is None:
+            # This happens for pokes when we're still in __init__
+            self.logger.debug("warning: could not report poke "
+                "{} because node2 was not initialized yet".format(poke))
+        else:
+            self.node2.send(
+                'parent_pi', 'POKE', {'from': self.name, 'poke': poke},
+                )
     
     def reward_left_once(self):
         """Reward left port. Set flag so we don't reward again till next trial
