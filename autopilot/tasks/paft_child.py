@@ -53,10 +53,14 @@ class PAFT_Child(children.Child):
 
         # This is set by create_inter_pi_communication_node
         # Initialize to None now, so that if pokes happen before
-        # the node is set up, we can catch that and issue a wraning
+        # the node is set up, we can catch that and issue a warning
         self.node2 = None
         
-
+        # This is used to keep track of how long we've been running,
+        # to estimate the true sample rate
+        self.dt_start = datetime.datetime.now()
+       
+        
         ## Hardware
         self.triggers = {}
         self.init_hardware()
@@ -614,7 +618,11 @@ class PAFT_Child(children.Child):
             # in a controlled fashion every so often
             time.sleep(.1)
         
-        self.logger.debug("info: n_frames = {}".format(self.n_frames))
+        # Estimate how fast we're playing sounds
+        time_so_far = (datetime.datetime.now() - self.dt_start).total_seconds()
+        self.logger.debug(
+            "info: played {} frames in {} s for a rate of {} frames/s".format(
+            self.n_frames, time_so_far, self.n_frames / time_so_far))
 
         # Continue to the next stage (which is this one again)
         # If it is cleared, then nothing happens until the next message
