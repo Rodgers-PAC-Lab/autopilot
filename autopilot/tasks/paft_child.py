@@ -613,6 +613,8 @@ class PAFT_Child(children.Child):
             # Don't want to iterate too quickly, but rather add chunks
             # in a controlled fashion every so often
             time.sleep(.1)
+        
+        self.logger.debug("info: n_frames = {}".format(self.n_frames))
 
         # Continue to the next stage (which is this one again)
         # If it is cleared, then nothing happens until the next message
