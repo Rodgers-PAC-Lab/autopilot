@@ -619,10 +619,25 @@ class PAFT_Child(children.Child):
             time.sleep(.1)
         
         # Estimate how fast we're playing sounds
+        # This should be about 192000 / 1024 = 187.5 frames / s, 
+        # although it will be a bit more because some the queue itself holds
+        # 200 frames, and those are all deleted at the beginning of each trial
+        # without being played. 
+        # However, if there is the sample rate bug, this will be more like
+        # 31 (empirically), about 6x less, not sure what this corresponds to,
+        # maybe a true sample rate of 32 kHz?
         time_so_far = (datetime.datetime.now() - self.dt_start).total_seconds()
-        self.logger.debug(
-            "info: played {} frames in {} s for a rate of {} frames/s".format(
-            self.n_frames, time_so_far, self.n_frames / time_so_far))
+        frame_rate = self.n_frames / time_so_far
+        self.logger.debug("info: "
+            "added {} frames in {:.1} s for a rate of {:.2} frames/s".format(
+            self.n_frames, time_so_far, frame_rate))
+        
+        # Warn if this is happening (but just once per session)
+        # Really I would prefer that it inform the user to restart the pi
+        # TODO: send some kind of "help/error" message to the plot
+        if frame_rate < 150 and not self.frame_rate_warning_already_issued:
+            self.logger.debug("error: frame rate seems to be far too low")
+            self.frame_rate_warning_already_issued = True
 
         # Continue to the next stage (which is this one again)
         # If it is cleared, then nothing happens until the next message
