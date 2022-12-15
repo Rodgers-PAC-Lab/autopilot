@@ -70,11 +70,6 @@ class PAFT_Child(children.Child):
             left_punish=False, right_punish=False,
             left_reward=False, right_reward=False)
 
-        # Debug
-        self.logger.debug('debug: before sleep')
-        time.sleep(1)
-        self.logger.debug('debug: after sleep')
-
         # Set reward values for solenoids
         for port_name, port in self.hardware['PORTS'].items():
             self.logger.debug(
