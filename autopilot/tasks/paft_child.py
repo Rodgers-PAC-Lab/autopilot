@@ -101,6 +101,7 @@ class PAFT_Child(children.Child):
         self.target_qsize = 200
 
         # Some counters to keep track of how many sounds we've played
+        self.frame_rate_warning_already_issued = False
         self.n_frames = 0
         self.n_error_counter = 0        
 
@@ -629,7 +630,7 @@ class PAFT_Child(children.Child):
         time_so_far = (datetime.datetime.now() - self.dt_start).total_seconds()
         frame_rate = self.n_frames / time_so_far
         self.logger.debug("info: "
-            "added {} frames in {:.1} s for a rate of {:.2} frames/s".format(
+            "added {} frames in {:.1f} s for a rate of {:.2f} frames/s".format(
             self.n_frames, time_so_far, frame_rate))
         
         # Warn if this is happening (but just once per session)
