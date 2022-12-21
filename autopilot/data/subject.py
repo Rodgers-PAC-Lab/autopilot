@@ -106,7 +106,7 @@ def watchtower_start_save(watchtowerurl, apit, camera_name, logger):
             }, 
             timeout=1,            
             verify=False)
-        logger.debug('video stop save command sent')
+        logger.debug('video start save command sent')
     
     except requests.ConnectTimeout:
         # If timeout, log the error and disable further
@@ -339,7 +339,7 @@ class Subject(object):
                 sort_keys=True)
         
         # Choose camera_name from pilot
-        camera_name = pilot_db.get(pilot, None)
+        camera_name = pilot_db[pilot].get('camera', None)
         if camera_name is None:
             self.logger.debug(
                 "warning: could not get camera name for pilot {}".format(pilot))
