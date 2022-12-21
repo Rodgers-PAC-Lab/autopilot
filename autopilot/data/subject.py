@@ -233,7 +233,7 @@ class Subject(object):
                 current trial, and session number included.
         """
         ## Load pilot_db, which contains box-specific params
-        with open('/home/mouse/autopilot/pilot_db') as pilot_file:
+        with open('/home/mouse/autopilot/pilot_db.json') as pilot_file:
             pilot_db = json.load(pilot_file)
         
         
