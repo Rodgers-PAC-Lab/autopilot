@@ -232,6 +232,11 @@ class Subject(object):
             Dict: the parameters for the current step, with subject id, step number,
                 current trial, and session number included.
         """
+        ## Load pilot_db, which contains box-specific params
+        with open('/home/mouse/autopilot/pilot_db') as pilot_file:
+            pilot_db = json.load(pilot_file)
+        
+        
         ## Get protocol for mouse
         # Get mouse config params
         # This is a dict with mouse names as keys
@@ -268,6 +273,7 @@ class Subject(object):
        
         ## Calculate reward amount
         # Box-specific reward amount
+        # TODO: get this from pilot_db
         if pilot == 'rpi_parent01':
             box_reward = [55, 65, 80]
         elif pilot == 'rpi_parent02':
@@ -282,6 +288,7 @@ class Subject(object):
             box_reward = [55, 65, 80]
         
         # Mouse-specific reward amount
+        # TODO: get this from subjects.json
         high_reward_l = []
         med_reward_l = []
         low_reward_l = [
@@ -332,16 +339,10 @@ class Subject(object):
                 sort_keys=True)
         
         # Choose camera_name from pilot
-        if pilot == 'rpi_parent01':
-            camera_name = 'e3v82e4'
-        elif pilot == 'rpi_parent02':
-            camera_name = 'e3v82c6'
-        elif pilot == 'rpiparent03':
-            camera_name = 'e3v82d2'
-        elif pilot == 'rpiparent04':
-            camera_name = 'e3v8370'
-        else:
-            camera_name = None
+        camera_name = pilot_db.get(pilot, None)
+        if camera_name is None:
+            self.logger.debug(
+                "warning: could not get camera name for pilot {}".format(pilot))
         
         # Set creation time (might be needed to line up with videos)
         sandbox_creation_time = datetime.datetime.now().isoformat()
