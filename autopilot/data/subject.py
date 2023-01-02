@@ -275,13 +275,13 @@ class Subject(object):
         # Box-specific reward amount
         # TODO: get this from pilot_db
         if pilot == 'rpi_parent01':
-            box_reward = [55, 65, 80]
+            box_reward = [35, 65, 80]
         elif pilot == 'rpi_parent02':
-            box_reward = [55, 65, 80]
+            box_reward = [35, 65, 80]
         elif pilot == 'rpiparent03':
-            box_reward = [55, 65, 80]
+            box_reward = [35, 65, 80]
         elif pilot == 'rpiparent04':
-            box_reward = [55, 65, 80]
+            box_reward = [35, 65, 80]
         else:
             self.logger.debug(
                 'unknown reward amount for {}, using 55'.format(pilot))
