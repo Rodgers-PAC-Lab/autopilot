@@ -208,7 +208,9 @@ class PAFT_audiotest(Task):
         self.noise_bursts = [
             autopilot.stim.sound.sounds.Noise(
                 duration=2000, amplitude=1, channel=None, 
-                lowpass=None, highpass=None),
+                lowpass=None, highpass=None, 
+                attenuation_file='/home/pi/attenuation.csv',
+                ),
             #~ autopilot.stim.sound.sounds.Tone(
                 #~ frequency=100, amplitude=1, duration=2000),
             #~ autopilot.stim.sound.sounds.Tone(
