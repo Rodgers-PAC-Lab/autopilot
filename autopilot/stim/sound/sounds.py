@@ -40,6 +40,7 @@ The behavior of this module depends on `prefs.get('AUDIOSERVER')`.
 
 import os
 import sys
+import pandas
 import typing
 from time import sleep
 from scipy.io import wavfile
@@ -58,7 +59,7 @@ BASE_CLASS = get_sound_class()
 
 
 ## Helper function for attenuation
-def apply_attenuation(sig, attenuation):
+def apply_attenuation(sig, attenuation, sample_rate):
     ## Apply the attenuation
     fft = np.fft.fft(sig)
     fft_freqs = np.fft.fftfreq(len(sig)) * sample_rate
@@ -314,7 +315,7 @@ class Noise(BASE_CLASS):
         
         # Save attenuation
         if attenuation_file is not None:
-            self.attenuation = pandas.read_table(attenuation_file, sep=',')
+            self.attenuation = pandas.read_table(attenuation_file, sep=',').set_index('freq')['atten']
         else:
             self.attenuation = None        
         
@@ -392,11 +393,11 @@ class Noise(BASE_CLASS):
             # Apply attenuation
             if self.attenuation is not None:
                 if self.table.ndim == 1:
-                    self.table = apply_attenuation(self.table, attenuation)
+                    self.table = apply_attenuation(self.table, self.attenuation, self.fs)
                 elif self.table.ndim == 2:
                     for n_column in self.table.shape[1]:
                         self.table[:, n_column] = apply_attenuation(
-                            self.table[:, n_column], attenuation)
+                            self.table[:, n_column], self.attenuation, self.fs)
                 else:
                     raise ValueError("self.table must be 1d or 2d")
             
