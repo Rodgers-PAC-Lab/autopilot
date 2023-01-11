@@ -57,6 +57,56 @@ import autopilot
 BASE_CLASS = get_sound_class()
 
 
+## Helper function for attenuation
+def apply_attenuation(sig, attenuation):
+    ## Apply the attenuation
+    fft = np.fft.fft(sig)
+    fft_freqs = np.fft.fftfreq(len(sig)) * sample_rate
+
+    # Remove negative frequencies
+    # This assertion seems to be exactly valid, whereas the alternative calculation
+    # of adding sample_rate (modulo arithmetic) is numerically slightly off
+    # So this is probably how the symmetry is supposed to work
+    # fft_freqs[0] is 0, and fft_freqs[len(fft_freqs) // 2] is -(sample_rate / 2)
+    assert (
+        fft_freqs[1:len(fft_freqs) // 2] == 
+        -fft_freqs[len(fft_freqs) // 2 + 1:][::-1]
+        ).all()
+
+    # However this is not numerically exact for some reason
+    assert np.allclose(
+        fft[1:len(fft_freqs) // 2],
+        np.conjugate(fft[len(fft_freqs) // 2 + 1:][::-1])
+        )
+
+    # Let's just use the first half and then make it exactly symmetric
+    fft_half = fft[:len(fft_freqs) // 2]
+    fft_freqs_half = fft_freqs[:len(fft_freqs) // 2]
+
+    # interpolate
+    assert attenuation.index.values.min() <= np.min(fft_freqs_half)
+    assert attenuation.index.values.max() > np.max(fft_freqs_half)
+    attenuation_interpolated = np.interp(
+        fft_freqs_half, attenuation.index.values, attenuation.values)
+
+    # apply interpolated attenuation
+    fft_half_corrected = fft_half * 10 ** (-attenuation_interpolated / 20)
+
+    # reconstruct the rest of the fft
+    # Not sure how to handle the point in the middle, so just leave it as it 
+    # was originally, it does not seem to be equal to the DC point
+    fft_corrected = np.concatenate([
+        fft_half_corrected, 
+        [fft[len(fft_freqs) // 2]],
+        np.conjugate(fft_half_corrected)[1:][::-1]
+        ])
+
+    # Invert
+    corrected_signal = np.real(np.fft.ifft(fft_corrected))
+    
+    return corrected_signal
+    
+    
 ## The rest of the module defines actual sounds, which inherit from BASE_CLASS
 class Tone(BASE_CLASS):
     """The Humble Sine Wave"""
@@ -220,7 +270,7 @@ class Noise(BASE_CLASS):
     type='Noise'
     
     def __init__(self, duration, amplitude=0.01, channel=None, 
-        highpass=None, lowpass=None, **kwargs):
+        highpass=None, lowpass=None, attenuation_file=None, **kwargs):
         """Initialize a new white noise burst with specified parameters.
         
         The sound itself is stored as the attribute `self.table`. This can
@@ -237,7 +287,9 @@ class Noise(BASE_CLASS):
             highpass (float or None): highpass the Noise above this value
                 If None, no highpass is applied
             lowpass (float or None): lowpass the Noise below this value
-                If None, no lowpass is applied                
+                If None, no lowpass is applied       
+            attenuation_file (string or None)
+                Path to where a pandas.Series can be loaded containing attenuation
             **kwargs: extraneous parameters that might come along with instantiating us
         """
         # This calls the base class, which sets server-specific parameters
@@ -259,6 +311,12 @@ class Noise(BASE_CLASS):
             self.channel = int(channel)
         except TypeError:
             self.channel = channel
+        
+        # Save attenuation
+        if attenuation_file is not None:
+            self.attenuation = pandas.read_table(attenuation_file, sep=',')
+        else:
+            self.attenuation = None        
         
         # Currently only mono or stereo sound is supported
         if self.channel not in [None, 0, 1]:
@@ -330,6 +388,17 @@ class Noise(BASE_CLASS):
             
             # Convert to float32
             self.table = self.table.astype(np.float32)
+            
+            # Apply attenuation
+            if self.attenuation is not None:
+                if self.table.ndim == 1:
+                    self.table = apply_attenuation(self.table, attenuation)
+                elif self.table.ndim == 2:
+                    for n_column in self.table.shape[1]:
+                        self.table[:, n_column] = apply_attenuation(
+                            self.table[:, n_column], attenuation)
+                else:
+                    raise ValueError("self.table must be 1d or 2d")
             
             # Chunk the sound
             if self.server_type == 'jack':
