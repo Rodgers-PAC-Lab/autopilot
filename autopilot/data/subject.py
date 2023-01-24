@@ -274,37 +274,8 @@ class Subject(object):
         ## Calculate reward amount
         # Box-specific reward amount
         # TODO: get this from pilot_db
-        if pilot == 'rpi_parent01':
-            box_reward = [35, 65, 80]
-        elif pilot == 'rpi_parent02':
-            box_reward = [35, 65, 80]
-        elif pilot == 'rpiparent03':
-            box_reward = [35, 65, 80]
-        elif pilot == 'rpiparent04':
-            box_reward = [35, 65, 80]
-        else:
-            self.logger.debug(
-                'unknown reward amount for {}, using 55'.format(pilot))
-            box_reward = [55, 65, 80]
-        
-        # Mouse-specific reward amount
-        # TODO: get this from subjects.json
-        high_reward_l = []
-        med_reward_l = []
-        low_reward_l = [
-            'sprayer_051','sprayer_052','sprayer_053',
-            'lightning_054','lightning_055'
-            ]
-        if self.name in high_reward_l:
-            mouse_reward = box_reward[2]
-        elif self.name in med_reward_l:
-            mouse_reward = box_reward[1]
-        elif self.name in low_reward_l:
-            mouse_reward = box_reward[0]
-        else:
-            self.logger.debug(
-                'unknown reward amount for {}, using highest'.format(self.name))
-            mouse_reward = box_reward[1]
+        # Very roughly, 25-50-75 correspond to small-medium-xlarge, 4-10-16uL
+        mouse_reward = 50
         
         # Store this in task_params, and it will be sent to the pilot to
         # start the task
