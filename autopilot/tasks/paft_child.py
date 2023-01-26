@@ -773,7 +773,7 @@ class PAFT_Child(children.Child):
         if synchronization_flash:
             self.hardware['LEDS']['L'].set((255, 0, 0))
             self.hardware['LEDS']['R'].set((255, 0, 0))
-            time.sleep(.050)
+            time.sleep(.100)
             self.hardware['LEDS']['L'].set((0, 0, 0))
             self.hardware['LEDS']['R'].set((0, 0, 0))
         
