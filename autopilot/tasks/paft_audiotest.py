@@ -106,6 +106,42 @@ class PAFT_audiotest(Task):
         trial_num: int = Field(
             description='The trial number aggregating over sessions')
 
+    # This is irrelevant for this task but kept because required
+    # Define continuous data
+    # https://docs.auto-pi-lot.com/en/latest/guide/task.html
+    # autopilot.core.subject.Subject.data_thread would like one of the
+    # keys to be "timestamp"
+    # Actually, no I think that is extracted automatically from the 
+    # networked message, and should not be defined here
+    class ContinuousData(tables.IsDescription):
+        reward_timestamp = tables.StringCol(64)
+        trial = tables.Int32Col()
+
+    # This is irrelevant for this task but kept because required
+    # Define chunk data
+    # This is like ContinuousData, but each row is sent together, as a chunk
+    class ChunkData_Sounds(tables.IsDescription):
+        relative_time = tables.Float64Col()
+        side = tables.StringCol(10)
+        sound = tables.StringCol(10)
+        pilot = tables.StringCol(20)
+        locking_timestamp = tables.StringCol(50)        
+        gap = tables.Float64Col()
+        gap_chunks = tables.IntCol()
+    
+    # This is irrelevant for this task but kept because required
+    class ChunkData_Pokes(tables.IsDescription):
+        timestamp = tables.StringCol(64)
+        poked_port = tables.StringCol(64)
+        trial = tables.Int32Col()
+        first_poke = tables.Int32Col()
+        reward_delivered = tables.Int32Col()
+        poke_rank = tables.Int32Col()
+    
+    # This defines the classes that act like ChunkData
+    # See Subject.data_thread
+    CHUNKDATA_CLASSES = [ChunkData_Sounds, ChunkData_Pokes]
+    
     ## Set up hardware and children
     # Per https://docs.auto-pi-lot.com/en/latest/guide/task.html:
     # The HARDWARE dictionary maps a hardware type (eg. POKES) and 
