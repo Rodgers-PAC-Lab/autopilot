@@ -51,13 +51,27 @@ class PAFT_Child(children.Child):
         # This is needed when sending messages
         self.n_messages_sent = 0
 
-
+        # This is set by create_inter_pi_communication_node
+        # Initialize to None now, so that if pokes happen before
+        # the node is set up, we can catch that and issue a warning
+        self.node2 = None
+        
+        # This is used to keep track of how long we've been running,
+        # to estimate the true sample rate
+        self.dt_start = datetime.datetime.now()
+       
+        
         ## Hardware
         self.triggers = {}
         self.init_hardware()
         
         # Set initial poke triggers
-        self.set_poke_triggers(left_punish=False, right_punish=False,
+        # As soon as this command is run, then pokes will trigger
+        # calls to `log_poke` and `report_poke`. So we have to make sure
+        # that those don't rely on any of the code in the rest of __init__,
+        # which hasn't run yet. 
+        self.set_poke_triggers(
+            left_punish=False, right_punish=False,
             left_reward=False, right_reward=False)
 
         # Set reward values for solenoids
@@ -87,6 +101,7 @@ class PAFT_Child(children.Child):
         self.target_qsize = 200
 
         # Some counters to keep track of how many sounds we've played
+        self.frame_rate_warning_already_issued = False
         self.n_frames = 0
         self.n_error_counter = 0        
 
@@ -109,7 +124,10 @@ class PAFT_Child(children.Child):
 
         ## Set up NET_Node to communicate with Parent
         # Do this after initializing the sounds, otherwise we won't be
-        # ready to play yet
+        # ready to play yet, and we could receive a PLAY command from
+        # the parent as soon as this node is set up. That PLAY command
+        # will also add other callbacks that are triggered by pokes, such
+        # as reward or punish. 
         self.create_inter_pi_communication_node()
 
     def initalize_sounds(self,             
@@ -532,9 +550,14 @@ class PAFT_Child(children.Child):
 
     def report_poke(self, poke):
         """Tell the parent that the poke happened"""
-        self.node2.send(
-            'parent_pi', 'POKE', {'from': self.name, 'poke': poke},
-            )
+        if self.node2 is None:
+            # This happens for pokes when we're still in __init__
+            self.logger.debug("warning: could not report poke "
+                "{} because node2 was not initialized yet".format(poke))
+        else:
+            self.node2.send(
+                'parent_pi', 'POKE', {'from': self.name, 'poke': poke},
+                )
     
     def reward_left_once(self):
         """Reward left port. Set flag so we don't reward again till next trial
@@ -595,6 +618,27 @@ class PAFT_Child(children.Child):
             # Don't want to iterate too quickly, but rather add chunks
             # in a controlled fashion every so often
             time.sleep(.1)
+        
+        # Estimate how fast we're playing sounds
+        # This should be about 192000 / 1024 = 187.5 frames / s, 
+        # although it will be a bit more because some the queue itself holds
+        # 200 frames, and those are all deleted at the beginning of each trial
+        # without being played. 
+        # However, if there is the sample rate bug, this will be more like
+        # 31 (empirically), about 6x less, not sure what this corresponds to,
+        # maybe a true sample rate of 32 kHz?
+        time_so_far = (datetime.datetime.now() - self.dt_start).total_seconds()
+        frame_rate = self.n_frames / time_so_far
+        self.logger.debug("info: "
+            "added {} frames in {:.1f} s for a rate of {:.2f} frames/s".format(
+            self.n_frames, time_so_far, frame_rate))
+        
+        # Warn if this is happening (but just once per session)
+        # Really I would prefer that it inform the user to restart the pi
+        # TODO: send some kind of "help/error" message to the plot
+        if frame_rate < 150 and not self.frame_rate_warning_already_issued:
+            self.logger.debug("error: frame rate seems to be far too low")
+            self.frame_rate_warning_already_issued = True
 
         # Continue to the next stage (which is this one again)
         # If it is cleared, then nothing happens until the next message
@@ -729,7 +773,7 @@ class PAFT_Child(children.Child):
         if synchronization_flash:
             self.hardware['LEDS']['L'].set((255, 0, 0))
             self.hardware['LEDS']['R'].set((255, 0, 0))
-            time.sleep(.050)
+            time.sleep(.100)
             self.hardware['LEDS']['L'].set((0, 0, 0))
             self.hardware['LEDS']['R'].set((0, 0, 0))
         

@@ -758,8 +758,9 @@ class PokeTrain(Task):
                 this_is_first_poke = False
             
             # Infer whether reward delivered
+            # In PokeTrain, if this_is_first_poke, then it is also rewarded
+            # This weird spacing is for comparison with paft.py
             if (
-                    poked_port == self.rewarded_port and 
                     not self.reward_delivered_on_this_trial
                     ):
                 this_is_rewarded_poke = True
