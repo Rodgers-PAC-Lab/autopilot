@@ -395,7 +395,7 @@ class Noise(BASE_CLASS):
                 if self.table.ndim == 1:
                     self.table = apply_attenuation(self.table, self.attenuation, self.fs)
                 elif self.table.ndim == 2:
-                    for n_column in self.table.shape[1]:
+                    for n_column in range(self.table.shape[1]):
                         self.table[:, n_column] = apply_attenuation(
                             self.table[:, n_column], self.attenuation, self.fs)
                 else:
