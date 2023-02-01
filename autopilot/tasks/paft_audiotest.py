@@ -243,12 +243,12 @@ class PAFT_audiotest(Task):
         # Left and right target noise bursts
         self.noise_bursts = [
             autopilot.stim.sound.sounds.Noise(
-                duration=2000, amplitude=1, channel=None, 
+                duration=2000, amplitude=.01, channel=0, 
                 lowpass=None, highpass=None, 
                 ),
         
             autopilot.stim.sound.sounds.Noise(
-                duration=2000, amplitude=1, channel=None, 
+                duration=2000, amplitude=.01, channel=0, 
                 lowpass=None, highpass=None, 
                 attenuation_file='/home/pi/attenuation.csv',
                 ),                
