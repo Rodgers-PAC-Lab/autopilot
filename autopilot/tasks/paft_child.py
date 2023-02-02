@@ -139,20 +139,28 @@ class PAFT_Child(children.Child):
         # Left and right target noise bursts
         self.left_target_stim = autopilot.stim.sound.sounds.Noise(
             duration=10, amplitude=target_amplitude, channel=0, 
-            lowpass=target_lowpass, highpass=target_highpass)       
+            lowpass=target_lowpass, highpass=target_highpass,
+            attenuation_file='/home/pi/attenuation.csv',
+            )       
 
         self.right_target_stim = autopilot.stim.sound.sounds.Noise(
             duration=10, amplitude=target_amplitude, channel=1, 
-            lowpass=target_lowpass, highpass=target_highpass)        
+            lowpass=target_lowpass, highpass=target_highpass,
+            attenuation_file='/home/pi/attenuation.csv',
+            )
 
         # Left and right distracter noise bursts
         self.left_distracter_stim = autopilot.stim.sound.sounds.Noise(
             duration=10, amplitude=distracter_amplitude, channel=0, 
-            lowpass=distracter_lowpass, highpass=distracter_highpass)       
+            lowpass=distracter_lowpass, highpass=distracter_highpass,
+            attenuation_file='/home/pi/attenuation.csv',
+            )       
 
         self.right_distracter_stim = autopilot.stim.sound.sounds.Noise(
             duration=10, amplitude=distracter_amplitude, channel=1, 
-            lowpass=distracter_lowpass, highpass=distracter_highpass)  
+            lowpass=distracter_lowpass, highpass=distracter_highpass,
+            attenuation_file='/home/pi/attenuation.csv',
+            )  
             
         # Left and right tritone error noises
         self.left_error_sound = autopilot.stim.sound.sounds.Tritone(
