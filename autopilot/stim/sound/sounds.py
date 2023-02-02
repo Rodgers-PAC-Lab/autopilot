@@ -315,7 +315,8 @@ class Noise(BASE_CLASS):
         
         # Save attenuation
         if attenuation_file is not None:
-            self.attenuation = pandas.read_table(attenuation_file, sep=',').set_index('freq')['atten']
+            self.attenuation = pandas.read_table(
+                attenuation_file, sep=',').set_index('freq')['atten']
         else:
             self.attenuation = None        
         
@@ -392,8 +393,16 @@ class Noise(BASE_CLASS):
             
             # Apply attenuation
             if self.attenuation is not None:
+                # Temporary hack
+                # To make the attenuated sounds roughly match the original
+                # sounds in loudness, multiply table by np.sqrt(10) (10 dB)
+                # Better solution is to encode this into attenuation profile,
+                # or a separate "gain" parameter
+                self.table = self.table * np.sqrt(10)
+                
                 if self.table.ndim == 1:
-                    self.table = apply_attenuation(self.table, self.attenuation, self.fs)
+                    self.table = apply_attenuation(
+                        self.table, self.attenuation, self.fs)
                 elif self.table.ndim == 2:
                     for n_column in range(self.table.shape[1]):
                         self.table[:, n_column] = apply_attenuation(
