@@ -278,7 +278,7 @@ class Subject(object):
         box_reward = 50
         
         # Multiply this by the mouse-specific reward_multiplier
-        mouse_reward = box_reward * config_mouse['reward_multiplier']
+        mouse_reward = box_reward * params_mouse['reward_multiplier']
         
         # Convert to an int (need to check if float is okay)
         mouse_reward = int(np.rint(mouse_reward))
