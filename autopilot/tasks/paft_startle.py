@@ -277,6 +277,8 @@ class PAFT_startle(Task):
                 # If it's been long enough, play a noise burst
                 # Add the noise burst
                 self.set_sound_cycle(with_sound=True)
+                self.empty_queue1()
+                self.append_sound_to_queue1_as_needed()
                 
                 # Flag that it hasn't been silenced
                 self.sound_has_been_silenced = False
@@ -313,6 +315,28 @@ class PAFT_startle(Task):
         # from the Parent (not sure why)
         # If we never end this function, then it won't respond to END
         self.stage_block.set()
+
+    def empty_queue1(self, tosize=0):
+        """Empty queue1"""
+        while True:
+            # I think it's important to keep the lock for a short period
+            # (ie not throughout the emptying)
+            # in case the `process` function needs it to play sounds
+            # (though if this does happen, there will be an artefact because
+            # we just skipped over a bunch of frames)
+            with autopilot.stim.sound.jackclient.Q_LOCK:
+                try:
+                    data = autopilot.stim.sound.jackclient.QUEUE.get_nowait()
+                except queue.Empty:
+                    break
+            
+            # Stop if we're at or below the target size
+            qsize = autopilot.stim.sound.jackclient.QUEUE.qsize()
+            if qsize < tosize:
+                break
+        
+        qsize = autopilot.stim.sound.jackclient.QUEUE.qsize()
+        self.logger.debug('empty_queue1: new size {}'.format(qsize))
 
     def append_sound_to_queue1_as_needed(self):
         """Dump frames from `self.sound_cycle` into queue
