@@ -217,7 +217,7 @@ class PAFT_startle(Task):
         # One loud-ish noise burst
         self.noise_bursts = [
             autopilot.stim.sound.sounds.Noise(
-                duration=100, amplitude=.01, channel=0, 
+                duration=100, amplitude=.1, channel=0, 
                 lowpass=None, highpass=None, 
                 attenuation_file='/home/pi/attenuation.csv',
                 ),                             
@@ -270,10 +270,10 @@ class PAFT_startle(Task):
             current_time = datetime.datetime.now()
             
             # Set the sound cycle as needed
-            if (
-                    self.time_of_last_sound is None or 
-                    current_time >= self.time_of_last_sound + datetime.timedelta(seconds=180)
-                    ):
+            if True: #(
+                    #~ self.time_of_last_sound is None or 
+                    #~ current_time >= self.time_of_last_sound + datetime.timedelta(seconds=180)
+                    #~ ):
                 # If it's been long enough, play a noise burst
                 # Add the noise burst
                 self.set_sound_cycle(with_sound=True)
