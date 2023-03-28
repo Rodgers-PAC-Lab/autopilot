@@ -272,7 +272,7 @@ class PAFT_startle(Task):
             # Set the sound cycle as needed
             if (
                     self.time_of_last_sound is None or 
-                    current_time >= self.time_of_last_sound + datetime.timedelta(seconds=180)
+                    current_time >= self.time_of_last_sound + datetime.timedelta(seconds=5)
                     ):
                 # If it's been long enough, play a noise burst
                 # Add the noise burst
