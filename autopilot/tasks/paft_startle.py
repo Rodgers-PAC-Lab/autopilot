@@ -118,8 +118,12 @@ class PAFT_startle(Task):
     # must match (ie. there must be a prefs.PINS['POKES']['L'] entry in 
     # prefs for a task that has a task.HARDWARE['POKES']['L'] object).
     HARDWARE = {
-    }
-
+        'LEDS':{
+            'L': autopilot.hardware.gpio.LED_RGB,
+            'R': autopilot.hardware.gpio.LED_RGB
+        },
+    }   
+    
     
     ## Define the class methods
     def __init__(self, stage_block, current_trial, step_name, task_type, 
