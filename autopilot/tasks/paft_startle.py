@@ -219,7 +219,7 @@ class PAFT_startle(Task):
                 ),                             
             ] 
     
-    def set_sound_cycle(with_sound=False, self):
+    def set_sound_cycle(self, with_sound=False):
         """Define self.sound_cycle, to go through sounds
 
         with_sound : bool
@@ -268,7 +268,8 @@ class PAFT_startle(Task):
             # Set the sound cycle as needed
             if (
                     self.time_of_last_sound is None or 
-                    current_time >= self.time_of_last_sound + datetime.timedelta(seconds=180):
+                    current_time >= self.time_of_last_sound + datetime.timedelta(seconds=180)
+                    ):
                 # If it's been long enough, play a noise burst
                 # Add the noise burst
                 self.set_sound_cycle(with_sound=True)
