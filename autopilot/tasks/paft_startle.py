@@ -341,11 +341,12 @@ class PAFT_startle(Task):
         ## Extract any recently played sound info
         sound_data_l = []
         with autopilot.stim.sound.jackclient.QUEUE_NONZERO_BLOCKS_LOCK:
-            try:
-                data = autopilot.stim.sound.jackclient.QUEUE_NONZERO_BLOCKS.get_nowait()
-            except queue.Empty:
-                break
-            sound_data_l.append(data)
+            while True:
+                try:
+                    data = autopilot.stim.sound.jackclient.QUEUE_NONZERO_BLOCKS.get_nowait()
+                except queue.Empty:
+                    break
+                sound_data_l.append(data)
         
         if len(sound_data_l) > 0:
             # DataFrame it
