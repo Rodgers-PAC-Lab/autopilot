@@ -170,6 +170,10 @@ class JackClient(mp.Process):
         # A second one
         self.q2 = mp.Queue()
         self.q2_lock = mp.Lock()
+        
+        # This is for transferring the frametimes that audio was played
+        self.q_nonzero_blocks = mp.Queue()
+        self.q_nonzero_blocks_lock = mp.Lock(0
 
         self._play_q = deque(maxlen=play_q_size)
 
@@ -430,9 +434,19 @@ class JackClient(mp.Process):
             data2 = np.transpose([data2, data2])
         
         # Store the frame times where sound is played
-        if data.mean() > 0:
-            print('data mean is {}'.format(data.mean()))
-            print('at frame time {}'.format(self.client.last_frame_time))
+        data_std = data.std()
+        if data_std > 0:
+            # This is only an approximate hash because it excludes the
+            # middle of the data
+            data_hash = hash(str(data))
+            lft = self.client.last_frame_time
+            print('data std is {} with hash {} at {}'.format(
+                data_std, 
+                data_hash,
+                lft,
+                ))
+            with self.q_nonzero_blocks_lock:
+                self.q_nonzero_blocks.put_nowait((data_hash, lft))
         
         # Add
         data = data + data2
