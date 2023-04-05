@@ -180,6 +180,10 @@ class PAFT_startle(Task):
         """    
         
         ## These are things that would normally be done in superclass __init__
+        # Store my name
+        # This is used for reporting sounds to the terminal
+        self.name = prefs.get('NAME')
+        
         # Set up a logger first, so we can debug if anything goes wrong
         self.logger = init_logger(self)
 
