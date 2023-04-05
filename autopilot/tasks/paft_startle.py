@@ -187,6 +187,9 @@ class PAFT_startle(Task):
         # Set up a logger first, so we can debug if anything goes wrong
         self.logger = init_logger(self)
 
+        # This is needed when sending messages
+        self.n_messages_sent = 0
+
         # This threading.Event is checked by Pilot.run_task before
         # advancing through stages. Clear it to wait for triggers; set
         # it to advance to the next stage.
