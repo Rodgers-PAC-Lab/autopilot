@@ -194,6 +194,9 @@ class PAFT_startle(Task):
         # advancing through stages. Clear it to wait for triggers; set
         # it to advance to the next stage.
         self.stage_block = stage_block
+
+        # This is needed for sending Node messages
+        self.subject = subject
         
     
         ## Define the stages
@@ -226,6 +229,16 @@ class PAFT_startle(Task):
         
         # Keep track of when the last noise burst was played
         self.time_of_last_sound = None
+        
+        
+        ## Init node to talk to terminal
+        self.node = Net_Node(
+            id="T_{}".format(prefs.get('NAME')),
+            upstream=prefs.get('NAME'),
+            port=prefs.get('MSGPORT'),
+            listens={},
+            instance=False,
+            )        
 
     def initalize_sounds(self):
         """Defines sounds that will be played during the task"""
@@ -381,28 +394,24 @@ class PAFT_startle(Task):
                 'payload_columns': payload.columns.values,
                 'chunkclass_name': 'ChunkData_SoundsPlayed', 
                 'timestamp': timestamp,
+                'subject': self.subject, # required by terminal, I think
             }        
             
-            # Construct the message
+            # Generate the Message
             msg = autopilot.networking.Message(
-                id="{}-{}".format(self.name, self.n_messages_sent), # must be unique
-                sender="dummy_src", # required but I don't think it matters
-                key='CHUNK', # this selects listen method. required for encoding
-                to="dummy_dst", # required but I don't think it matters
-                value=value, # the 'value' to send
+                to='_T', # send to terminal
+                key='DATA', # choose listen
+                value=value, # the value to send
                 flags={
                     'MINPRINT': True, # disable printing of value
                     'NOREPEAT': True, # disable repeating
                     },
+                id="dummy_dst2", # does nothing (?), but required
+                sender="dummy_src2", # does nothing (?), but required 
                 )
-            
-            # Sending it will automatically serialize it, which in turn will
-            # automatically compress numpy using blosc
-            # See Node.send and Message.serialize
-            self.node2.send('parent_pi', msg=msg)
 
-            # Increment this counter to keep the message id unique
-            self.n_messages_sent = self.n_messages_sent + 1     
+            # Send to terminal
+            self.node.send('_T', 'DATA', msg=msg)
 
     def empty_queue1(self, tosize=0):
         """Empty queue1"""
