@@ -115,7 +115,7 @@ class PAFT_startle(Task):
     
     # This defines the classes that act like ChunkData
     # See Subject.data_thread
-    CHUNKDATA_CLASSES = [ChunkData_Sounds, ChunkData_Pokes]
+    CHUNKDATA_CLASSES = [ChunkData_Sounds, ChunkData_SoundsPlayed, ChunkData_Pokes]
     
     ## Set up hardware and children
     # Per https://docs.auto-pi-lot.com/en/latest/guide/task.html:
