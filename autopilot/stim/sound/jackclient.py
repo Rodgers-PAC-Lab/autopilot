@@ -433,15 +433,17 @@ class JackClient(mp.Process):
             # middle of the data
             data_hash = hash(str(data))
             lft = self.client.last_frame_time
+            fscs = self.client.frames_since_cycle_start
             dt = datetime.datetime.now()
-            print('data std is {} with hash {} at {} ie {}'.format(
+            print('data std is {} with hash {} at {} + {} ie {}'.format(
                 data_std, 
                 data_hash,
                 lft,
+                fscs,
                 dt
                 ))
             with self.q_nonzero_blocks_lock:
-                self.q_nonzero_blocks.put_nowait((data_hash, lft, dt))
+                self.q_nonzero_blocks.put_nowait((data_hash, lft, fscs, dt))
         else:
             # Unpulse the pin
             self.pig.write(23, False)
