@@ -445,7 +445,7 @@ class JackClient(mp.Process):
             # this will get screwed up on every xrun
             lft = self.client.last_frame_time
             fscs = self.client.frames_since_cycle_start
-            dt = datetime.datetime.now()
+            dt = datetime.datetime.now().isoformat()
             #~ print('data std is {} with hash {} at {} + {} ie {}'.format(
                 #~ data_std, 
                 #~ data_hash,
