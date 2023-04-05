@@ -305,6 +305,19 @@ class PAFT_startle(Task):
             
             # Add stimulus sounds to queue 1 as needed
             self.append_sound_to_queue1_as_needed()
+            
+            # Extract any recently played sound info
+            sound_data_l = []
+            with autopilot.stim.sound.jackclient.QUEUE_NONZERO_BLOCKS_LOCK:
+                try:
+                    data = autopilot.stim.sound.jackclient.QUEUE_NONZERO_BLOCKS_LOCK.get_nowait()
+                except queue.Empty:
+                    break
+                sound_data_l.append(data)
+            
+            if len(sound_data_l) > 0:
+                print("i got all this data:\n")
+                print(sound_data_l)
 
             # Don't want to iterate too quickly, but rather add chunks
             # in a controlled fashion every so often

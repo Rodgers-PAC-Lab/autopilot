@@ -218,6 +218,8 @@ class JackClient(mp.Process):
         globals()['Q_LOCK'] = self.q_lock
         globals()['QUEUE2'] = self.q2
         globals()['Q2_LOCK'] = self.q2_lock
+        globals()['QUEUE_NONZERO_BLOCKS'] = self.q_nonzero_blocks
+        globals()['QUEUE_NONZERO_BLOCKS_LOCK'] = self.q_nonzero_blocks_lock
         globals()['PLAY'] = self.play_evt
         globals()['STOP'] = self.stop_evt
         globals()['CONTINUOUS'] = self.continuous
@@ -432,16 +434,25 @@ class JackClient(mp.Process):
             # This is only an approximate hash because it excludes the
             # middle of the data
             data_hash = hash(str(data))
+            
+            # Get the current time
+            # lft is the only precise one, and it's at the start of the process
+            # block
+            # fscs is approx number of frames since then until now
+            # dt is about now
+            # later, using lft, fscs, and dt, we can reconstruct the approx
+            # relationship between frame times and clock time
+            # this will get screwed up on every xrun
             lft = self.client.last_frame_time
             fscs = self.client.frames_since_cycle_start
             dt = datetime.datetime.now()
-            print('data std is {} with hash {} at {} + {} ie {}'.format(
-                data_std, 
-                data_hash,
-                lft,
-                fscs,
-                dt
-                ))
+            #~ print('data std is {} with hash {} at {} + {} ie {}'.format(
+                #~ data_std, 
+                #~ data_hash,
+                #~ lft,
+                #~ fscs,
+                #~ dt
+                #~ ))
             with self.q_nonzero_blocks_lock:
                 self.q_nonzero_blocks.put_nowait((data_hash, lft, fscs, dt))
         else:
