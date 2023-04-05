@@ -556,6 +556,10 @@ class Plot(QtWidgets.QWidget):
                 'l_data returning because state is {}'.format(self.state))
             return
         
+        # Ignore all messages with a payload (chunks of data)
+        if 'payload' in value:
+            return
+        
         # Use the start time of the first trial to define `self.start_time`
         # This is time zero on the graph
         if 'timestamp_trial_start' in value and self.start_time is None:
@@ -573,6 +577,9 @@ class Plot(QtWidgets.QWidget):
         # outcome of this
         if 'timestamp' in value:
             timestamp_dt = datetime.datetime.fromisoformat(value['timestamp'])
+            
+            # Commonly get errors here if self.start_time is not defined
+            # Means a message arrived before one with 'timestamp_trial_start'
             timestamp_sec = (timestamp_dt - self.start_time).total_seconds()
         
         # A new "rewarded_port" was just chosen. Mark it purple.
