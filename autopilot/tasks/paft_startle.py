@@ -95,6 +95,14 @@ class PAFT_startle(Task):
         locking_timestamp = tables.StringCol(50)        
         gap = tables.Float64Col()
         gap_chunks = tables.IntCol()
+
+    # For SoundsPlayed
+    class ChunkData_SoundsPlayed(tables.IsDescription):
+        hash = tables.IntCol()
+        last_frame_time = tables.IntCol()
+        frames_since_cycle_start = tables.IntCol()
+        equiv_dt = tables.StringCol(64)
+        pilot = tables.StringCol(20)
     
     # This is irrelevant for this task but kept because required
     class ChunkData_Pokes(tables.IsDescription):
@@ -316,8 +324,14 @@ class PAFT_startle(Task):
                 sound_data_l.append(data)
             
             if len(sound_data_l) > 0:
-                print("i got all this data:\n")
-                print(sound_data_l)
+                # DataFrame it
+                # This has to match code in jackclient.py
+                # And it also has to match task_class.ChunkData_SoundsPlayed
+                payload = pandas.DataFrame.from_records(
+                    sound_data_l,
+                    columns=['hash', 'last_frame_time', 'frames_since_cycle_start', 'equiv_dt'],
+                    )
+                self.send_chunk_of_sound_played_data(payload)
 
             # Don't want to iterate too quickly, but rather add chunks
             # in a controlled fashion every so often
@@ -328,6 +342,60 @@ class PAFT_startle(Task):
         # from the Parent (not sure why)
         # If we never end this function, then it won't respond to END
         self.stage_block.set()
+
+    def send_chunk_of_sound_played_data(self, payload):
+        """Report metadata about sounds played directly to terminal
+        
+        This is adapted from send_chunk_of_sound_data in paft_child
+        Here we send data from jackclient about the nonzero frames
+        TODO: add this to paft_child, alongside send_chunk_of_sound_data
+        """
+        ## Create a serialized message
+        # Adapted from the bandwidth test
+        
+        # Time of sending this message
+        timestamp = datetime.datetime.now().isoformat()
+        
+        # Only send data if there are rows of data
+        # Otherwise, no sound playing, and nothing to report
+        if len(payload) > 0:
+            # Store these additional values, which are the same for all rows
+            payload['pilot'] = self.name
+            
+            # This is the value to send
+            # Must be serializable
+            # Definitely include payload (the data), some kind of locking
+            # timestamp, and the origin (our name). 
+            # When this message is repeated by the Parent to the terminal,
+            # there are additional constraints based on what save_data expects
+            value = {
+                'pilot': self.name,
+                'payload': payload.values,
+                'payload_columns': payload.columns.values,
+                'chunkclass_name': 'ChunkData_SoundsPlayed', 
+                'timestamp': timestamp,
+            }        
+            
+            # Construct the message
+            msg = autopilot.networking.Message(
+                id="{}-{}".format(self.name, self.n_messages_sent), # must be unique
+                sender="dummy_src", # required but I don't think it matters
+                key='CHUNK', # this selects listen method. required for encoding
+                to="dummy_dst", # required but I don't think it matters
+                value=value, # the 'value' to send
+                flags={
+                    'MINPRINT': True, # disable printing of value
+                    'NOREPEAT': True, # disable repeating
+                    },
+                )
+            
+            # Sending it will automatically serialize it, which in turn will
+            # automatically compress numpy using blosc
+            # See Node.send and Message.serialize
+            self.node2.send('parent_pi', msg=msg)
+
+            # Increment this counter to keep the message id unique
+            self.n_messages_sent = self.n_messages_sent + 1     
 
     def empty_queue1(self, tosize=0):
         """Empty queue1"""
