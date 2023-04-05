@@ -173,7 +173,7 @@ class JackClient(mp.Process):
         
         # This is for transferring the frametimes that audio was played
         self.q_nonzero_blocks = mp.Queue()
-        self.q_nonzero_blocks_lock = mp.Lock(0
+        self.q_nonzero_blocks_lock = mp.Lock()
 
         self._play_q = deque(maxlen=play_q_size)
 
