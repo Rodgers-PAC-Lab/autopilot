@@ -334,30 +334,31 @@ class PAFT_startle(Task):
             # Add stimulus sounds to queue 1 as needed
             self.append_sound_to_queue1_as_needed()
             
-            # Extract any recently played sound info
-            sound_data_l = []
-            with autopilot.stim.sound.jackclient.QUEUE_NONZERO_BLOCKS_LOCK:
-                try:
-                    data = autopilot.stim.sound.jackclient.QUEUE_NONZERO_BLOCKS.get_nowait()
-                except queue.Empty:
-                    break
-                sound_data_l.append(data)
-            
-            if len(sound_data_l) > 0:
-                # DataFrame it
-                # This has to match code in jackclient.py
-                # And it also has to match task_class.ChunkData_SoundsPlayed
-                payload = pandas.DataFrame.from_records(
-                    sound_data_l,
-                    columns=['hash', 'last_frame_time', 'frames_since_cycle_start', 'equiv_dt'],
-                    )
-                self.send_chunk_of_sound_played_data(payload)
-
             # Don't want to iterate too quickly, but rather add chunks
             # in a controlled fashion every so often
             time.sleep(.1)
 
-        # Continue to the next stage (which is this one again)
+        ## Extract any recently played sound info
+        sound_data_l = []
+        with autopilot.stim.sound.jackclient.QUEUE_NONZERO_BLOCKS_LOCK:
+            try:
+                data = autopilot.stim.sound.jackclient.QUEUE_NONZERO_BLOCKS.get_nowait()
+            except queue.Empty:
+                break
+            sound_data_l.append(data)
+        
+        if len(sound_data_l) > 0:
+            # DataFrame it
+            # This has to match code in jackclient.py
+            # And it also has to match task_class.ChunkData_SoundsPlayed
+            payload = pandas.DataFrame.from_records(
+                sound_data_l,
+                columns=['hash', 'last_frame_time', 'frames_since_cycle_start', 'equiv_dt'],
+                )
+            self.send_chunk_of_sound_played_data(payload)
+
+
+        ## Continue to the next stage (which is this one again)
         # If it is cleared, then nothing happens until the next message
         # from the Parent (not sure why)
         # If we never end this function, then it won't respond to END
