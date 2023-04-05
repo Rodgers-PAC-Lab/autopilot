@@ -173,7 +173,7 @@ class JackClient(mp.Process):
         
         # This is for transferring the frametimes that audio was played
         self.q_nonzero_blocks = mp.Queue()
-        self.q_nonzero_blocks_lock = mp.Lock(0
+        self.q_nonzero_blocks_lock = mp.Lock()
 
         self._play_q = deque(maxlen=play_q_size)
 
@@ -434,8 +434,9 @@ class JackClient(mp.Process):
             data2 = np.transpose([data2, data2])
         
         # Store the frame times where sound is played
+        # A loud sound has data_std .03
         data_std = data.std()
-        if data_std > 0:
+        if data_std > 1e-12:
             # This is only an approximate hash because it excludes the
             # middle of the data
             data_hash = hash(str(data))
