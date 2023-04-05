@@ -12,6 +12,7 @@ try:
     PIGPIO_AVAILABLE = True
 except ModuleNotFoundError:
     PIGPIO_AVAILABLE = False
+import datetime
 import typing
 import multiprocessing as mp
 import queue as queue
