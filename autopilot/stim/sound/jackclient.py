@@ -245,9 +245,6 @@ class JackClient(mp.Process):
             self.pig = pigpio.pi()
         else:
             self.pig = None
-        
-        # for tracking pin pulsing
-        self.last_written = False
 
     def boot_server(self):
         """
@@ -397,16 +394,6 @@ class JackClient(mp.Process):
             frames: number of frames (samples) to be processed. 
             unused. passed by jack client
         """
-        # Pulse a pin
-        # Use BCM 23 (board 16) = LED - C - Blue because we're not using it
-        if self.pig is not None:
-            if self.last_written:
-                self.pig.write(23, False)
-                self.last_written = False
-            else:
-                self.pig.write(23, True)
-                self.last_written = True
-        
         # Try to get data from the first queue
         try:
             with self.q_lock:
@@ -437,17 +424,26 @@ class JackClient(mp.Process):
         # A loud sound has data_std .03
         data_std = data.std()
         if data_std > 1e-12:
+            # Pulse the pin
+            # Use BCM 23 (board 16) = LED - C - Blue because we're not using it
+            self.pig.write(23, True)
+            
             # This is only an approximate hash because it excludes the
             # middle of the data
             data_hash = hash(str(data))
             lft = self.client.last_frame_time
-            print('data std is {} with hash {} at {}'.format(
+            dt = datetime.datetime.now()
+            print('data std is {} with hash {} at {} ie {}'.format(
                 data_std, 
                 data_hash,
                 lft,
+                dt
                 ))
             with self.q_nonzero_blocks_lock:
-                self.q_nonzero_blocks.put_nowait((data_hash, lft))
+                self.q_nonzero_blocks.put_nowait((data_hash, lft, dt))
+        else:
+            # Unpulse the pin
+            self.pig.write(23, False)
         
         # Add
         data = data + data2
