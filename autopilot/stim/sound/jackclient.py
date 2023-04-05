@@ -431,7 +431,7 @@ class JackClient(mp.Process):
         
         # Store the frame times where sound is played
         if data.mean() > 0:
-            print('data mean is {} at {}'.format(data.mean()))
+            print('data mean is {}'.format(data.mean()))
             print('at frame time {}'.format(self.client.last_frame_time))
         
         # Add
