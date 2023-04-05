@@ -7,6 +7,7 @@ Client that dumps samples directly to the jack client with the :mod:`jack` packa
     If you intend to use sound, we recommend sticking with Buster for now (available from their `legacy downloads <https://www.raspberrypi.com/software/operating-systems/#raspberry-pi-os-legacy>`_ section).
 
 """
+import pigpio
 import typing
 import multiprocessing as mp
 import queue as queue
@@ -335,6 +336,12 @@ class JackClient(mp.Process):
                 
                 # Connect virtual outport to physical channel
                 self.client.outports[n].connect(physical_channel)
+        
+        
+        ## Also boot pigpio so we can pulse pins when sound plays
+        # Hopefully external.start_pigpiod() has already been called by
+        # someone else
+        self.pig = pigpio.pi()
 
     def run(self):
         """
@@ -376,6 +383,15 @@ class JackClient(mp.Process):
             frames: number of frames (samples) to be processed. 
             unused. passed by jack client
         """
+        # Pulse a pin
+        # Use BCM 23 (board 16) = LED - C - Blue because we're not using it
+        if self.last_written:
+            self.pig.write(23, False)
+            self.last_written = False
+        else:
+            self.pig.write(23, True)
+            self.last_written = True
+        
         # Try to get data from the first queue
         try:
             with self.q_lock:
@@ -401,6 +417,10 @@ class JackClient(mp.Process):
             data = np.transpose([data, data])
         if data2.ndim == 1:
             data2 = np.transpose([data2, data2])
+        
+        # Store the frame times where sound is played
+        if data.mean() > 0:
+            print('data mean is {}'.format(data.mean()))
         
         # Add
         data = data + data2
