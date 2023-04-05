@@ -434,8 +434,9 @@ class JackClient(mp.Process):
             data2 = np.transpose([data2, data2])
         
         # Store the frame times where sound is played
+        # A loud sound has data_std .03
         data_std = data.std()
-        if data_std > 0:
+        if data_std > 1e-12:
             # This is only an approximate hash because it excludes the
             # middle of the data
             data_hash = hash(str(data))
