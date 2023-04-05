@@ -310,7 +310,7 @@ class PAFT_startle(Task):
             sound_data_l = []
             with autopilot.stim.sound.jackclient.QUEUE_NONZERO_BLOCKS_LOCK:
                 try:
-                    data = autopilot.stim.sound.jackclient.QUEUE_NONZERO_BLOCKS_LOCK.get_nowait()
+                    data = autopilot.stim.sound.jackclient.QUEUE_NONZERO_BLOCKS.get_nowait()
                 except queue.Empty:
                     break
                 sound_data_l.append(data)
