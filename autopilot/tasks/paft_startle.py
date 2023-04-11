@@ -229,6 +229,7 @@ class PAFT_startle(Task):
         
         # Keep track of when the last noise burst was played
         self.time_of_last_sound = None
+        self.sound_has_been_silenced = True # because we just silenced it
         
         
         ## Init node to talk to terminal
@@ -294,6 +295,7 @@ class PAFT_startle(Task):
         # before playing the first sound
         if self.time_of_last_sound is None:
             self.time_of_last_sound = datetime.datetime.now()
+            self.sound_has_been_silenced = True
         
         # Don't want to do a "while True" here, because we need to exit
         # this method eventually, so that it can respond to END
