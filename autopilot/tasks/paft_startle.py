@@ -289,6 +289,12 @@ class PAFT_startle(Task):
     def play(self):
         """A single stage"""
         
+        # If the sound has never been played, set time of last sound
+        # to now. This ensures that the protocol waits thirty seconds
+        # before playing the first sound
+        if self.time_of_last_sound is None:
+            self.time_of_last_sound = datetime.datetime.now()
+        
         # Don't want to do a "while True" here, because we need to exit
         # this method eventually, so that it can respond to END
         # But also don't want to change stage too frequently or the debug
