@@ -246,7 +246,7 @@ class PAFT_startle(Task):
         # One loud-ish noise burst
         self.noise_bursts = [
             autopilot.stim.sound.sounds.Noise(
-                duration=100, amplitude=.03, channel=0, 
+                duration=100, amplitude=.03, channel=None, 
                 lowpass=None, highpass=None, 
                 attenuation_file='/home/pi/attenuation.csv',
                 ),                             
