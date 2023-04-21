@@ -215,7 +215,7 @@ class PAFT_startle(Task):
         # Each block/frame is about 5 ms
         # Longer is more buffer against unexpected delays
         # Shorter is faster to empty and refill the queue
-        self.target_qsize = 200
+        self.target_qsize = 10
 
         # Some counters to keep track of how many sounds we've played
         self.n_frames = 0
@@ -246,9 +246,9 @@ class PAFT_startle(Task):
         # One loud-ish noise burst
         self.noise_bursts = [
             autopilot.stim.sound.sounds.Noise(
-                duration=100, amplitude=.03, channel=None, 
+                duration=3, amplitude=1, channel=None, 
                 lowpass=None, highpass=None, 
-                attenuation_file='/home/pi/attenuation.csv',
+                attenuation_file=None, #'/home/pi/attenuation.csv',
                 ),                             
             ] 
     
@@ -281,7 +281,7 @@ class PAFT_startle(Task):
 
             # Append gap -- this needs to be long enough that we don't
             # hear the sound again
-            append_gap(1000)        
+            append_gap(100)        
 
 
         ## Cycle so it can repeat forever
@@ -301,14 +301,14 @@ class PAFT_startle(Task):
         # this method eventually, so that it can respond to END
         # But also don't want to change stage too frequently or the debug
         # messages are overwhelming
-        for n in range(10):
+        for n in range(100):
             # Get current time
             current_time = datetime.datetime.now()
             
             # Set the sound cycle as needed
             if (
                     self.time_of_last_sound is None or 
-                    current_time >= self.time_of_last_sound + datetime.timedelta(seconds=30)
+                    current_time >= self.time_of_last_sound + datetime.timedelta(seconds=.5)
                     ):
                 # If it's been long enough, play a noise burst
                 # Add the noise burst
@@ -326,7 +326,7 @@ class PAFT_startle(Task):
                 self.hardware['LEDS']['L'].set((255, 0, 0))
                 self.hardware['LEDS']['R'].set((255, 0, 0))
 
-            elif current_time >= self.time_of_last_sound + datetime.timedelta(seconds=1):
+            elif current_time >= self.time_of_last_sound + datetime.timedelta(seconds=.01):
                 # if it's been long enough for the burst to finish, silence it
                 if not self.sound_has_been_silenced:
                     # Silence it
@@ -344,7 +344,7 @@ class PAFT_startle(Task):
             
             # Don't want to iterate too quickly, but rather add chunks
             # in a controlled fashion every so often
-            time.sleep(.1)
+            time.sleep(.01)
 
         ## Extract any recently played sound info
         sound_data_l = []
@@ -448,7 +448,7 @@ class PAFT_startle(Task):
     def append_sound_to_queue1_as_needed(self):
         """Dump frames from `self.sound_cycle` into queue
 
-        The queue is filled until it reaches `self.target_qsize`
+        The queue is filled until it reaches `self.3arget_qsize`
 
         This function should be called often enough that the queue is never
         empty.
