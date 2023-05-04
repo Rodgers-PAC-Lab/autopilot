@@ -676,11 +676,10 @@ class PAFT_Child(children.Child):
         self.stage_block.set()
 
     def send_chunk_of_sound_played_data(self, payload):
-        """Report metadata about sounds played directly to terminal
+        """Report metadata about sounds played to parent
         
         This is adapted from send_chunk_of_sound_data in paft_child
         Here we send data from jackclient about the nonzero frames
-        TODO: add this to paft_child, alongside send_chunk_of_sound_data
         """
         ## Create a serialized message
         # Adapted from the bandwidth test
@@ -706,24 +705,25 @@ class PAFT_Child(children.Child):
                 'payload_columns': payload.columns.values,
                 'chunkclass_name': 'ChunkData_SoundsPlayed', 
                 'timestamp': timestamp,
-                'subject': self.subject, # required by terminal, I think
             }        
             
-            # Generate the Message
+            # Construct the message
             msg = autopilot.networking.Message(
-                to='_T', # send to terminal
-                key='DATA', # choose listen
-                value=value, # the value to send
+                id="dummy_dst2", # does nothing (?), but required
+                sender="dummy_src2", # does nothing (?), but required 
+                key='CHUNK', # this selects listen method. required for encoding
+                to="dummy_dst", # required but I don't think it matters
+                value=value, # the 'value' to send
                 flags={
                     'MINPRINT': True, # disable printing of value
                     'NOREPEAT': True, # disable repeating
                     },
-                id="dummy_dst2", # does nothing (?), but required
-                sender="dummy_src2", # does nothing (?), but required 
                 )
-
-            # Send to terminal
-            self.node.send('_T', 'DATA', msg=msg)
+            
+            # Sending it will automatically serialize it, which in turn will
+            # automatically compress numpy using blosc
+            # See Node.send and Message.serialize
+            self.node2.send('parent_pi', msg=msg)
 
     def empty_queue1(self, tosize=0):
         """Empty queue1"""
