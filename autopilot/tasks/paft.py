@@ -1132,13 +1132,13 @@ class PAFT(Task):
 
     def recv_flash(self, value):
         """Log flash"""
-        # isoformat once
-        isoformatted = value['dt_flash_received'].isoformat()
+        # timenow
+        now = datetime.datetime.now().isoformat()
         
         # Announce
         self.logger.debug(
             "[{}] received FLASH from child with value {}".format(
-            datetime.datetime.now().isoformat(), value))
+            now, value))
         
         # Directly report continuous data to terminal (aka _T)
         # Otherwise it can be encoded in the returned data, but that is only
@@ -1153,8 +1153,8 @@ class PAFT(Task):
                 'subject': self.subject,
                 'pilot': prefs.get('NAME'),
                 'continuous': True,
-                'timestamp': isoformatted,
-                'dt_flash_received': isoformatted,
+                'timestamp': now,
+                'dt_flash_received': value['dt_flash_received'],
                 'dt_flash_received_from': value['from'],
                 },
             )        
