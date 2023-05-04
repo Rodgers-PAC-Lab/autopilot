@@ -341,7 +341,7 @@ class PAFT_startle(Task):
             
             # Add stimulus sounds to queue 1 as needed
             self.append_sound_to_queue1_as_needed()
-            
+
             # Don't want to iterate too quickly, but rather add chunks
             # in a controlled fashion every so often
             time.sleep(.1)
