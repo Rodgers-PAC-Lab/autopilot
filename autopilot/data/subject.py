@@ -275,7 +275,16 @@ class Subject(object):
         # Box-specific reward amount
         # TODO: get this from pilot_db
         # Very roughly, 25-50-75 correspond to small-medium-xlarge, 4-10-16uL
-        mouse_reward = 50
+        box_reward = 50
+        
+        # Multiply this by the mouse-specific reward_multiplier
+        mouse_reward = box_reward * params_mouse['reward_multiplier']
+        
+        # Convert to an int (need to check if float is okay)
+        mouse_reward = int(np.rint(mouse_reward))
+        
+        # log
+        self.logger.debug('chose reward value of: {}'.format(mouse_reward))
         
         # Store this in task_params, and it will be sent to the pilot to
         # start the task
