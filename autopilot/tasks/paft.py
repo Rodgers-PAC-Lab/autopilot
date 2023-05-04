@@ -249,6 +249,14 @@ class PAFT(Task):
         locking_timestamp = tables.StringCol(50)        
         gap = tables.Float64Col()
         gap_chunks = tables.IntCol()
+
+    # For SoundsPlayed
+    class ChunkData_SoundsPlayed(tables.IsDescription):
+        hash = tables.IntCol()
+        last_frame_time = tables.IntCol()
+        frames_since_cycle_start = tables.IntCol()
+        equiv_dt = tables.StringCol(64)
+        pilot = tables.StringCol(20)
     
     class ChunkData_Pokes(tables.IsDescription):
         timestamp = tables.StringCol(64)
@@ -260,7 +268,7 @@ class PAFT(Task):
     
     # This defines the classes that act like ChunkData
     # See Subject.data_thread
-    CHUNKDATA_CLASSES = [ChunkData_Sounds, ChunkData_Pokes]
+    CHUNKDATA_CLASSES = [ChunkData_Sounds, ChunkData_SoundsPlayed, ChunkData_Pokes]
     
     ## Set up hardware and children
     # Per https://docs.auto-pi-lot.com/en/latest/guide/task.html:

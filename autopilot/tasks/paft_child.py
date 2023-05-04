@@ -626,6 +626,26 @@ class PAFT_Child(children.Child):
             # Don't want to iterate too quickly, but rather add chunks
             # in a controlled fashion every so often
             time.sleep(.1)
+
+        ## Extract any recently played sound info
+        sound_data_l = []
+        with autopilot.stim.sound.jackclient.QUEUE_NONZERO_BLOCKS_LOCK:
+            while True:
+                try:
+                    data = autopilot.stim.sound.jackclient.QUEUE_NONZERO_BLOCKS.get_nowait()
+                except queue.Empty:
+                    break
+                sound_data_l.append(data)
+        
+        if len(sound_data_l) > 0:
+            # DataFrame it
+            # This has to match code in jackclient.py
+            # And it also has to match task_class.ChunkData_SoundsPlayed
+            payload = pandas.DataFrame.from_records(
+                sound_data_l,
+                columns=['hash', 'last_frame_time', 'frames_since_cycle_start', 'equiv_dt'],
+                )
+            self.send_chunk_of_sound_played_data(payload)
         
         # Estimate how fast we're playing sounds
         # This should be about 192000 / 1024 = 187.5 frames / s, 
@@ -648,11 +668,62 @@ class PAFT_Child(children.Child):
             self.logger.debug("error: frame rate seems to be far too low")
             self.frame_rate_warning_already_issued = True
 
-        # Continue to the next stage (which is this one again)
+
+        ## Continue to the next stage (which is this one again)
         # If it is cleared, then nothing happens until the next message
         # from the Parent (not sure why)
         # If we never end this function, then it won't respond to END
         self.stage_block.set()
+
+    def send_chunk_of_sound_played_data(self, payload):
+        """Report metadata about sounds played directly to terminal
+        
+        This is adapted from send_chunk_of_sound_data in paft_child
+        Here we send data from jackclient about the nonzero frames
+        TODO: add this to paft_child, alongside send_chunk_of_sound_data
+        """
+        ## Create a serialized message
+        # Adapted from the bandwidth test
+        
+        # Time of sending this message
+        timestamp = datetime.datetime.now().isoformat()
+        
+        # Only send data if there are rows of data
+        # Otherwise, no sound playing, and nothing to report
+        if len(payload) > 0:
+            # Store these additional values, which are the same for all rows
+            payload['pilot'] = self.name
+            
+            # This is the value to send
+            # Must be serializable
+            # Definitely include payload (the data), some kind of locking
+            # timestamp, and the origin (our name). 
+            # When this message is repeated by the Parent to the terminal,
+            # there are additional constraints based on what save_data expects
+            value = {
+                'pilot': self.name,
+                'payload': payload.values,
+                'payload_columns': payload.columns.values,
+                'chunkclass_name': 'ChunkData_SoundsPlayed', 
+                'timestamp': timestamp,
+                'subject': self.subject, # required by terminal, I think
+            }        
+            
+            # Generate the Message
+            msg = autopilot.networking.Message(
+                to='_T', # send to terminal
+                key='DATA', # choose listen
+                value=value, # the value to send
+                flags={
+                    'MINPRINT': True, # disable printing of value
+                    'NOREPEAT': True, # disable repeating
+                    },
+                id="dummy_dst2", # does nothing (?), but required
+                sender="dummy_src2", # does nothing (?), but required 
+                )
+
+            # Send to terminal
+            self.node.send('_T', 'DATA', msg=msg)
 
     def empty_queue1(self, tosize=0):
         """Empty queue1"""
@@ -700,8 +771,6 @@ class PAFT_Child(children.Child):
         qsize = autopilot.stim.sound.jackclient.QUEUE.qsize()
         if qsize == 0:
             self.logger.debug('warning: queue1 was empty')
-        #~ self.logger.debug(
-            #~ 'append_sound_to_queue1_as_needed: qsize before = {}'.format(qsize))
 
         # Add frames until target size reached
         while qsize < self.target_qsize:
@@ -715,11 +784,6 @@ class PAFT_Child(children.Child):
             
             # Update qsize
             qsize = autopilot.stim.sound.jackclient.QUEUE.qsize()
-        
-        #~ # Get the size of QUEUE1 now
-        #~ qsize = autopilot.stim.sound.jackclient.QUEUE.qsize()
-        #~ self.logger.debug(
-            #~ 'append_sound_to_queue1_as_needed: qsize after = {}'.format(qsize))        
 
     def append_error_sound_to_queue2(self, which):
         """Dump frames from error sound into queue2
