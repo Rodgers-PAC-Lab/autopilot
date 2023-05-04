@@ -236,8 +236,18 @@ class PAFT(Task):
     # Actually, no I think that is extracted automatically from the 
     # networked message, and should not be defined here
     class ContinuousData(tables.IsDescription):
+        # Time of reward
         reward_timestamp = tables.StringCol(64)
+        
+        # Trial of reward
+        # TODO: name this something more explicit, or send reward info
+        # as chunks
         trial = tables.Int32Col()
+        
+        # Flash times
+        # TODO: make these chunks
+        dt_flash_received = tables.StringCol(64)
+        dt_flash_received_from = tables.StringCol(64)
 
     # Define chunk data
     # This is like ContinuousData, but each row is sent together, as a chunk
@@ -558,6 +568,7 @@ class PAFT(Task):
                 'HELLO': self.recv_hello,
                 'POKE': self.recv_poke,
                 'REWARD': self.recv_reward,
+                'FLASH': self.recv_flash,
                 'CHUNK': self.recv_chunk,                
                 },
             instance=False,
@@ -1119,6 +1130,35 @@ class PAFT(Task):
                 },
             )  
 
+    def recv_flash(self, value):
+        """Log flash"""
+        # isoformat once
+        isoformatted = value['dt_flash_received'].isoformat()
+        
+        # Announce
+        self.logger.debug(
+            "[{}] received FLASH from child with value {}".format(
+            datetime.datetime.now().isoformat(), value))
+        
+        # Directly report continuous data to terminal (aka _T)
+        # Otherwise it can be encoded in the returned data, but that is only
+        # once per stage
+        # subject is needed by core.terminal.Terminal.l_data
+        # pilot is needed by networking.station.Terminal_Station.l_data
+        # timestamp and continuous are needed by subject.Subject.data_thread
+        self.node.send(
+            to='_T',
+            key='DATA',
+            value={
+                'subject': self.subject,
+                'pilot': prefs.get('NAME'),
+                'continuous': True,
+                'timestamp': isoformatted,
+                'dt_flash_received': isoformatted,
+                'dt_flash_received_from': value['from'],
+                },
+            )        
+        
     def recv_reward(self, value):
         """Log reward and advance stage block"""
         # TODO: get the timestamp directly from the child rpi instead of 

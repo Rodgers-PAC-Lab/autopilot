@@ -829,12 +829,8 @@ class PAFT_Child(children.Child):
 
     def recv_play(self, value):
         """On receiving a PLAY command, set sounds and fill queues"""
-        # Log the time of the flash
+        # Use this to determine when the flash was done in local timebase
         timestamp = datetime.datetime.now().isoformat()
-        self.logger.debug(
-            "[{}] synchronization_flash; ".format(timestamp) +
-            "recv_play with value: {}".format(value)
-            )
 
         # Whether to do a synchronization flash
         synchronization_flash = value.pop('synchronization_flash', False)
@@ -848,7 +844,22 @@ class PAFT_Child(children.Child):
             time.sleep(.100)
             self.hardware['LEDS']['L'].set((0, 0, 0))
             self.hardware['LEDS']['R'].set((0, 0, 0))
+
+            # Send to the parent
+            self.node2.send(
+                'parent_pi', 'FLASH', {
+                    'from': self.name, 
+                    'dt_flash_received': timestamp,
+                    },
+                )      
         
+        # Log the time of the flash
+        # Do this after the flash itself so that we don't jitter
+        self.logger.debug(
+            "[{}] synchronization_flash; ".format(timestamp) +
+            "recv_play with value: {}".format(value)
+            )
+    
         # Pop out the punish and reward values
         left_punish = value.pop('left_punish')
         right_punish = value.pop('right_punish')
