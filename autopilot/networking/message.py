@@ -76,7 +76,11 @@ class Message(object):
             if expand_arrays:
                 deserialized = json.loads(msg, object_pairs_hook=self._deserialize_numpy)
             else:
-                deserialized = json.loads(msg)
+                try:
+                    deserialized = json.loads(msg)
+                except json.decoder.JSONDecodeError:
+                    print("unexpected json decoding error on message {}".format(msg))
+                    raise
             kwargs.update(deserialized)
 
         for k, v in kwargs.items():
