@@ -290,6 +290,15 @@ class PAFT_startle(Task):
         ## Cycle so it can repeat forever
         self.sound_cycle = itertools.cycle(self.sound_block)        
 
+        # The time between the startles
+        self.inter_startle_interval_l = [
+            15, 10, 25, 20, 5, 30, 
+            15, 10, 25, 20, 5, 30, 
+            15, 10, 25, 20, 5, 30, 
+            ]
+        self.idx_isi_l = 0
+        self.current_isi = self.inter_startle_interval_l[self.idx_isi_l]
+
     def play(self):
         """A single stage"""
         
@@ -299,15 +308,6 @@ class PAFT_startle(Task):
         if self.time_of_last_sound is None:
             self.time_of_last_sound = datetime.datetime.now()
             self.sound_has_been_silenced = True
-        
-        # The time between the startles
-        inter_startle_interval_l = [
-            15, 10, 25, 20, 5, 30, 
-            15, 10, 25, 20, 5, 30, 
-            15, 10, 25, 20, 5, 30, 
-            ]
-        idx_isi_l = 0
-        current_isi = inter_startle_interval_l[idx_isi_l]
         
         # Don't want to do a "while True" here, because we need to exit
         # this method eventually, so that it can respond to END
@@ -321,13 +321,13 @@ class PAFT_startle(Task):
             if (
                     self.time_of_last_sound is None or 
                     current_time >= (self.time_of_last_sound + 
-                    datetime.timedelta(seconds=current_isi))
+                    datetime.timedelta(seconds=self.current_isi))
                     ):
                 # If it's been long enough, play a noise burst
                 # Update
-                idx_isi_l += 1
-                current_isi = inter_startle_interval_l[idx_isi_l]
-                print('idx_isi_l {} current_isi {}'.format(idx_isi_l, current_isi))
+                self.idx_isi_l = self.idx_isi_l + 1
+                self.current_isi = self.inter_startle_interval_l[self.idx_isi_l]
+                print('idx_isi_l {} current_isi {}'.format(self.idx_isi_l, self.current_isi))
                 
                 # Add the noise burst
                 self.set_sound_cycle(with_sound=True)
