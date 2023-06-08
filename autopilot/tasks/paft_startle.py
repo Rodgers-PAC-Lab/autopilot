@@ -327,6 +327,7 @@ class PAFT_startle(Task):
                 # Update
                 idx_isi_l += 1
                 current_isi = inter_startle_interval_l[idx_isi_l]
+                print('idx_isi_l {} current_isi {}'.format(idx_isi_l, current_isi))
                 
                 # Add the noise burst
                 self.set_sound_cycle(with_sound=True)
@@ -338,6 +339,7 @@ class PAFT_startle(Task):
                 
                 # Set time to now
                 self.time_of_last_sound = current_time
+                print('time_of_last_sound {}'.format(self.time_of_last_sound))
                 
                 # Turn LED on
                 self.hardware['LEDS']['L'].set((255, 0, 0))
