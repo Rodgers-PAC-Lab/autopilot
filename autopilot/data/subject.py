@@ -394,7 +394,7 @@ class Subject(object):
         # https://stackoverflow.com/questions/2829329/catch-a-threads-exception-in-the-caller-thread
         
         ## Setup watchtower (if camera specified)
-        watchtowerurl = 'https://192.168.11.121:4343'
+        watchtowerurl = 'https://192.168.11.194:4343'
         if camera_name is not None:
             watchtower_connection_up, apit = watchtower_setup(
                 watchtowerurl, logger=self.logger)
