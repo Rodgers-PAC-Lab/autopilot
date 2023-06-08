@@ -230,6 +230,15 @@ class PAFT_startle(Task):
         # Keep track of when the last noise burst was played
         self.time_of_last_sound = None
         self.sound_has_been_silenced = True # because we just silenced it
+
+        # The time between the startles
+        self.inter_startle_interval_l = [
+            15, 10, 25, 20, 5, 30, 
+            15, 10, 25, 20, 5, 30, 
+            15, 10, 25, 20, 5, 30, 
+            ]
+        self.idx_isi_l = 0
+        self.current_isi = self.inter_startle_interval_l[self.idx_isi_l]
         
         
         ## Init node to talk to terminal
@@ -289,15 +298,6 @@ class PAFT_startle(Task):
 
         ## Cycle so it can repeat forever
         self.sound_cycle = itertools.cycle(self.sound_block)        
-
-        # The time between the startles
-        self.inter_startle_interval_l = [
-            15, 10, 25, 20, 5, 30, 
-            15, 10, 25, 20, 5, 30, 
-            15, 10, 25, 20, 5, 30, 
-            ]
-        self.idx_isi_l = 0
-        self.current_isi = self.inter_startle_interval_l[self.idx_isi_l]
 
     def play(self):
         """A single stage"""
