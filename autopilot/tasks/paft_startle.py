@@ -264,8 +264,11 @@ class PAFT_startle(Task):
         self.sound_block = []
 
         # Helper function
-        def append_gap(gap_chunk_size=30):
-            """Append `gap_chunk_size` silent chunks to sound_block"""
+        def append_gap(gap_chunk_size=8):
+            """Append `gap_chunk_size` silent chunks to sound_block
+            
+            I think each gap_chunk_size is 5.3 ms
+            """
             for n_blank_chunks in range(gap_chunk_size):
                 self.sound_block.append(
                     np.zeros(autopilot.stim.sound.jackclient.BLOCKSIZE, 
@@ -297,6 +300,15 @@ class PAFT_startle(Task):
             self.time_of_last_sound = datetime.datetime.now()
             self.sound_has_been_silenced = True
         
+        # The time between the startles
+        inter_startle_interval_l = [
+            15, 10, 25, 20, 5, 30, 
+            15, 10, 25, 20, 5, 30, 
+            15, 10, 25, 20, 5, 30, 
+            ]
+        idx_isi_l = 0
+        current_isi = inter_startle_interval_l[idx_isi_l]
+        
         # Don't want to do a "while True" here, because we need to exit
         # this method eventually, so that it can respond to END
         # But also don't want to change stage too frequently or the debug
@@ -308,9 +320,14 @@ class PAFT_startle(Task):
             # Set the sound cycle as needed
             if (
                     self.time_of_last_sound is None or 
-                    current_time >= self.time_of_last_sound + datetime.timedelta(seconds=30)
+                    current_time >= (self.time_of_last_sound + 
+                    datetime.timedelta(seconds=current_isi))
                     ):
                 # If it's been long enough, play a noise burst
+                # Update
+                idx_isi_l += 1
+                current_isi = inter_startle_interval_l[idx_isi_l]
+                
                 # Add the noise burst
                 self.set_sound_cycle(with_sound=True)
                 self.empty_queue1()
