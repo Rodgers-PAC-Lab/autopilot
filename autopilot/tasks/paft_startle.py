@@ -236,6 +236,10 @@ class PAFT_startle(Task):
             15, 10, 25, 20, 5, 30, 
             15, 10, 25, 20, 5, 30, 
             15, 10, 25, 20, 5, 30, 
+            15, 10, 25, 20, 5, 30, 
+            15, 10, 25, 20, 5, 30, 
+            15, 10, 25, 20, 5, 30, 
+            15, 10, 25, 20, 5, 30, 
             ]
         self.idx_isi_l = 0
         self.current_isi = self.inter_startle_interval_l[self.idx_isi_l]
