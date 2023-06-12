@@ -356,6 +356,11 @@ class PAFT_startle(Task):
                     np.random.random() * self.random_interval_between_sounds
                     )
 
+                # Get time of next sound
+                time_of_next_sound = (
+                    self.time_of_last_sound + datetime.timedelta(
+                    seconds=self.current_interval_between_sounds))
+
             elif current_time >= self.time_of_last_sound + datetime.timedelta(seconds=.01):
                 # if it's been long enough for the burst to finish, silence it
                 if not self.sound_has_been_silenced:
