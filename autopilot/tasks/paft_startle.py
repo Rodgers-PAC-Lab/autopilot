@@ -235,7 +235,7 @@ class PAFT_startle(Task):
         self.minimum_interval_between_sounds = .1
         
         # This is randomly added to the minimum interval
-        self.random_interval_between_sounds = .05
+        self.random_interval_between_sounds = .5
         
         # This is used to store the current interval (fixed + random)
         self.current_interval_between_sounds = None
