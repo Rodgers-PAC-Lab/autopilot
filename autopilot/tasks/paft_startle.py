@@ -246,7 +246,7 @@ class PAFT_startle(Task):
         # One loud-ish noise burst
         self.noise_bursts = [
             autopilot.stim.sound.sounds.Noise(
-                duration=3, amplitude=1, channel=None, 
+                duration=1, amplitude=1, channel=None, 
                 lowpass=None, highpass=None, 
                 attenuation_file=None, #'/home/pi/attenuation.csv',
                 ),                             
@@ -345,6 +345,7 @@ class PAFT_startle(Task):
             # Don't want to iterate too quickly, but rather add chunks
             # in a controlled fashion every so often
             time.sleep(.01)
+
 
         ## Extract any recently played sound info
         sound_data_l = []
