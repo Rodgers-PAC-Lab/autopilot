@@ -231,6 +231,15 @@ class PAFT_startle(Task):
         self.time_of_last_sound = None
         self.sound_has_been_silenced = True # because we just silenced it
         
+        # This determines minimum interval between sounds
+        self.minimum_interval_between_sounds = .1
+        
+        # This is randomly added to the minimum interval
+        self.random_interval_between_sounds = .05
+        
+        # This is used to store the current interval (fixed + random)
+        self.current_interval_between_sounds = None
+        
         
         ## Init node to talk to terminal
         self.node = Net_Node(
@@ -297,6 +306,14 @@ class PAFT_startle(Task):
             self.time_of_last_sound = datetime.datetime.now()
             self.sound_has_been_silenced = True
         
+        # This is used to set the current interval, which is the sum
+        # of the minimum interval and a random jitter
+        if self.current_interval_between_sounds is None:
+            self.current_interval_between_sounds = (
+                self.minimum_interval_between_sounds + 
+                np.random.random() * self.random_interval_between_sounds
+                )
+
         # Don't want to do a "while True" here, because we need to exit
         # this method eventually, so that it can respond to END
         # But also don't want to change stage too frequently or the debug
@@ -304,11 +321,16 @@ class PAFT_startle(Task):
         for n in range(100):
             # Get current time
             current_time = datetime.datetime.now()
-            
+
+            # Get time of next sound
+            time_of_next_sound = (
+                self.time_of_last_sound + datetime.timedelta(
+                seconds=self.current_interval_between_sounds))
+
             # Set the sound cycle as needed
             if (
                     self.time_of_last_sound is None or 
-                    current_time >= self.time_of_last_sound + datetime.timedelta(seconds=.5)
+                    current_time >= time_of_next_sound
                     ):
                 # If it's been long enough, play a noise burst
                 # Add the noise burst
@@ -325,6 +347,9 @@ class PAFT_startle(Task):
                 # Turn LED on
                 self.hardware['LEDS']['L'].set((255, 0, 0))
                 self.hardware['LEDS']['R'].set((255, 0, 0))
+                
+                # Reset this for next time
+                self.current_interval_between_sounds = None
 
             elif current_time >= self.time_of_last_sound + datetime.timedelta(seconds=.01):
                 # if it's been long enough for the burst to finish, silence it
