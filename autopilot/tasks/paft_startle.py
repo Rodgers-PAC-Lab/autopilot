@@ -308,11 +308,17 @@ class PAFT_startle(Task):
         
         # This is used to set the current interval, which is the sum
         # of the minimum interval and a random jitter
+        # This actually only happens once, for the first interval
         if self.current_interval_between_sounds is None:
             self.current_interval_between_sounds = (
                 self.minimum_interval_between_sounds + 
                 np.random.random() * self.random_interval_between_sounds
                 )
+
+        # Get time of next sound
+        time_of_next_sound = (
+            self.time_of_last_sound + datetime.timedelta(
+            seconds=self.current_interval_between_sounds))
 
         # Don't want to do a "while True" here, because we need to exit
         # this method eventually, so that it can respond to END
@@ -321,11 +327,6 @@ class PAFT_startle(Task):
         for n in range(100):
             # Get current time
             current_time = datetime.datetime.now()
-
-            # Get time of next sound
-            time_of_next_sound = (
-                self.time_of_last_sound + datetime.timedelta(
-                seconds=self.current_interval_between_sounds))
 
             # Set the sound cycle as needed
             if (
@@ -348,8 +349,12 @@ class PAFT_startle(Task):
                 self.hardware['LEDS']['L'].set((255, 0, 0))
                 self.hardware['LEDS']['R'].set((255, 0, 0))
                 
-                # Reset this for next time
-                self.current_interval_between_sounds = None
+                # This is used to set the current interval, which is the sum
+                # of the minimum interval and a random jitter
+                self.current_interval_between_sounds = (
+                    self.minimum_interval_between_sounds + 
+                    np.random.random() * self.random_interval_between_sounds
+                    )
 
             elif current_time >= self.time_of_last_sound + datetime.timedelta(seconds=.01):
                 # if it's been long enough for the burst to finish, silence it
