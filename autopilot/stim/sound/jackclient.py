@@ -419,7 +419,7 @@ class JackClient(mp.Process):
         
         # Background should always be white noise
         white_noise = np.random.random(self.blocksize) - 0.5
-        white_noise = 0.01 * white_noise
+        white_noise = 0.001 * white_noise
         data2 = white_noise
         
         # Force to stereo
