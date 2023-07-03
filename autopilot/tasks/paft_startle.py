@@ -273,11 +273,6 @@ class PAFT_startle(Task):
             If False, it plays silence only
         """
         ## Generate self.sound_block
-        # This is for background white noise
-        white_noise = np.random.random(
-            autopilot.stim.sound.jackclient.BLOCKSIZE) - 0.5
-        white_noise = 0.01 * white_noise
-        
         # This is where sounds go
         self.sound_block = []
 
@@ -288,11 +283,9 @@ class PAFT_startle(Task):
             I think each gap_chunk_size is 5.3 ms
             """
             for n_blank_chunks in range(gap_chunk_size):
-                #~ self.sound_block.append(
-                    #~ np.zeros(autopilot.stim.sound.jackclient.BLOCKSIZE, 
-                    #~ dtype='float32'))
-                
-                self.sound_block.append(white_noise)
+                self.sound_block.append(
+                    np.zeros(autopilot.stim.sound.jackclient.BLOCKSIZE, 
+                    dtype='float32'))
 
         # Append long noise burst
         for noise_burst in self.noise_bursts:

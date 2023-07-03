@@ -417,6 +417,11 @@ class JackClient(mp.Process):
                 np.zeros(self.blocksize, dtype='float32'),
                 ])
         
+        # Background should always be white noise
+        white_noise = np.random.random(self.blocksize) - 0.5
+        white_noise = 0.01 * white_noise
+        data2 = white_noise
+        
         # Force to stereo
         if data.ndim == 1:
             data = np.transpose([data, data])
