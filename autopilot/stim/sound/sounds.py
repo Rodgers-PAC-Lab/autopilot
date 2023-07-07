@@ -443,6 +443,135 @@ class Noise(BASE_CLASS):
 
             yield table
 
+class Click(BASE_CLASS):
+    """Generates a click with specified parameters.
+    
+    The `type` attribute is always "Click".
+    """
+    # These are the parameters of the sound
+    # These can be set in the GUI when generating a Nafc step in a Protocol
+    PARAMS = ['duration', 'amplitude', 'channel']
+    
+    # The type of the sound
+    type = 'Click'
+    
+    def __init__(self, duration, amplitude=0.01, channel=None, **kwargs):
+        """Initialize a new Click with specified parameters.
+        
+        The sound itself is stored as the attribute `self.table`. This can
+        be 1-dimensional or 2-dimensional, depending on `channel`. If it is
+        2-dimensional, then each channel is a column.
+        
+        Args:
+            duration (float): duration of the noise
+            amplitude (float): amplitude of the sound as a proportion of 1.
+            channel (int or None): which channel should be used
+                If 0, play noise from the first channel
+                If 1, play noise from the second channel
+                If None, send the same information to all channels ("mono")
+            attenuation_file (string or None)
+                Path to where a pandas.Series can be loaded containing attenuation
+            **kwargs: extraneous parameters that might come along with instantiating us
+        """
+        # This calls the base class, which sets server-specific parameters
+        # like sampling rate
+        super(Click, self).__init__(**kwargs)
+        
+        # Set the parameters specific to Noise
+        self.duration = float(duration)
+        self.amplitude = float(amplitude)
+
+        try:
+            self.channel = int(channel)
+        except TypeError:
+            self.channel = channel
+        
+        # Currently only mono or stereo sound is supported
+        if self.channel not in [None, 0, 1]:
+            raise ValueError(
+                "audio channel must be 0, 1, or None, not {}".format(
+                self.channel))
+
+        # Initialize the sound itself
+        self.init_sound()
+
+    def init_sound(self):
+        """Defines `self.table`, the waveform that is played. 
+        
+        The way this is generated depends on `self.server_type`, because
+        parameters like the sampling rate cannot be known otherwise.
+        
+        The sound is generated and then it is "chunked" (zero-padded and
+        divided into chunks). Finally `self.initialized` is set True.
+        """
+        # Depends on the server_type
+        if self.server_type == 'pyo':
+            noiser = pyo.Noise(mul=self.amplitude)
+            self.table = self.table_wrap(noiser)
+        
+        elif self.server_type in ('jack', 'dummy'):
+            # This calculates the number of samples, using the specified 
+            # duration and the sampling rate from the server, and stores it
+            # as `self.nsamples`.
+            self.get_nsamples()
+            
+            # Generate the table by sampling from a uniform distribution
+            # The shape of the table depends on `self.channel`
+            if self.channel is None:
+                # The table will be 1-dimensional for mono sound
+                self.table = np.ones(self.nsamples, dtype=float)
+                
+            else:
+                # The table will be 2-dimensional for stereo sound
+                # Each channel is a column
+                # Only the specified channel contains data and the other is zero
+                data = np.ones(self.nsamples, dtype=float)
+                
+                self.table = np.zeros((self.nsamples, 2))
+                
+                assert self.channel in [0, 1]
+                self.table[:, self.channel] = data
+            
+            # Scale by the amplitude
+            self.table = self.table * self.amplitude
+            
+            # Convert to float32
+            self.table = self.table.astype(np.float32)
+            
+            # Chunk the sound
+            if self.server_type == 'jack':
+                self.chunk()
+
+        # Flag as initialized
+        self.initialized = True
+
+    def iter_continuous(self) -> typing.Generator:
+        """
+        Continuously yield frames of audio. If this method is not overridden,
+        just wraps :attr:`.table` in a :class:`itertools.cycle` object and
+        returns from it.
+
+        Returns:
+            np.ndarray: A single frame of audio
+        """
+        # preallocate
+        if self.channel is None:
+            table = np.empty(self.blocksize, dtype=np.float32)
+        else:
+            table = np.empty((self.blocksize, 2), dtype=np.float32)
+
+        rng = np.random.default_rng()
+
+
+        while True:
+            if self.channel is None:
+                table[:] = rng.uniform(-self.amplitude, self.amplitude, self.blocksize)
+            else:
+                table[:,self.channel] = rng.uniform(-self.amplitude, self.amplitude, self.blocksize)
+
+            yield table
+
+
 class File(BASE_CLASS):
     """
     A .wav file.
