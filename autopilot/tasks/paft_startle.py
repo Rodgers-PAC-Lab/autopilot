@@ -254,10 +254,8 @@ class PAFT_startle(Task):
         """Defines sounds that will be played during the task"""
         # One loud-ish noise burst
         self.noise_bursts = [
-            autopilot.stim.sound.sounds.Noise(
-                duration=1, amplitude=1, channel=None, 
-                lowpass=None, highpass=None, 
-                attenuation_file=None, #'/home/pi/attenuation.csv',
+            autopilot.stim.sound.sounds.Click(
+                duration=0.1, amplitude=1, channel=None, 
                 ),                             
             ] 
     
