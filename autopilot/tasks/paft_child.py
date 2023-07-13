@@ -132,8 +132,9 @@ class PAFT_Child(children.Child):
         self.create_inter_pi_communication_node()
         
         
-        ## Keep a link to pigpio.pi()
+        ## Keep a link to pigpio.pi() and to the hardware dict
         self.pi = pigpio.pi()
+        self.prefs_hardware = prefs.get('HARDWARE')
 
     def initalize_sounds(self,             
         target_highpass, target_amplitude, target_lowpass,
@@ -844,16 +845,22 @@ class PAFT_Child(children.Child):
         # Do this BEFORE processing any sounds, otherwise the latency varies
         # with the number of sounds to play
         if synchronization_flash:
+            # get pin numbers
+            left_red = autopilot.hardware.BOARD_TO_BCM[ 
+                self.prefs_hardware['LEDS']['L']['pins'][0]]
+            right_red = autopilot.hardware.BOARD_TO_BCM[ 
+                self.prefs_hardware['LEDS']['R']['pins'][0]]
+            
             # Turn left-red and right-red to full PWM
-            self.pi.set_PWM_dutycycle(17, 255)
-            self.pi.set_PWM_dutycycle(10, 255)
+            self.pi.set_PWM_dutycycle(left_red, 255)
+            self.pi.set_PWM_dutycycle(right_red, 255)
             
             # Wait 100 ms
             time.sleep(.100)
             
             # Turn left-red and right-red to zero PWM
-            self.pi.set_PWM_dutycycle(17, 0)
-            self.pi.set_PWM_dutycycle(10, 0)
+            self.pi.set_PWM_dutycycle(left_red, 0)
+            self.pi.set_PWM_dutycycle(right_red, 0)
 
             # Send to the parent
             self.node2.send(
