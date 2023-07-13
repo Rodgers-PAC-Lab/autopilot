@@ -9,6 +9,7 @@ import numpy as np
 import autopilot
 from autopilot import prefs
 from . import children
+import pigpio
 
 class PAFT_Child(children.Child):
     """Define the child task associated with PAFT"""
@@ -129,6 +130,10 @@ class PAFT_Child(children.Child):
         # will also add other callbacks that are triggered by pokes, such
         # as reward or punish. 
         self.create_inter_pi_communication_node()
+        
+        
+        ## Keep a link to pigpio.pi()
+        self.pi = pigpio.pi()
 
     def initalize_sounds(self,             
         target_highpass, target_amplitude, target_lowpass,
@@ -839,11 +844,16 @@ class PAFT_Child(children.Child):
         # Do this BEFORE processing any sounds, otherwise the latency varies
         # with the number of sounds to play
         if synchronization_flash:
-            self.hardware['LEDS']['L'].set((255, 0, 0))
-            self.hardware['LEDS']['R'].set((255, 0, 0))
+            # Turn left-red and right-red to full PWM
+            self.pi.set_PWM_dutycycle(17, 255)
+            self.pi.set_PWM_dutycycle(10, 255)
+            
+            # Wait 100 ms
             time.sleep(.100)
-            self.hardware['LEDS']['L'].set((0, 0, 0))
-            self.hardware['LEDS']['R'].set((0, 0, 0))
+            
+            # Turn left-red and right-red to zero PWM
+            self.pi.set_PWM_dutycycle(17, 0)
+            self.pi.set_PWM_dutycycle(10, 0)
 
             # Send to the parent
             self.node2.send(
