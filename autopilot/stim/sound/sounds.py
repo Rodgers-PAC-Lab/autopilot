@@ -455,7 +455,8 @@ class Click(BASE_CLASS):
     # The type of the sound
     type = 'Click'
     
-    def __init__(self, duration, amplitude=0.01, channel=None, **kwargs):
+    def __init__(self, duration, amplitude=0.01, offset_win_samples=0, 
+        channel=None, **kwargs):
         """Initialize a new Click with specified parameters.
         
         The sound itself is stored as the attribute `self.table`. This can
@@ -463,8 +464,12 @@ class Click(BASE_CLASS):
         2-dimensional, then each channel is a column.
         
         Args:
-            duration (float): duration of the noise
+            duration (float): duration of the click (including any offset win)
             amplitude (float): amplitude of the sound as a proportion of 1.
+            offset_win_samples (int): duration of the smoothed offset 
+                (rolling from full amplitude down to zero)
+                If 0, then there is no offset window.
+                This must not be more than `duration` in samples
             channel (int or None): which channel should be used
                 If 0, play noise from the first channel
                 If 1, play noise from the second channel
@@ -480,6 +485,9 @@ class Click(BASE_CLASS):
         # Set the parameters specific to Noise
         self.duration = float(duration)
         self.amplitude = float(amplitude)
+        
+        # Set offset_win_samples
+        self.offset_win_samples = offset_win_samples
 
         try:
             self.channel = int(channel)
@@ -515,20 +523,37 @@ class Click(BASE_CLASS):
             # as `self.nsamples`.
             self.get_nsamples()
             
-            # Generate the table by sampling from a uniform distribution
+            # Generate the full amplitude part of the click, which doesn't
+            # include the last offset_win_samples
+            if self.offset_win_samples > self.nsamples:
+                raise ValueError(
+                    "cannot generate Click with duration " +
+                    "{} and offset_win_samples {}".format(
+                    self.nsamples, self.offset_win_samples))
+            data = np.ones(
+                self.nsamples - self.offset_win_samples, dtype=float)
+            
+            # Optionally concatenate the offset win
+            if self.offset_win_samples != 0:
+                # Raised cosine
+                offset_win = 1 + np.cos(
+                    np.arange(self.offset_win_samples) * pi 
+                    / self.offset_win_samples)
+                
+                # Concatenate onto data
+                data = np.concatenate([self.table, offset_win])            
+            
             # The shape of the table depends on `self.channel`
             if self.channel is None:
                 # The table will be 1-dimensional for mono sound
-                self.table = np.ones(self.nsamples, dtype=float)
+                self.table = data
                 
             else:
                 # The table will be 2-dimensional for stereo sound
                 # Each channel is a column
-                # Only the specified channel contains data and the other is zero
-                data = np.ones(self.nsamples, dtype=float)
-                
                 self.table = np.zeros((self.nsamples, 2))
                 
+                # Only the specified channel contains data and the other is zero
                 assert self.channel in [0, 1]
                 self.table[:, self.channel] = data
             
