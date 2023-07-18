@@ -536,7 +536,7 @@ class Click(BASE_CLASS):
             # Optionally concatenate the offset win
             if self.offset_win_samples != 0:
                 # Raised cosine
-                offset_win = 1 + np.cos(
+                offset_win = 1 + 0.5 * np.cos(
                     np.arange(self.offset_win_samples) * np.pi 
                     / self.offset_win_samples)
                 
