@@ -257,9 +257,14 @@ class PAFT_startle(Task):
     def initalize_sounds(self):
         """Defines sounds that will be played during the task"""
         # One loud-ish noise burst
+        # 90 dB = .01
+        # 80 dB = .003
+        # 70 dB = .001
+        # 60 dB = .0003
+        # masking noise is 0.0003 (60 dB)        
         self.noise_bursts = [
             autopilot.stim.sound.sounds.Noise(
-                duration=100, amplitude=.01, channel=None, 
+                duration=100, amplitude=.003, channel=None, 
                 lowpass=None, highpass=None, 
                 attenuation_file='/home/pi/attenuation.csv',
                 ),                             
