@@ -541,7 +541,7 @@ class Click(BASE_CLASS):
                     / self.offset_win_samples)
                 
                 # Concatenate onto data
-                data = np.concatenate([self.table, offset_win])            
+                data = np.concatenate([data, offset_win])            
             
             # The shape of the table depends on `self.channel`
             if self.channel is None:
