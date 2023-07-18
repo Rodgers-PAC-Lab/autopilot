@@ -256,6 +256,7 @@ class PAFT_startle(Task):
         self.noise_bursts = [
             autopilot.stim.sound.sounds.Click(
                 duration=0.1, amplitude=.3, channel=None, 
+                offset_win_samples=10,
                 ),                             
             ] 
     
