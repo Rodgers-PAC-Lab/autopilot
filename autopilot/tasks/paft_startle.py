@@ -241,6 +241,15 @@ class PAFT_startle(Task):
             15, 10, 25, 20, 5, 30, 
             15, 10, 25, 20, 5, 30, 
             ]
+        self.startle_amplitude_l = [
+            0.001, 0.003, 0.003, 0.001, 0.001, 0.001,
+            0.001, 0.001, 0.003, 0.003, 0.003, 0.001,
+            0.003, 0.001, 0.001, 0.001, 0.003, 0.003,
+            0.001, 0.003, 0.003, 0.001, 0.003, 0.001,
+            0.003, 0.003, 0.001, 0.003, 0.003, 0.001,
+            0.001, 0.003, 0.001, 0.001, 0.001, 0.001,
+            0.003, 0.003, 0.003, 0.003, 0.001, 0.003,
+            ]
         self.idx_isi_l = 0
         self.current_isi = self.inter_startle_interval_l[self.idx_isi_l]
         
@@ -264,7 +273,7 @@ class PAFT_startle(Task):
         # masking noise is 0.0003 (60 dB)        
         self.noise_bursts = [
             autopilot.stim.sound.sounds.Noise(
-                duration=100, amplitude=.003, channel=None, 
+                duration=100, amplitude=1, channel=None, 
                 lowpass=None, highpass=None, 
                 attenuation_file='/home/pi/attenuation.csv',
                 ),                             
@@ -296,7 +305,7 @@ class PAFT_startle(Task):
         for noise_burst in self.noise_bursts:
             for frame in noise_burst.chunks:
                 if with_sound:
-                    self.sound_block.append(frame) 
+                    self.sound_block.append(frame * self.current_startle_amplitude) 
                 else:
                     self.sound_block.append(frame * 0)
 
@@ -336,7 +345,9 @@ class PAFT_startle(Task):
                 # Update
                 self.idx_isi_l = self.idx_isi_l + 1
                 self.current_isi = self.inter_startle_interval_l[self.idx_isi_l]
-                print('idx_isi_l {} current_isi {}'.format(self.idx_isi_l, self.current_isi))
+                self.current_startle_amplitude = self.startle_amplitude_l[self.idx_isi_l]
+                print('idx_isi_l {} current_isi {} current_amplitude {}'.format(
+                    self.idx_isi_l, self.current_isi, self.current_startle_amplitude))
                 
                 # Add the noise burst
                 self.set_sound_cycle(with_sound=True)
