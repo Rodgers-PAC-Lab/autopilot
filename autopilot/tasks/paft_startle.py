@@ -232,7 +232,7 @@ class PAFT_startle(Task):
         self.sound_has_been_silenced = True # because we just silenced it
 
         # The time between the startles
-        habituation_time = 0 
+        habituation_time = 210 
         self.inter_startle_interval_l = [
             habituation_time + 15, 10, 25, 20, 5, 30, 
             15, 10, 25, 20, 5, 30, 
