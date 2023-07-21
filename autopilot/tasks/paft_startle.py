@@ -232,8 +232,9 @@ class PAFT_startle(Task):
         self.sound_has_been_silenced = True # because we just silenced it
 
         # The time between the startles
+        habituation_time = 0 
         self.inter_startle_interval_l = [
-            15, 10, 25, 20, 5, 30, 
+            habituation_time + 15, 10, 25, 20, 5, 30, 
             15, 10, 25, 20, 5, 30, 
             15, 10, 25, 20, 5, 30, 
             15, 10, 25, 20, 5, 30, 
@@ -242,16 +243,19 @@ class PAFT_startle(Task):
             15, 10, 25, 20, 5, 30, 
             ]
         self.startle_amplitude_l = [
-            0.001, 0.003, 0.003, 0.001, 0.001, 0.001,
-            0.001, 0.001, 0.003, 0.003, 0.003, 0.001,
-            0.003, 0.001, 0.001, 0.001, 0.003, 0.003,
-            0.001, 0.003, 0.003, 0.001, 0.003, 0.001,
-            0.003, 0.003, 0.001, 0.003, 0.003, 0.001,
-            0.001, 0.003, 0.001, 0.001, 0.001, 0.001,
-            0.003, 0.003, 0.003, 0.003, 0.001, 0.003,
+            0.01,  0.003, 0.003, 0.01,  0.01,  0.003,
+            0.01,  0.01,  0.003, 0.003, 0.003, 0.01,
+            0.003, 0.01,  0.01,  0.01,  0.003, 0.003,
+            0.01,  0.003, 0.003, 0.01,  0.003, 0.01,
+            0.003, 0.003, 0.01,  0.003, 0.003, 0.01,
+            0.01,  0.003, 0.01,  0.01,  0.01,  0.01,
+            0.003, 0.01,  0.003, 0.003, 0.01,  0.003,
             ]
+
+        # Choose the first startle interval and amplitude
         self.idx_isi_l = 0
         self.current_isi = self.inter_startle_interval_l[self.idx_isi_l]
+        self.current_startle_amplitude = self.startle_amplitude_l[self.idx_isi_l]
         
         
         ## Init node to talk to terminal
@@ -342,10 +346,7 @@ class PAFT_startle(Task):
                     datetime.timedelta(seconds=self.current_isi))
                     ):
                 # If it's been long enough, play a noise burst
-                # Update
-                self.idx_isi_l = self.idx_isi_l + 1
-                self.current_isi = self.inter_startle_interval_l[self.idx_isi_l]
-                self.current_startle_amplitude = self.startle_amplitude_l[self.idx_isi_l]
+                # Print a message about what's happening
                 print('idx_isi_l {} current_isi {} current_amplitude {}'.format(
                     self.idx_isi_l, self.current_isi, self.current_startle_amplitude))
                 
@@ -361,6 +362,11 @@ class PAFT_startle(Task):
                 self.time_of_last_sound = current_time
                 print('time_of_last_sound {}'.format(self.time_of_last_sound))
                 
+                # Increment
+                self.idx_isi_l = self.idx_isi_l + 1
+                self.current_isi = self.inter_startle_interval_l[self.idx_isi_l]
+                self.current_startle_amplitude = self.startle_amplitude_l[self.idx_isi_l]
+
                 # Turn LED on
                 self.hardware['LEDS']['L'].set((255, 0, 0))
                 self.hardware['LEDS']['R'].set((255, 0, 0))
