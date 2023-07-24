@@ -117,21 +117,6 @@ class PAFT_startle(Task):
     # See Subject.data_thread
     CHUNKDATA_CLASSES = [ChunkData_Sounds, ChunkData_SoundsPlayed, ChunkData_Pokes]
     
-    ## Set up hardware and children
-    # Per https://docs.auto-pi-lot.com/en/latest/guide/task.html:
-    # The HARDWARE dictionary maps a hardware type (eg. POKES) and 
-    # identifier (eg. 'L') to a Hardware object. The task uses the hardware 
-    # parameterization in the prefs file (also see setup_pilot) to 
-    # instantiate each of the hardware objects, so their naming system 
-    # must match (ie. there must be a prefs.PINS['POKES']['L'] entry in 
-    # prefs for a task that has a task.HARDWARE['POKES']['L'] object).
-    HARDWARE = {
-        'LEDS':{
-            'L': autopilot.hardware.gpio.LED_RGB,
-            'R': autopilot.hardware.gpio.LED_RGB
-        },
-    }   
-    
     
     ## Define the class methods
     def __init__(self, stage_block, current_trial, step_name, task_type, 
@@ -344,10 +329,6 @@ class PAFT_startle(Task):
                 # Set time to now
                 self.time_of_last_sound = current_time
                 
-                # Turn LED on
-                self.hardware['LEDS']['L'].set((255, 0, 0))
-                self.hardware['LEDS']['R'].set((255, 0, 0))
-                
                 # This is used to set the current interval, which is the sum
                 # of the minimum interval and a random jitter
                 self.current_interval_between_sounds = (
@@ -368,10 +349,6 @@ class PAFT_startle(Task):
                     
                     # Flag that it has been silenced
                     self.sound_has_been_silenced = True
-                    
-                    # Turn LED off
-                    self.hardware['LEDS']['L'].set((0, 0, 0))
-                    self.hardware['LEDS']['R'].set((0, 0, 0))
             
             # Add stimulus sounds to queue 1 as needed
             self.append_sound_to_queue1_as_needed()

@@ -244,10 +244,11 @@ class JackClient(mp.Process):
         ## Also boot pigpio so we can pulse pins when sound plays
         # Hopefully external.start_pigpiod() has already been called by
         # someone else
-        if PIGPIO_AVAILABLE:
-            self.pig = pigpio.pi()
-        else:
-            self.pig = None
+        # Removing this in ABR branch
+        #~ if PIGPIO_AVAILABLE:
+            #~ self.pig = pigpio.pi()
+        #~ else:
+            #~ self.pig = None
 
     def boot_server(self):
         """
@@ -429,7 +430,8 @@ class JackClient(mp.Process):
         if data_std > 1e-12:
             # Pulse the pin
             # Use BCM 23 (board 16) = LED - C - Blue because we're not using it
-            self.pig.write(23, True)
+            # Removing this in the ABR branch
+            #~ self.pig.write(23, True)
             
             # This is only an approximate hash because it excludes the
             # middle of the data
@@ -457,7 +459,9 @@ class JackClient(mp.Process):
                 self.q_nonzero_blocks.put_nowait((data_hash, lft, fscs, dt))
         else:
             # Unpulse the pin
-            self.pig.write(23, False)
+            #~ self.pig.write(23, False)
+            # Remove this in the ABR branch
+            pass
         
         # Add
         data = data + data2
