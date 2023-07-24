@@ -112,6 +112,10 @@ class Python_Package(Requirement):
         """
         Return ``True`` if python package is found in the PYTHONPATH that satisfies the ``SpecifierSet``
         """
+        # CR: This is happening with jack and I don't know how to fix it
+        if self.package_version is None:
+            return True
+            
         if self.import_spec and self.version.contains(self.package_version):
             return True
         else:
