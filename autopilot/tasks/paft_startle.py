@@ -237,12 +237,16 @@ class PAFT_startle(Task):
 
     def initalize_sounds(self):
         """Defines sounds that will be played during the task"""
-        # One loud-ish noise burst
+        # One of these will be chosen at random
         self.noise_bursts = [
             autopilot.stim.sound.sounds.Click(
                 duration=0.1, amplitude=.01, channel=None, 
                 offset_win_samples=0,
                 ),                             
+            autopilot.stim.sound.sounds.Click(
+                duration=0.1, amplitude=.03, channel=None, 
+                offset_win_samples=0,
+                ),                                             
             ] 
     
     def set_sound_cycle(self, with_sound=False):
@@ -264,17 +268,20 @@ class PAFT_startle(Task):
                     np.zeros(autopilot.stim.sound.jackclient.BLOCKSIZE, 
                     dtype='float32'))
 
-        # Append long noise burst
-        for noise_burst in self.noise_bursts:
-            for frame in noise_burst.chunks:
-                if with_sound:
-                    self.sound_block.append(frame) 
-                else:
-                    self.sound_block.append(frame * 0)
+        # Choose a noise burst at random
+        noise_burst = self.noise_bursts[
+            np.random.randint(len(self.noise_bursts))]
 
-            # Append gap -- this needs to be long enough that we don't
-            # hear the sound again
-            append_gap(100)        
+        # Append that noise burst
+        for frame in noise_burst.chunks:
+            if with_sound:
+                self.sound_block.append(frame) 
+            else:
+                self.sound_block.append(frame * 0)
+
+        # Append gap -- this needs to be long enough that we don't
+        # hear the sound again
+        append_gap(100)        
 
 
         ## Cycle so it can repeat forever
