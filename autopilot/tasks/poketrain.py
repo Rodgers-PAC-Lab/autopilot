@@ -346,6 +346,7 @@ class PokeTrain(Task):
                 'HELLO': self.recv_hello,
                 'POKE': self.recv_poke,
                 'REWARD': self.recv_reward,
+                'FLASH': self.recv_flash,
                 'CHUNK': self.recv_chunk,                
                 },
             instance=False,
@@ -842,6 +843,35 @@ class PokeTrain(Task):
                 'poke_rank': this_poke_rank,
                 },
             )  
+
+    def recv_flash(self, value):
+        """Log flash"""
+        # timenow
+        now = datetime.datetime.now().isoformat()
+        
+        # Announce
+        self.logger.debug(
+            "[{}] received FLASH from child with value {}".format(
+            now, value))
+        
+        # Directly report continuous data to terminal (aka _T)
+        # Otherwise it can be encoded in the returned data, but that is only
+        # once per stage
+        # subject is needed by core.terminal.Terminal.l_data
+        # pilot is needed by networking.station.Terminal_Station.l_data
+        # timestamp and continuous are needed by subject.Subject.data_thread
+        self.node.send(
+            to='_T',
+            key='DATA',
+            value={
+                'subject': self.subject,
+                'pilot': prefs.get('NAME'),
+                'continuous': True,
+                'timestamp': now,
+                'dt_flash_received': value['dt_flash_received'],
+                'dt_flash_received_from': value['from'],
+                },
+            )   
 
     def recv_reward(self, value):
         """Log reward and advance stage block"""
