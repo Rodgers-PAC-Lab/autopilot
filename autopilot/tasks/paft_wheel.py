@@ -54,7 +54,7 @@ class PAFT_Wheel(Task):
     #
     # An updated version using pydantic
     class TrialData(Trial_Data):
-	pass
+        pass
 
     # This defines the classes that act like ChunkData
     # See Subject.data_thread
