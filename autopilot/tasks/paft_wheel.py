@@ -42,6 +42,23 @@ class PAFT_Wheel(Task):
         'type':'int',
         }
 
+    ## Set up TrialData and Continuous Data schema
+    # Per https://docs.auto-pi-lot.com/en/latest/guide/task.html:
+    # The `TrialData` object is used by the `Subject` class when a task
+    # is assigned to create the data storage table
+    # 'trial_num' and 'session_num' get added by the `Subject` class
+    # 'session_num' is properly set by `Subject`, but 'trial_num' needs
+    # to be set properly here.
+    # If they are left unspecified on any given trial, they receive 
+    # a default value, such as 0 for Int32Col.
+    #
+    # An updated version using pydantic
+    class TrialData(Trial_Data):
+	pass
+
+    # This defines the classes that act like ChunkData
+    # See Subject.data_thread
+    CHUNKDATA_CLASSES = []
     
     ## Define the class methods
     def __init__(self, stage_block, current_trial, step_name, task_type, 
