@@ -13,6 +13,8 @@ import tables
 import numpy as np
 import pandas
 import autopilot.hardware.gpio
+from pydantic import Field
+from autopilot.data.models.protocol import Trial_Data
 from autopilot.stim.sound import sounds
 from autopilot.tasks.task import Task
 from autopilot.networking import Net_Node
