@@ -233,14 +233,14 @@ class Subject(object):
                 current trial, and session number included.
         """
         ## Load pilot_db, which contains box-specific params
-        with open('/home/mouse/autopilot/pilot_db.json') as pilot_file:
+        with open(os.path.expanduser('~/autopilot/pilot_db.json')) as pilot_file:
             pilot_db = json.load(pilot_file)
         
         
         ## Get protocol for mouse
         # Get mouse config params
         # This is a dict with mouse names as keys
-        with open('/home/mouse/autopilot/config/subjects.json') as fi:
+        with open(os.path.expanduser('~/autopilot/config/subjects.json')) as fi:
             config_mouse = json.load(fi)
         
         # Get the params for this mouse
@@ -255,7 +255,7 @@ class Subject(object):
         # Read protocol from directory
         try:
             protocol_filename = os.path.join(
-                '/home/mouse/autopilot/protocols', 
+                os.path.expanduser('~/autopilot/protocols'), 
                 params_mouse['protocol_filename'],
                 )
         except KeyError:
