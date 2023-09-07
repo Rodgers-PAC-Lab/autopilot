@@ -148,6 +148,10 @@ class PAFT_Wheel(Task):
         self.pi.callback(16, pigpio.RISING_EDGE, self.pulse_detected)
 
     def pulse_detected(self, pin, level, tick):
+        # TODO: read the other pin here
+        # if high, then positive; if low, then negative
+        # but this won't work well if there's a delay
+        # so could also store the tick time and do it that way
         self.position = self.position + 1
 
     def do_nothing(self):
