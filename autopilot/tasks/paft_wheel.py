@@ -2,7 +2,7 @@
 
 Take input from a rotary encoder
 """
-
+import time
 import threading
 import itertools
 import random
@@ -56,6 +56,9 @@ class PAFT_Wheel(Task):
     #
     # An updated version using pydantic
     class TrialData(Trial_Data):
+        pass
+    
+    class ContinuousData(tables.IsDescription):
         pass
 
     # This defines the classes that act like ChunkData
