@@ -144,13 +144,14 @@ class PAFT_Wheel(Task):
         
         ## Add a callback
         # Use BCM pin number
-        self.pi.callback(16, pigpio.EITHER_EDGE, self.pulse_detected)
+        self.position = 0
+        self.pi.callback(16, pigpio.RISING_EDGE, self.pulse_detected)
 
     def pulse_detected(self, pin, level, tick):
-        print('pulse detected')
+        self.position = self.position + 1
 
     def do_nothing(self):
-        print("test")
+        print("current position: {}".format(self.position))
         time.sleep(1)
         
         self.stage_block.set()
