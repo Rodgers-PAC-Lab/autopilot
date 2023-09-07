@@ -135,6 +135,18 @@ class PAFT_Wheel(Task):
         
         ## Init hardware -- this sets self.hardware and self.pin_id
         self.init_hardware()
+        
+        
+        ## Keep track of pigpio.pi
+        self.pi = pigpio.pi()
+        
+        
+        ## Add a callback
+        # Use BCM pin number
+        self.pig.callback(16, pigpio.EITHER_EDGE, self.pulse_detected)
+
+    def pulse_detected(self, pin, level, tick):
+        print('pulse detected')
 
     def do_nothing(self):
         print("test")
