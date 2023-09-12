@@ -153,6 +153,21 @@ class PAFT_Wheel(Task):
         self.pi.callback(12, pigpio.RISING_EDGE, self.pulseB_detected)
         self.pi.callback(16, pigpio.FALLING_EDGE, self.pulseA_down)
         self.pi.callback(12, pigpio.FALLING_EDGE, self.pulseB_down)
+        
+        """
+        States
+        00 10
+        01 11
+        When A goes up, move right. When A goes down, move left.
+        When B goes up, move down. When B goes down, move up.
+        When the state moves clockwise, increment position.
+        When the state moves counter-clockwise, decrement position.
+        
+        A cute trick might be to take the state's value in binary, subtract
+        0.6, and take absolute value. If this result is increasing, increment
+        position, otherwise decrement position. That's probably not any faster
+        though.
+        """
 
     def pulseA_detected(self, pin, level, tick):
         self.event_log.append('A')
