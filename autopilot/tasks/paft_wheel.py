@@ -145,36 +145,55 @@ class PAFT_Wheel(Task):
         ## Add a callback
         # Use BCM pin number
         self.position = 0
-        self.log = []
-        self.state = ''
+        self.event_log = []
+        self.state_log = []
+        self.a_state = 0
+        self.b_state = 0
         self.pi.callback(16, pigpio.RISING_EDGE, self.pulseA_detected)
         self.pi.callback(12, pigpio.RISING_EDGE, self.pulseB_detected)
         self.pi.callback(16, pigpio.FALLING_EDGE, self.pulseA_down)
         self.pi.callback(12, pigpio.FALLING_EDGE, self.pulseB_down)
 
     def pulseA_detected(self, pin, level, tick):
-        self.log.append('A')
-        self.state += 'A'
-        if self.state == 'BA':
-            self.position = self.position + 1
+        self.event_log.append('A')
+        self.a_state = 1
+        if self.bstate == 0:
+            self.position += 1
+        else:
+            self.position -= 1
+        self.state_log.append((a_state, b_state, position))
 
     def pulseB_detected(self, pin, level, tick):
-        self.log.append('B')
-        self.state += 'B'
-        if self.state == 'AB':
-            self.position = self.position - 1
+        self.event_log.append('B')
+        self.b_state = 1
+        if self.a_state == 0:
+            self.position -= 1
+        else:
+            self.position += 1
+        self.state_log.append((a_state, b_state, position))
     
     def pulseA_down(self, pin, level, tick):
-        self.state = ''
-        self.log.append('a')
+        self.event_log.append('a')
+        self.a_state = 0
+        if self.bstate == 0:
+            self.position -= 1
+        else:
+            self.position += 1
+        self.state_log.append((a_state, b_state, position))
 
     def pulseB_down(self, pin, level, tick):
-        self.state = ''
-        self.log.append('b')
-
+        self.event_log.append('b')
+        self.b_state = 0
+        if self.a_state == 0:
+            self.position += 1
+        else:
+            self.position -= 1
+        self.state_log.append((a_state, b_state, position))
+    
     def do_nothing(self):
         print("current position: {}".format(self.position))
-        print(''.join(self.log[-60:]))
+        print(''.join(self.event_log[-60:]))
+        print('\t'.join(self.state_log[-4:]))
         time.sleep(1)
         
         self.stage_block.set()
