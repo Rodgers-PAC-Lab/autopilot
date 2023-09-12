@@ -145,17 +145,24 @@ class PAFT_Wheel(Task):
         ## Add a callback
         # Use BCM pin number
         self.position = 0
-        self.pi.callback(16, pigpio.RISING_EDGE, self.pulse_detected)
+        self.log = []
+        self.pi.callback(16, pigpio.RISING_EDGE, self.pulseA_detected)
+        self.pi.callback(12, pigpio.RISING_EDGE, self.pulseB_detected)
 
-    def pulse_detected(self, pin, level, tick):
+    def pulseA_detected(self, pin, level, tick):
         # TODO: read the other pin here
         # if high, then positive; if low, then negative
         # but this won't work well if there's a delay
         # so could also store the tick time and do it that way
         self.position = self.position + 1
+        self.log.append('A')
+
+    def pulseB_detected(self, pin, level, tick):
+        self.log.append('B')
 
     def do_nothing(self):
         print("current position: {}".format(self.position))
+        print("log: {}".format(self.log[-100:]))
         time.sleep(1)
         
         self.stage_block.set()
