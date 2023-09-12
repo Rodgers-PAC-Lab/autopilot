@@ -162,7 +162,7 @@ class PAFT_Wheel(Task):
 
     def do_nothing(self):
         print("current position: {}".format(self.position))
-        print("log: {}".format(self.log[-100:]))
+        print("log: {}".format(''.join(self.log[-100:])))
         time.sleep(1)
         
         self.stage_block.set()
