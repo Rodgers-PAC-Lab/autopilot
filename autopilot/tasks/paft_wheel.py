@@ -161,7 +161,8 @@ class PAFT_Wheel(Task):
             self.position += 1
         else:
             self.position -= 1
-        self.state_log.append((a_state, b_state, position))
+        self.state_log.append(
+            '{}{}_{}'.format(self.a_state, self.b_state, self.position))
 
     def pulseB_detected(self, pin, level, tick):
         self.event_log.append('B')
@@ -170,7 +171,8 @@ class PAFT_Wheel(Task):
             self.position -= 1
         else:
             self.position += 1
-        self.state_log.append((a_state, b_state, position))
+        self.state_log.append(
+            '{}{}_{}'.format(self.a_state, self.b_state, self.position))
     
     def pulseA_down(self, pin, level, tick):
         self.event_log.append('a')
@@ -179,8 +181,9 @@ class PAFT_Wheel(Task):
             self.position -= 1
         else:
             self.position += 1
-        self.state_log.append((a_state, b_state, position))
-
+        self.state_log.append(
+            '{}{}_{}'.format(self.a_state, self.b_state, self.position))
+    
     def pulseB_down(self, pin, level, tick):
         self.event_log.append('b')
         self.b_state = 0
@@ -188,7 +191,8 @@ class PAFT_Wheel(Task):
             self.position += 1
         else:
             self.position -= 1
-        self.state_log.append((a_state, b_state, position))
+        self.state_log.append(
+            '{}{}_{}'.format(self.a_state, self.b_state, self.position))
     
     def do_nothing(self):
         print("current position: {}".format(self.position))
