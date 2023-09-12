@@ -157,7 +157,7 @@ class PAFT_Wheel(Task):
     def pulseA_detected(self, pin, level, tick):
         self.event_log.append('A')
         self.a_state = 1
-        if self.bstate == 0:
+        if self.b_state == 0:
             self.position += 1
         else:
             self.position -= 1
@@ -175,7 +175,7 @@ class PAFT_Wheel(Task):
     def pulseA_down(self, pin, level, tick):
         self.event_log.append('a')
         self.a_state = 0
-        if self.bstate == 0:
+        if self.b_state == 0:
             self.position -= 1
         else:
             self.position += 1
