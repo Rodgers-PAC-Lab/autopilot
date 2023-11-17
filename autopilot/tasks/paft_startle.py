@@ -240,11 +240,11 @@ class PAFT_startle(Task):
         # One of these will be chosen at random
         self.noise_bursts = [
             autopilot.stim.sound.sounds.Click(
-                duration=0.1, amplitude=.1, channel=None, 
+                duration=0.1, amplitude=.01, channel=None, 
                 offset_win_samples=0,
                 ),                             
             autopilot.stim.sound.sounds.Click(
-                duration=0.1, amplitude=.1, channel=None, 
+                duration=0.1, amplitude=.03, channel=None, 
                 offset_win_samples=0,
                 ),                                             
             autopilot.stim.sound.sounds.Click(
