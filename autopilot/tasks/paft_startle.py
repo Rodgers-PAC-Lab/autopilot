@@ -247,6 +247,14 @@ class PAFT_startle(Task):
                 duration=0.1, amplitude=.03, channel=None, 
                 offset_win_samples=0,
                 ),                                             
+            autopilot.stim.sound.sounds.Click(
+                duration=0.1, amplitude=-.01, channel=None, 
+                offset_win_samples=0,
+                ),                             
+            autopilot.stim.sound.sounds.Click(
+                duration=0.1, amplitude=-.03, channel=None, 
+                offset_win_samples=0,
+                ),                                             
             ] 
     
     def set_sound_cycle(self, with_sound=False):
