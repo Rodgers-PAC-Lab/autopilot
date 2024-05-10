@@ -1,6 +1,6 @@
 import pigpio
 import time
-
+import datetime
 
 class WheelListener(object):
     def __init__(self, pi):
@@ -61,12 +61,44 @@ class WheelListener(object):
         print("current position: {}".format(self.position))
         print(''.join(self.event_log[-60:]))
         print('\t'.join(self.state_log[-4:]))
-        time.sleep(1)
+
+class TouchListener(object):
+    def __init__(self, pi):
+        # Global variables
+        self.pi = pi
+        self.last_touch = datetime.datetime.now()
+        self.touch_state = False
+
+        self.pi.set_mode(16, pigpio.INPUT)
+        self.pi.callback(16, pigpio.RISING_EDGE, self.touch_happened)
+        self.pi.callback(16, pigpio.FALLING_EDGE, self.touch_stopped)
+
+    def touch_happened(self, pin, level, tick):
+        touch_time = datetime.datetime.now()
+        if touch_time - self.last_touch > datetime.timedelta(seconds=1):
+            print('touch start received tick={} dt={}'.format(tick, touch_time))
+            self.last_touch = touch_time
+            self.touch_state = True
+        else:
+            print('touch start ignored tick={} dt={}'.format(tick, touch_time))
     
+    def touch_stopped(self, pin, level, tick):
+        touch_time = datetime.datetime.now()
+        if touch_time - self.last_touch > datetime.timedelta(seconds=1):
+            print('touch stop  received tick={} dt={}'.format(tick, touch_time))
+            self.last_touch = touch_time
+            self.touch_state = False
+        else:
+            print('touch stop  ignored tick={} dt={}'.format(tick, touch_time))    
+
+    def report(self):
+        print("touch state={}; last_touch={}".format(self.touch_state, self.last_touch))
+
 
 ## Keep track of pigpio.pi
 pi = pigpio.pi()
 wl = WheelListener(pi)
+tl = TouchListener(pi)
 
 # Solenoid
 pi.set_mode(26, pigpio.OUTPUT)
@@ -88,4 +120,10 @@ though.
 """
 
 while True:
+    # Print out the wheel status
     wl.do_nothing()
+
+    # Print out the touch status
+    tl.report()
+
+    time.sleep(1)
