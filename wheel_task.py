@@ -4,6 +4,16 @@
 # Then run this script in ipython
 #
 # Ensure jack is installed -- autopilot installs from source, can we install from apt?
+# git clone https://github.com/jackaudio/jack2 --depth 1
+# cd jack2
+# ./waf configure --alsa=yes --libdir=/usr/lib/arm-linux-gnueabihf/
+# ./waf build -j6
+# sudo ./waf install
+# sudo ldconfig
+# sudo sh -c "echo @audio - memlock 256000 >> /etc/security/limits.conf"
+# sudo sh -c "echo @audio - rtprio 75 >> /etc/security/limits.conf"
+# cd ..
+# rm -rf ./jack2
 
 import pigpio
 import time
