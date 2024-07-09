@@ -95,7 +95,7 @@ pi = pigpio.pi()
 wl = shared.WheelListener(pi)
 
 # Define object for listening to touches
-tl = shared.TouchListener(pi, debug_print=True)
+#~ tl = shared.TouchListener(pi, debug_print=True)
 
 # Define a client to play sounds
 #~ sound_player = shared.SoundPlayer(audio_cycle=audio_cycle)
@@ -110,13 +110,13 @@ def reward():
     time.sleep(0.1)
     pi.write(26, 0)    
 
-tl.touch_trigger = reward
+#~ tl.touch_trigger = reward
 
 ## Loop forever
 wheel_reward_thresh = 1000
 last_rewarded_position = 0
 last_reported_time = datetime.datetime.now()
-report_interval = 3
+report_interval = 5
 
 # Loop forever
 while True:
@@ -126,10 +126,10 @@ while True:
     # Report if it's been long enough
     if current_time - last_reported_time > datetime.timedelta(seconds=report_interval):
         # Print out the wheel status
-        wl.do_nothing()
+        #~ wl.report()
 
         # Print out the touch status
-        tl.report()
+        #~ tl.report()
         
         last_reported_time = current_time
     
