@@ -152,13 +152,24 @@ class WheelListener(object):
 
     def do_nothing(self):
         print("current position: {}".format(self.position))
-        print(''.join(self.event_log[-60:]))
-        print('\t'.join(self.state_log[-4:]))
+        print('events: ' + ''.join(self.event_log[-60:]))
+        print('states: ' + '\t'.join(self.state_log[-4:]))
 
 class TouchListener(object):
-    def __init__(self, pi):
-        # Global variables
+    def __init__(self, pi, debug_print=False):
+        """Initialize a new TouchListener
+        
+        pi : pigpio.pi
+        debug_print : bool
+            If True, then print messages on every touch
+        """
+        # Store pi and debug_print
         self.pi = pi
+        self.debug_print = debug_print
+        self.touch_trigger = None
+        self.touch_trigger_refractory_period = 1
+        self.touch_trigger_last_time = datetime.datetime.now()
+        
         self.last_touch = datetime.datetime.now()
         self.touch_state = False
 
@@ -167,22 +178,44 @@ class TouchListener(object):
         self.pi.callback(16, pigpio.FALLING_EDGE, self.touch_stopped)
 
     def touch_happened(self, pin, level, tick):
+        """A touch started
+        
+        Sets self.last_touch to now, and self.touch_state to True
+        """
         touch_time = datetime.datetime.now()
-        if touch_time - self.last_touch > datetime.timedelta(seconds=1):
-            print('touch start received tick={} dt={}'.format(tick, touch_time))
-            self.last_touch = touch_time
-            self.touch_state = True
-        else:
-            print('touch start ignored tick={} dt={}'.format(tick, touch_time))
+        self.last_touch = touch_time
+        self.touch_state = True
+
+        # Call the trigger if it has been set
+        if self.touch_trigger is not None:
+            if (
+                touch_time - self.touch_trigger_last_time > 
+                datetime.timedelta(seconds=self.touch_trigger_refractory_period)
+                ):
+        
+                # Call the trigger
+                self.touch_trigger()
+                
+                # Set the time
+                self.touch_trigger_last_time = touch_time
+
+        # Debug
+        if self.debug_print:
+            print('touch start tick={} dt={}'.format(tick, touch_time))
     
     def touch_stopped(self, pin, level, tick):
+        """A touch stopped
+        
+        Sets self.last_touch to now, and self.touch_state to False
+        """        
         touch_time = datetime.datetime.now()
-        if touch_time - self.last_touch > datetime.timedelta(seconds=1):
-            print('touch stop  received tick={} dt={}'.format(tick, touch_time))
-            self.last_touch = touch_time
-            self.touch_state = False
-        else:
-            print('touch stop  ignored tick={} dt={}'.format(tick, touch_time))    
+        self.last_touch = touch_time
+        self.touch_state = False
+
+        # Debug
+        if self.debug_print:
+            print('touch stop  tick={} dt={}'.format(tick, touch_time))
 
     def report(self):
-        print("touch state={}; last_touch={}".format(self.touch_state, self.last_touch))
+        print("touch state={}; last_touch={}".format(
+            self.touch_state, self.last_touch))

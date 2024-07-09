@@ -3,7 +3,7 @@
 #
 # Then run this script in ipython
 #
-# Ensure jack is installed -- autopilot installs from source, can we install from apt?
+# To install jack the autopilot way:
 # git clone https://github.com/jackaudio/jack2 --depth 1
 # cd jack2
 # ./waf configure --alsa=yes --libdir=/usr/lib/arm-linux-gnueabihf/
@@ -14,6 +14,21 @@
 # sudo sh -c "echo @audio - rtprio 75 >> /etc/security/limits.conf"
 # cd ..
 # rm -rf ./jack2
+#
+# To set up hifiberry
+# sudo adduser pi i2c
+# sudo sed -i 's/^dtparam=audio=on/#dtparam=audio=on/g' /boot/config.txt
+# sudo sed -i '$s/$/\ndtoverlay=hifiberry-dacplus\ndtoverlay=i2s-mmap\ndtoverlay=i2c-mmap\ndtparam=i2c1=on\ndtparam=i2c_arm=on/' /boot/config.txt
+# echo -e 'pcm.!default {\n type hw card 0\n}\nctl.!default {\n type hw card 0\n}' | sudo tee /etc/asound.conf
+#
+# The first sed doesn't seem to do anything
+# The second adds these lines
+# dtoverlay=hifiberry-dacplus
+# dtoverlay=i2s-mmap
+# dtoverlay=i2c-mmap
+# dtparam=i2c1=on
+# dtparam=i2c_arm=on
+# The final one echoes to asound.conf, which didn't formerly exist
 
 import pigpio
 import time
@@ -61,9 +76,9 @@ time.sleep(1)
 # & : run in background
 # TODO: document these parameters
 # TODO: Use subprocess to keep track of these background processes
-os.system(
-    'jackd -P75 -p16 -t2000 -dalsa -dhw:sndrpihifiberry -P -r192000 -n3 -s &')
-time.sleep(1)
+#~ os.system(
+    #~ 'jackd -P75 -p16 -t2000 -dalsa -dhw:sndrpihifiberry -P -r192000 -n3 -s &')
+#~ time.sleep(1)
 
 
 ## Define audio to play
@@ -80,22 +95,51 @@ pi = pigpio.pi()
 wl = shared.WheelListener(pi)
 
 # Define object for listening to touches
-tl = shared.TouchListener(pi)
+tl = shared.TouchListener(pi, debug_print=True)
 
 # Define a client to play sounds
-sound_player = shared.SoundPlayer(audio_cycle=audio_cycle)
+#~ sound_player = shared.SoundPlayer(audio_cycle=audio_cycle)
 
 # Solenoid
 pi.set_mode(26, pigpio.OUTPUT)
 pi.write(26, 0)
 
+def reward():
+    # Activate solenoid
+    pi.write(26, 1)
+    time.sleep(0.1)
+    pi.write(26, 0)    
+
+tl.touch_trigger = reward
 
 ## Loop forever
+wheel_reward_thresh = 1000
+last_rewarded_position = 0
+last_reported_time = datetime.datetime.now()
+report_interval = 3
+
+# Loop forever
 while True:
-    # Print out the wheel status
-    wl.do_nothing()
+    # Get the current time
+    current_time = datetime.datetime.now()
+    
+    # Report if it's been long enough
+    if current_time - last_reported_time > datetime.timedelta(seconds=report_interval):
+        # Print out the wheel status
+        wl.do_nothing()
 
-    # Print out the touch status
-    tl.report()
-
-    time.sleep(1)
+        # Print out the touch status
+        tl.report()
+        
+        last_reported_time = current_time
+    
+    # See how far the wheel has moved
+    current_wheel_position = wl.position
+    if np.abs(current_wheel_position - last_rewarded_position) > wheel_reward_thresh:
+        # Set last rewarded position to current position
+        last_rewarded_position = current_wheel_position
+        
+        # Reward
+        reward()
+    
+    time.sleep(.1)
