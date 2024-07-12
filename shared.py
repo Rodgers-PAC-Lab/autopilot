@@ -24,6 +24,8 @@ class SoundPlayer(object):
         ## Store provided parameters
         self.name = name
         
+        self.audio_cycle = audio_cycle
+        
         ## Acoustic parameters of the sound
         # TODO: define these elsewhere -- these should not be properties of
         # this object, because this object should be able to play many sounds
@@ -85,7 +87,7 @@ class SoundPlayer(object):
         # write to the outports at the same time)
         with self.lock: 
             # Get data from cycle
-            data = next(audio_cycle)
+            data = next(self.audio_cycle)
 
             # Error check
             assert data.shape[1] == 2

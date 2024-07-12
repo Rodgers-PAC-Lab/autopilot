@@ -98,7 +98,7 @@ wl = shared.WheelListener(pi)
 #~ tl = shared.TouchListener(pi, debug_print=True)
 
 # Define a client to play sounds
-#~ sound_player = shared.SoundPlayer(audio_cycle=audio_cycle)
+sound_player = shared.SoundPlayer(audio_cycle=audio_cycle)
 
 # Solenoid
 pi.set_mode(26, pigpio.OUTPUT)
