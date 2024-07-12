@@ -51,6 +51,13 @@ os.system('sudo killall jackd')
 time.sleep(1)
 
 
+
+import RPi.GPIO as GPIO
+GPIO.setmode(GPIO.BCM)
+GPIO.setup(13, GPIO.OUT)
+
+
+
 ## Starting pigpiod and jackd background processes
 # Start pigpiod
 # -t 0 : use PWM clock (otherwise messes with audio)
@@ -104,23 +111,26 @@ time.sleep(1)
 
 
 ## Define audio to play
+click = np.zeros((1024, 2))
+click[0] = 1
+click[1] = -1
 audio_cycle = itertools.cycle([
-    0.001 * (np.random.uniform(-1, 1, (1024, 2))),
-    0.001 * (np.random.uniform(-1, 1, (1024, 2))),
-    0.001 * (np.random.uniform(-1, 1, (1024, 2))),
-    0.001 * (np.random.uniform(-1, 1, (1024, 2))),
-    0.001 * (np.random.uniform(-1, 1, (1024, 2))),
-    0.001 * (np.random.uniform(-1, 1, (1024, 2))),
-    0.001 * (np.random.uniform(-1, 1, (1024, 2))),
-    0.001 * (np.random.uniform(-1, 1, (1024, 2))),
-    0.001 * (np.random.uniform(-1, 1, (1024, 2))),
-    0.001 * (np.random.uniform(-1, 1, (1024, 2))),
-    0.001 * (np.random.uniform(-1, 1, (1024, 2))),
-    0.001 * (np.random.uniform(-1, 1, (1024, 2))),
-    0.001 * (np.random.uniform(-1, 1, (1024, 2))),
-    0.001 * (np.random.uniform(-1, 1, (1024, 2))),
-    0.001 * (np.random.uniform(-1, 1, (1024, 2))),
-    0.001 * (np.random.uniform(-1, 1, (1024, 2))),
+    #~ 0.001 * (np.random.uniform(-1, 1, (1024, 2))),
+    click,
+    00 * (np.random.uniform(-1, 1, (1024, 2))),
+    00 * (np.random.uniform(-1, 1, (1024, 2))),
+    00 * (np.random.uniform(-1, 1, (1024, 2))),
+    00 * (np.random.uniform(-1, 1, (1024, 2))),
+    00 * (np.random.uniform(-1, 1, (1024, 2))),
+    00 * (np.random.uniform(-1, 1, (1024, 2))),
+    00 * (np.random.uniform(-1, 1, (1024, 2))),
+    00 * (np.random.uniform(-1, 1, (1024, 2))),
+    00 * (np.random.uniform(-1, 1, (1024, 2))),
+    00 * (np.random.uniform(-1, 1, (1024, 2))),
+    00 * (np.random.uniform(-1, 1, (1024, 2))),
+    00 * (np.random.uniform(-1, 1, (1024, 2))),
+    00 * (np.random.uniform(-1, 1, (1024, 2))),
+    00 * (np.random.uniform(-1, 1, (1024, 2))),
     ])
 
 
@@ -191,7 +201,12 @@ try:
             reward(reward_size)
             last_reward_time = datetime.datetime.now()
         
-        time.sleep(1)
+        #~ GPIO.output(13, True)
+        #~ time.sleep(0.001)
+        #~ GPIO.output(13, False)
+        #~ time.sleep(0.001)
+        
+        time.sleep(.1)
 
 except KeyboardInterrupt:
     print('shutting down')

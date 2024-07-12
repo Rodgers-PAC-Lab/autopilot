@@ -2,6 +2,15 @@ import datetime
 import jack
 import pigpio
 import threading
+import RPi.GPIO as GPIO
+import time
+import threading
+
+def pulse_on():
+    GPIO.output(13, True)
+
+def pulse_off():
+    GPIO.output(13, False)
 
 class SoundPlayer(object):
     """Object to play sounds"""
@@ -91,6 +100,10 @@ class SoundPlayer(object):
         
         # Get data from cycle
         data = next(self.audio_cycle)
+        
+        if data.max() > 1e-5:
+            threading.Timer(.01535, pulse_on).start()
+            threading.Timer(.0163, pulse_off).start()
 
         # Error check
         assert data.shape[1] == 2
