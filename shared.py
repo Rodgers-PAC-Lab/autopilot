@@ -85,17 +85,20 @@ class SoundPlayer(object):
         """
         # Making process() thread-safe (so that multiple calls don't try to
         # write to the outports at the same time)
-        with self.lock: 
-            # Get data from cycle
-            data = next(self.audio_cycle)
+        # with self.lock: 
+        # This seems to noticeably increase xrun errors (possibly because
+        # the lock is working?)
+        
+        # Get data from cycle
+        data = next(self.audio_cycle)
 
-            # Error check
-            assert data.shape[1] == 2
+        # Error check
+        assert data.shape[1] == 2
 
-            # Write one column to each channel
-            for n_outport, outport in enumerate(self.client.outports):
-                buff = outport.get_array()
-                buff[:] = data[:, n_outport]
+        # Write one column to each channel
+        for n_outport, outport in enumerate(self.client.outports):
+            buff = outport.get_array()
+            buff[:] = data[:, n_outport]
 
 class WheelListener(object):
     def __init__(self, pi, debug_print=False):
