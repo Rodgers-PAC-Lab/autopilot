@@ -821,6 +821,7 @@ class PAFT(Task):
             'stim_target_spatial_extent': stim_target_spatial_extent,
             'stim_distracter_rate': stim_distracter_rate,
             'stim_distracter_temporal_std': stim_distracter_temporal_log_std,
+            'stim_n_distracters': stim_n_distracters,
             'stim_target_center_freq': stim_target_center_freq,
             'stim_target_bandwidth': stim_target_bandwidth,
             'stim_target_amplitude': stim_target_log_amplitude,
