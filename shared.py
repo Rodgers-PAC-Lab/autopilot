@@ -5,6 +5,7 @@ import threading
 import RPi.GPIO as GPIO
 import time
 import threading
+import numpy as np
 
 def pulse_on():
     GPIO.output(13, True)
@@ -100,10 +101,49 @@ class SoundPlayer(object):
         
         # Get data from cycle
         data = next(self.audio_cycle)
+        data_std = np.std(data)
         
-        if data.max() > 1e-5:
-            threading.Timer(.01535, pulse_on).start()
-            threading.Timer(.0163, pulse_off).start()
+        if data_std > 1e-5:
+            # This is only an approximate hash because it excludes the
+            # middle of the data
+            data_hash = hash(str(data))
+            
+            # Get the current time
+            # lft is the only precise one, and it's at the start of the process
+            # block
+            # fscs is approx number of frames since then until now
+            # dt is about now
+            # later, using lft, fscs, and dt, we can reconstruct the approx
+            # relationship between frame times and clock time
+            # this will get screwed up on every xrun
+            lft = self.client.last_frame_time
+
+            dt = datetime.datetime.now().isoformat()
+            fscs = self.client.frames_since_cycle_start
+            
+            # Use this to estimate the delay in getting these values
+            #dt2 = datetime.datetime.now().isoformat()
+            #fscs2 = self.client.frames_since_cycle_start
+            
+            
+            # Subtract fscs from the delay
+            # The delay should be three periods (16 ms) minus the fixed latency
+            # of this code, which empirically is about 0.5 ms
+            delay = .016 - .0005 - fscs / 192000
+            
+            # Pulse
+            threading.Timer(delay, pulse_on).start()
+            threading.Timer(delay + .001, pulse_off).start()
+
+            
+            
+            #~ print('data std is {} with hash {} at {} + {} ie {}'.format(
+                #~ data_std, 
+                #~ data_hash,
+                #~ lft,
+                #~ fscs,
+                #~ dt
+                #~ ))
 
         # Error check
         assert data.shape[1] == 2

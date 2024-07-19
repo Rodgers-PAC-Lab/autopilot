@@ -159,7 +159,7 @@ def reward(duration=0.05):
 #~ tl.touch_trigger = reward
 
 ## Loop forever
-wheel_reward_thresh = 1000
+wheel_reward_thresh = 150
 last_rewarded_position = 0
 last_reported_time = datetime.datetime.now()
 last_reward_time = datetime.datetime.now()
@@ -206,6 +206,9 @@ try:
         #~ GPIO.output(13, False)
         #~ time.sleep(0.001)
         
+        print('wheel movement {} / {}'.format(
+            current_wheel_position - last_rewarded_position,
+            wheel_reward_thresh))
         time.sleep(.1)
 
 except KeyboardInterrupt:
