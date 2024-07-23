@@ -115,7 +115,7 @@ click = np.zeros((1024, 2))
 click[0] = 1
 click[1] = -1
 audio_cycle = itertools.cycle([
-    #~ 0.001 * (np.random.uniform(-1, 1, (1024, 2))),
+    0.001 * (np.random.uniform(-1, 1, (1024, 2))),
     click,
     00 * (np.random.uniform(-1, 1, (1024, 2))),
     00 * (np.random.uniform(-1, 1, (1024, 2))),
