@@ -238,23 +238,111 @@ class PAFT_startle(Task):
     def initalize_sounds(self):
         """Defines sounds that will be played during the task"""
         # One of these will be chosen at random
-        self.noise_bursts = [
-            autopilot.stim.sound.sounds.Click(
+        self.noise_bursts = [    
+              autopilot.stim.sound.sounds.Click(
                 duration=0.1, amplitude=.01, channel=None, 
                 offset_win_samples=0,
-                ),                             
-            autopilot.stim.sound.sounds.Click(
-                duration=0.1, amplitude=.03, channel=None, 
-                offset_win_samples=0,
-                ),                                             
+                ),                                                                         
             autopilot.stim.sound.sounds.Click(
                 duration=0.1, amplitude=-.01, channel=None, 
                 offset_win_samples=0,
-                ),                             
+                ),
             autopilot.stim.sound.sounds.Click(
-                duration=0.1, amplitude=-.03, channel=None, 
+                duration=0.1, amplitude=.0063, channel=None, 
                 offset_win_samples=0,
-                ),                                             
+                ),                                                                         
+            autopilot.stim.sound.sounds.Click(
+                duration=0.1, amplitude=-.0063, channel=None, 
+                offset_win_samples=0,
+                ),       
+            autopilot.stim.sound.sounds.Click(
+                duration=0.1, amplitude=.004, channel=None, 
+                offset_win_samples=0,
+                ),                                                                         
+            autopilot.stim.sound.sounds.Click(
+                duration=0.1, amplitude=-.004, channel=None, 
+                offset_win_samples=0,
+                ),     
+            autopilot.stim.sound.sounds.Click(
+                duration=0.1, amplitude=.0025, channel=None, 
+                offset_win_samples=0,
+                ),                                                                         
+            autopilot.stim.sound.sounds.Click(
+                duration=0.1, amplitude=-.0025, channel=None, 
+                offset_win_samples=0,
+                ),  
+            autopilot.stim.sound.sounds.Click(
+                duration=0.1, amplitude=.0016, channel=None, 
+                offset_win_samples=0,
+                ),                                                                         
+            autopilot.stim.sound.sounds.Click(
+                duration=0.1, amplitude=-.0016, channel=None, 
+                offset_win_samples=0,
+                ),  
+            autopilot.stim.sound.sounds.Click(
+                duration=0.1, amplitude=.001, channel=None, 
+                offset_win_samples=0,
+                ),                                                                         
+            autopilot.stim.sound.sounds.Click(
+                duration=0.1, amplitude=-.001, channel=None, 
+                offset_win_samples=0,
+                ), 
+            autopilot.stim.sound.sounds.Click(
+                duration=0.1, amplitude=.00063, channel=None, 
+                offset_win_samples=0,
+                ),                                                                         
+            autopilot.stim.sound.sounds.Click(
+                duration=0.1, amplitude=-.00063, channel=None, 
+                offset_win_samples=0,
+                ),  
+            autopilot.stim.sound.sounds.Click(
+                duration=0.1, amplitude=.0004, channel=None, 
+                offset_win_samples=0,
+                ),                                                                         
+            autopilot.stim.sound.sounds.Click(
+                duration=0.1, amplitude=-.0004, channel=None, 
+                offset_win_samples=0,
+                ),  
+            autopilot.stim.sound.sounds.Click(
+                duration=0.1, amplitude=.00025, channel=None, 
+                offset_win_samples=0,
+                ),                                                                         
+            autopilot.stim.sound.sounds.Click(
+                duration=0.1, amplitude=-.00025, channel=None, 
+                offset_win_samples=0,
+                ), 
+            autopilot.stim.sound.sounds.Click(
+                duration=0.1, amplitude=.00016, channel=None, 
+                offset_win_samples=0,
+                ),                                                                         
+            autopilot.stim.sound.sounds.Click(
+                duration=0.1, amplitude=-.00016, channel=None, 
+                offset_win_samples=0,
+                ), 
+            autopilot.stim.sound.sounds.Click(
+                duration=0.1, amplitude=.0001, channel=None, 
+                offset_win_samples=0,
+                ),                                                                         
+            autopilot.stim.sound.sounds.Click(
+                duration=0.1, amplitude=-.0001, channel=None, 
+                offset_win_samples=0,
+                ), 
+            autopilot.stim.sound.sounds.Click(
+                duration=0.1, amplitude=.000063, channel=None, 
+                offset_win_samples=0,
+                ),                                                                         
+            autopilot.stim.sound.sounds.Click(
+                duration=0.1, amplitude=-.000063, channel=None, 
+                offset_win_samples=0,
+                ),  
+            autopilot.stim.sound.sounds.Click(
+                duration=0.1, amplitude=.00004, channel=None, 
+                offset_win_samples=0,
+                ),                                                                         
+            autopilot.stim.sound.sounds.Click(
+                duration=0.1, amplitude=-.00004, channel=None, 
+                offset_win_samples=0,
+                ), 
             ] 
     
     def set_sound_cycle(self, with_sound=False):
